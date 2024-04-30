@@ -1,0 +1,10 @@
+.idea
+.vscode
+.run
+.fleet
+
+*.yml
+*.exe
+*.cmd
+*.bat
+config.yml
