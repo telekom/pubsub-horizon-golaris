@@ -39,12 +39,19 @@ func configureViper() {
 
 func setDefaults() {
 	viper.SetDefault("logLevel", "info")
-
 	viper.SetDefault("port", 8080)
 
+	viper.SetDefault("successfulResponseCodes", []int{200, 201, 202, 204})
+	viper.SetDefault("republishingBatchSize", 10)
+
+	// Polling
+	viper.SetDefault("polling.openCbMessageInterval", "10ms")
+	viper.SetDefault("polling.republishingOrCheckingMessageInterval", "10ms")
+
 	// Security
-	viper.SetDefault("security.enabled", true)
-	viper.SetDefault("security.trustedIssuers", []string{"iris"})
+	viper.SetDefault("security.url", "iris")
+	viper.SetDefault("security.clientId", "clientId")
+	viper.SetDefault("security.clientSecret", "clientSecret")
 
 	// Tracing
 	viper.SetDefault("tracing.enabled", true)
@@ -54,6 +61,11 @@ func setDefaults() {
 
 	// Hazelcast
 	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
+	viper.SetDefault("hazelcast.clusterName", "dev")
+
+	// Caches
+	viper.SetDefault("hazelcast.caches.subscription-cache", "subscriptions.subscriber.horizon.telekom.de.v1")
+	viper.SetDefault("hazelcast.caches.circuit-breaker-cache", "circuit-breakers")
 
 	// Kafka
 	viper.SetDefault("kafka.brokers", "localhost:9092")

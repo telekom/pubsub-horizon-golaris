@@ -4,80 +4,76 @@ import (
 	"eni.telekom.de/horizon2go/pkg/cache"
 	"eni.telekom.de/horizon2go/pkg/message"
 	"eni.telekom.de/horizon2go/pkg/resource"
-	"eni.telekom.de/horizon2go/pkg/util"
 	"fmt"
-	jwtware "github.com/gofiber/contrib/jwt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
 	"golaris/config"
+	"golaris/golaris"
+	"golaris/health"
 	"golaris/kafka"
 	"golaris/metrics"
+	"golaris/mock"
 	"golaris/mongo"
 	"golaris/tracing"
+	"golaris/utils"
 )
 
 var (
-	subCacheInstance *cache.Cache[resource.SubscriptionResource]
-	cbCacheInstance  *cache.Cache[message.StatusMessage]
-	kafkaHandler     *kafka.Handler
-	app              *fiber.App
-	mongoConnection  *mongo.Connection
+	app  *fiber.App
+	deps utils.Dependencies
 )
 
 func InitializeService() {
 	var err error
 	app = fiber.New()
 
-	app.Use(configureSecurity())
+	// Todo Implement token handling (clientId, clientSecret)
 	app.Use(tracing.Middleware())
+	app.Use(healthcheck.New())
 
 	app.Get("/metrics", metrics.NewPrometheusMiddleware())
 	app.Get("/api/v1/circuit-breakers/:subscriptionId", getCircuitBreakerMessage)
 
 	cacheConfig := configureHazelcast()
-	subCacheInstance, err = cache.NewCache[resource.SubscriptionResource](cacheConfig)
+	deps.SubCache, err = cache.NewCache[resource.SubscriptionResource](cacheConfig)
 	if err != nil {
-		log.Panic().Err(err).Msg("Error while initializing Hazelcast cache")
+		log.Panic().Err(err).Msg("Error while initializing Hazelcast subscription health")
 	}
 
-	cbCacheInstance, err = cache.NewCache[message.StatusMessage](cacheConfig)
+	deps.CbCache, err = cache.NewCache[message.CircuitBreakerMessage](cacheConfig)
 	if err != nil {
-		log.Panic().Err(err).Msg("Error while initializing CircuitBreaker cache")
+		log.Panic().Err(err).Msg("Error while initializing CircuitBreaker health")
 	}
 
-	mongoConnection, err = mongo.NewMongoConnection(&config.Current.Mongo)
+	deps.HealthCache, err = health.NewHealthCheckCache(hazelcast.Config{})
+	if err != nil {
+		log.Panic().Err(err).Msg("Error while initializing HealthCheck cache")
+	}
+
+	deps.MongoConn, err = mongo.NewMongoConnection(&config.Current.Mongo)
 	if err != nil {
 		log.Panic().Err(err).Msg("Error while initializing MongoDB connection")
 	}
 
-	kafkaHandler, err = kafka.NewKafkaHandler()
+	deps.KafkaHandler, err = kafka.NewKafkaHandler()
 	if err != nil {
 		log.Panic().Err(err).Msg("Error while initializing Kafka Picker")
 	}
-}
 
-func configureSecurity() fiber.Handler {
-	return jwtware.New(jwtware.Config{
-		Filter: func(ctx *fiber.Ctx) bool {
-			return !config.Current.Security.Enabled || ctx.Path() == "/metrics"
-		},
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unauthorized",
-			})
-		},
-		JWKSetURLs: config.Current.Security.TrustedIssuers,
-	})
+	golaris.InitializeScheduler(deps)
+
+	// TODO Mock cb-messages until comet is adapted
+	mock.CreateMockedCircuitBreakerMessages(deps.CbCache, 1)
 }
 
 func configureHazelcast() hazelcast.Config {
 	cacheConfig := hazelcast.NewConfig()
 
-	// ToDO: Configure cluster name in config
-	cacheConfig.Cluster.Name = "dev"
+	cacheConfig.Cluster.Name = config.Current.Hazelcast.ClusterName
 	cacheConfig.Cluster.Network.SetAddresses(config.Current.Hazelcast.ServiceDNS)
-	cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
+	// cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
 
 	return cacheConfig
 }
@@ -88,4 +84,5 @@ func Listen(port int) {
 	if err != nil {
 		panic(err)
 	}
+
 }

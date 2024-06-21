@@ -1,9 +1,16 @@
 package config
 
+import "time"
+
 type Configuration struct {
 	LogLevel string `mapstructure:"logLevel"`
+	Port     int    `mapstructure:"port"`
 
-	Port int `mapstructure:"port"`
+	SuccessfulResponseCodes []int         `mapstructure:"successfulResponseCodes"`
+	RequestCooldownTime     time.Duration `mapstructure:"requestCooldownResetTime"`
+	RepublishingBatchSize   int64         `mapstructure:"republishingBatchSize"`
+
+	Polling Polling `mapstructure:"polling"`
 
 	Security Security `mapstructure:"security"`
 	Tracing  Tracing  `mapstructure:"tracing"`
@@ -14,19 +21,32 @@ type Configuration struct {
 }
 
 type Security struct {
-	Enabled        bool     `mapstructure:"enabled"`
-	TrustedIssuers []string `mapstructure:"trustedIssuers"`
+	Url          string `mapstructure:"url"`
+	ClientId     string `mapstructure:"clientId"`
+	ClientSecret string `mapstructure:"clientSecret"`
 }
 
 type Tracing struct {
-	Enabled           bool   `mapstructure:"enabled"`
 	CollectorEndpoint string `mapstructure:"collectorEndpoint"`
 	Https             bool   `mapstructure:"https"`
 	DebugEnabled      bool   `mapstructure:"debugEnabled"`
+	Enabled           bool   `mapstructure:"enabled"`
 }
 
 type Hazelcast struct {
-	ServiceDNS string `mapstructure:"serviceDNS"`
+	ServiceDNS  string `mapstructure:"serviceDNS"`
+	ClusterName string `mapstructure:"clusterName"`
+	Caches      Caches `mapstructure:"caches"`
+}
+
+type Polling struct {
+	OpenCbMessageInterval                 time.Duration `mapstructure:"openCbMessageInterval"`
+	RepublishingOrCheckingMessageInterval time.Duration `mapstructure:"republishingOrCheckingMessageInterval"`
+}
+
+type Caches struct {
+	SubscriptionCache   string `mapstructure:"subscription-cache"`
+	CircuitBreakerCache string `mapstructure:"circuit-breaker-cache"`
 }
 
 type Kafka struct {

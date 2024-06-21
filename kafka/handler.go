@@ -2,10 +2,11 @@ package kafka
 
 import (
 	"encoding/json"
+	"eni.telekom.de/horizon2go/pkg/enum"
 	"github.com/IBM/sarama"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golaris/config"
-	"time"
 )
 
 type Handler struct {
@@ -37,10 +38,10 @@ func NewKafkaHandler() (*Handler, error) {
 	}, nil
 }
 
-func (kafkaHandler Handler) PickMessage(topic string, partition int32, offset int64) (*sarama.ConsumerMessage, error) {
-	log.Debug().Msgf("Picking message at partition %d with offset %d", partition, offset)
+func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *int64) (*sarama.ConsumerMessage, error) {
+	log.Debug().Msgf("Picking message at partition %d with offset %d", *partition, *offset)
 
-	consumer, err := kafkaHandler.consumer.ConsumePartition(topic, partition, offset)
+	consumer, err := kafkaHandler.consumer.ConsumePartition(topic, *partition, *offset)
 	if err != nil {
 		log.Debug().Msgf("While kafkaPick, consumePartiton for topic %s failed.", topic)
 		return nil, err
@@ -52,18 +53,16 @@ func (kafkaHandler Handler) PickMessage(topic string, partition int32, offset in
 }
 
 func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) error {
-	modifiedValue, header, err := updateMessageMetadata(message)
+	modifiedValue, err := updateMessage(message)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
 
 	msg := &sarama.ProducerMessage{
-		Topic:     message.Topic,
-		Headers:   header,
-		Key:       sarama.StringEncoder(message.Key),
-		Value:     sarama.ByteEncoder(modifiedValue),
-		Timestamp: time.Now(),
+		Key:   sarama.StringEncoder(message.Key),
+		Topic: message.Topic,
+		Value: sarama.ByteEncoder(modifiedValue),
 	}
 
 	_, _, err = kafkaHandler.producer.SendMessage(msg)
@@ -77,11 +76,11 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	return nil
 }
 
-func updateMessageMetadata(message *sarama.ConsumerMessage) ([]byte, []sarama.RecordHeader, error) {
+func updateMessage(message *sarama.ConsumerMessage) ([]byte, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
-		return nil, nil, err
+		return nil, err
 	}
 
 	// ToDo: If there are changes, we have to adjust the data here so that the current data is written to the kafka
@@ -90,27 +89,14 @@ func updateMessageMetadata(message *sarama.ConsumerMessage) ([]byte, []sarama.Re
 	// --> circuitBreakerOptOut?
 	// --> HttpMethod?
 
-	var metadataValue = map[string]any{
-		"uuid": messageValue["uuid"],
-		"event": map[string]any{
-			"id": messageValue["event"].(map[string]any)["id"],
-		},
-		"status": "PROCESSED",
-	}
+	messageValue["uuid"] = uuid.New().String()
+	messageValue["status"] = enum.StatusProcessed
 
-	// Add the messageType to METADATA?
-	// ToDo: Check if this is right here or do we need a message metaType?
-	// ToDo: if we only update the metadata, retentionTime does not restart
-	newMessageType := "METADATA"
-	newHeaders := []sarama.RecordHeader{
-		{Key: []byte("type"), Value: []byte(newMessageType)},
-	}
-
-	modifiedValue, err := json.Marshal(metadataValue)
+	modifiedValue, err := json.Marshal(messageValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not marshal modified message value")
-		return nil, nil, err
+		return nil, err
 	}
 
-	return modifiedValue, newHeaders, nil
+	return modifiedValue, nil
 }
