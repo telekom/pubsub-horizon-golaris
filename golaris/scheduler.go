@@ -42,8 +42,16 @@ func checkCircuitBreakersByStatus(deps utils.Dependencies, status enum.CircuitBr
 
 	for _, entry := range cbEntries {
 		log.Info().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
+
 		if entry.Status != enum.CircuitBreakerStatusChecking {
 			entry.Status = enum.CircuitBreakerStatusChecking
+			entry.LastModified = time.Now().UTC()
+			err = deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, entry.SubscriptionId, entry)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while updating circuit breaker to status checking for subscription %s", entry.SubscriptionId)
+				return
+			}
+			log.Debug().Msgf("Updated CircuitBreaker with id %s to status checking", entry.SubscriptionId)
 		}
 		go checkSubscriptionForCbMessage(deps, entry)
 	}

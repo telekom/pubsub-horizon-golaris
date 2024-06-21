@@ -30,6 +30,7 @@ func performHealthCheck(deps utils.Dependencies, cbMessage message.CircuitBreake
 	}
 
 	healthCheckKey := fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, httpMethod, subscription.Spec.Subscription.Callback)
+	healthCheckData := buildHealthCheckData(subscription, httpMethod)
 
 	// Attempt to acquire a lock for the health check key
 	ctx := deps.HealthCache.NewLockContext(context.Background())
@@ -47,43 +48,17 @@ func performHealthCheck(deps utils.Dependencies, cbMessage message.CircuitBreake
 	}()
 
 	//Check if there is already a HealthCheck entry for the HealthCheckKey
-	existingHealthCheckData, err := deps.HealthCache.Get(ctx, healthCheckKey)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving health check for key %s", healthCheckKey)
+	if shouldSkipHealthCheck(ctx, deps, healthCheckKey) {
+		return
 	}
 
-	if existingHealthCheckData != nil {
-		lastCheckedTime := existingHealthCheckData.(health.HealthCheck).LastChecked
-		duration := time.Since(lastCheckedTime)
-		if duration.Seconds() < config.Current.RequestCooldownTime.Seconds() {
-			log.Debug().Msgf("Skipping health check for key %s due to cooldown", healthCheckKey)
-			return
-		}
-	}
-
-	// Prepare the health check object
-	healthCheckData := health.HealthCheck{
-		Environment:         subscription.Spec.Environment,
-		Method:              httpMethod,
-		CallbackUrl:         subscription.Spec.Subscription.Callback,
-		CheckingFor:         subscription.Spec.Subscription.SubscriptionId,
-		LastChecked:         time.Now().UTC(),
-		LastedCheckedStatus: 0,
-	}
-
-	// Update the health check in the health
-	err = deps.HealthCache.Set(ctx, healthCheckKey, healthCheckData)
-	if err != nil {
-		log.Error().Err(err).Msgf("Failed to update health check for key %s", healthCheckKey)
-	}
-
-	checkConsumerHealth(deps, cbMessage, healthCheckData)
+	checkConsumerHealth(ctx, deps, cbMessage, healthCheckData, healthCheckKey)
 
 	log.Info().Msgf("Successfully updated health check for key %s", healthCheckKey)
 	return
 }
 
-func checkConsumerHealth(deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckData health.HealthCheck) {
+func checkConsumerHealth(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckData health.HealthCheck, healthCheckKey string) {
 	log.Debug().Msg("Checking consumer health")
 
 	url, clientId, clientSecret := config.Current.Security.Url, config.Current.Security.ClientId, config.Current.Security.ClientSecret
@@ -100,16 +75,10 @@ func checkConsumerHealth(deps utils.Dependencies, cbMessage message.CircuitBreak
 	}
 	log.Debug().Msgf("Received response for callback-url %s with http-status: %v", healthCheckData.CallbackUrl, resp.StatusCode)
 
-	success := utils.Contains(config.Current.SuccessfulResponseCodes, resp.StatusCode)
-	if success {
-		cbMessage.Status = enum.CircuitBreakerStatusRepublishing
-		go func() {
-			republishPendingEvents(deps, healthCheckData.CheckingFor)
-			// ToDo Check whether there are still  waiting messages in the db for the subscriptionId
-			closeCircuitBreaker(deps, cbMessage.SubscriptionId)
-		}()
+	if utils.Contains(config.Current.SuccessfulResponseCodes, resp.StatusCode) {
+		handleSuccessfulHealthCheck(ctx, deps, cbMessage, healthCheckKey, healthCheckData, resp)
 	} else {
-		// ToDo: What do we want to do in case of a failed health check?
+		handleFailedHealthCheck(ctx, deps, cbMessage, healthCheckKey, healthCheckData, resp)
 	}
 }
 
@@ -165,9 +134,75 @@ func republishPendingEvents(deps utils.Dependencies, subscriptionId string) {
 }
 
 func closeCircuitBreaker(deps utils.Dependencies, subscriptionId string) {
-	err := deps.CbCache.Delete(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
-	if err != nil {
+	if err := deps.CbCache.Delete(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
 		log.Error().Err(err).Msgf("Error: %v while closing circuit breaker for subscription %s", err, subscriptionId)
+		return
 	}
-	log.Debug().Msgf("Successfully closed circuit breaker for subscription %s", subscriptionId)
+}
+
+func buildHealthCheckData(subscription *resource.SubscriptionResource, httpMethod string) health.HealthCheck {
+	return health.HealthCheck{
+		Environment: subscription.Spec.Environment,
+		Method:      httpMethod,
+		CallbackUrl: subscription.Spec.Subscription.Callback,
+		CheckingFor: subscription.Spec.Subscription.SubscriptionId,
+	}
+}
+
+func shouldSkipHealthCheck(ctx context.Context, deps utils.Dependencies, healthCheckKey string) bool {
+	existingHealthCheckData, err := deps.HealthCache.Get(ctx, healthCheckKey)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error retrieving health check for key %s", healthCheckKey)
+		return true
+	}
+
+	if existingHealthCheckData != nil {
+		lastCheckedTime := existingHealthCheckData.(health.HealthCheck).LastChecked
+		duration := time.Since(lastCheckedTime)
+		if duration.Seconds() < config.Current.RequestCooldownTime.Seconds() {
+			log.Debug().Msgf("Skipping health check for key %s due to cooldown", healthCheckKey)
+			return true
+		}
+	}
+	return false
+}
+
+func handleSuccessfulHealthCheck(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckKey string, healthCheckData health.HealthCheck, resp *http.Response) {
+	cbMessage.Status = enum.CircuitBreakerStatusRepublishing
+	cbMessage.LastModified = time.Now().UTC()
+
+	if err := deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage); err != nil {
+		log.Error().Err(err).Msgf("Error putting CircuitBreakerMessage to cache for subscription %s", cbMessage.SubscriptionId)
+		return
+	}
+	log.Debug().Msgf("Updated CircuitBreaker with id %s to status rebublishing", cbMessage.SubscriptionId)
+	updateHealthCheck(ctx, deps, healthCheckKey, healthCheckData, resp.StatusCode)
+
+	go func() {
+		republishPendingEvents(deps, healthCheckData.CheckingFor)
+		// ToDo Check whether there are still  waiting messages in the db for the subscriptionId
+		// ToDo When to increment the republishing counter?
+		closeCircuitBreaker(deps, cbMessage.SubscriptionId)
+	}()
+}
+
+func handleFailedHealthCheck(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckKey string, healthCheckData health.HealthCheck, resp *http.Response) {
+	cbMessage.Status = enum.CircuitBreakerStatusOpen
+	cbMessage.LastModified = time.Now().UTC()
+
+	if err := deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage); err != nil {
+		log.Error().Err(err).Msgf("Error putting CircuitBreakerMessage to cache for subscription %s", cbMessage.SubscriptionId)
+		return
+	}
+	log.Debug().Msgf("Updated CircuitBreaker with id %s to status rebublishing", cbMessage.SubscriptionId)
+	updateHealthCheck(ctx, deps, healthCheckKey, healthCheckData, resp.StatusCode)
+}
+
+func updateHealthCheck(ctx context.Context, deps utils.Dependencies, healthCheckKey string, healthCheckData health.HealthCheck, statusCode int) {
+	healthCheckData.LastedCheckedStatus = statusCode
+	healthCheckData.LastChecked = time.Now()
+
+	if err := deps.HealthCache.Set(ctx, healthCheckKey, healthCheckData); err != nil {
+		log.Error().Err(err).Msgf("Failed to update health check for key %s", healthCheckKey)
+	}
 }
