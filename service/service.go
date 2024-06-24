@@ -1,17 +1,14 @@
 package service
 
 import (
-	"eni.telekom.de/horizon2go/pkg/cache"
-	"eni.telekom.de/horizon2go/pkg/message"
-	"eni.telekom.de/horizon2go/pkg/resource"
+	"eni.telekom.de/horizon2go/pkg/util"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
 	"golaris/config"
-	"golaris/golaris"
-	"golaris/health"
+	"golaris/health_check"
 	"golaris/kafka"
 	"golaris/metrics"
 	"golaris/mock"
@@ -29,7 +26,6 @@ func InitializeService() {
 	var err error
 	app = fiber.New()
 
-	// Todo Implement token handling (clientId, clientSecret)
 	app.Use(tracing.Middleware())
 	app.Use(healthcheck.New())
 
@@ -37,19 +33,9 @@ func InitializeService() {
 	app.Get("/api/v1/circuit-breakers/:subscriptionId", getCircuitBreakerMessage)
 
 	cacheConfig := configureHazelcast()
-	deps.SubCache, err = cache.NewCache[resource.SubscriptionResource](cacheConfig)
+	deps, err = configureCaches(cacheConfig)
 	if err != nil {
-		log.Panic().Err(err).Msg("Error while initializing Hazelcast subscription health")
-	}
-
-	deps.CbCache, err = cache.NewCache[message.CircuitBreakerMessage](cacheConfig)
-	if err != nil {
-		log.Panic().Err(err).Msg("Error while initializing CircuitBreaker health")
-	}
-
-	deps.HealthCache, err = health.NewHealthCheckCache(hazelcast.Config{})
-	if err != nil {
-		log.Panic().Err(err).Msg("Error while initializing HealthCheck cache")
+		log.Panic().Err(err).Msg("Error while configuring caches")
 	}
 
 	deps.MongoConn, err = mongo.NewMongoConnection(&config.Current.Mongo)
@@ -62,7 +48,7 @@ func InitializeService() {
 		log.Panic().Err(err).Msg("Error while initializing Kafka Picker")
 	}
 
-	golaris.InitializeScheduler(deps)
+	health_check.InitializeScheduler(deps)
 
 	// TODO Mock cb-messages until comet is adapted
 	mock.CreateMockedCircuitBreakerMessages(deps.CbCache, 1)
@@ -73,7 +59,7 @@ func configureHazelcast() hazelcast.Config {
 
 	cacheConfig.Cluster.Name = config.Current.Hazelcast.ClusterName
 	cacheConfig.Cluster.Network.SetAddresses(config.Current.Hazelcast.ServiceDNS)
-	// cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
+	cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
 
 	return cacheConfig
 }

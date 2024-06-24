@@ -1,4 +1,4 @@
-package golaris
+package health_check
 
 import (
 	"eni.telekom.de/horizon2go/pkg/message"
