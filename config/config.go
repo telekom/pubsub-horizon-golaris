@@ -12,8 +12,9 @@ type Configuration struct {
 
 	Polling Polling `mapstructure:"polling"`
 
-	Security Security `mapstructure:"security"`
-	Tracing  Tracing  `mapstructure:"tracing"`
+	Security   Security   `mapstructure:"security"`
+	Tracing    Tracing    `mapstructure:"tracing"`
+	Kubernetes Kubernetes `mapstructure:"kubernetes"`
 
 	Hazelcast Hazelcast `mapstructure:"hazelcast"`
 	Kafka     Kafka     `mapstructure:"kafka"`
@@ -33,6 +34,10 @@ type Tracing struct {
 	Enabled           bool   `mapstructure:"enabled"`
 }
 
+type Kubernetes struct {
+	Namespace string `mapstructure:"namespace"`
+}
+
 type Hazelcast struct {
 	ServiceDNS  string `mapstructure:"serviceDNS"`
 	ClusterName string `mapstructure:"clusterName"`
@@ -47,6 +52,7 @@ type Polling struct {
 type Caches struct {
 	SubscriptionCache   string `mapstructure:"subscription-cache"`
 	CircuitBreakerCache string `mapstructure:"circuit-breaker-cache"`
+	HealthCheckCache    string `mapstructure:"health-check-cache"`
 }
 
 type Kafka struct {

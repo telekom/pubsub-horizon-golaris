@@ -1,4 +1,4 @@
-package golaris
+package health_check
 
 import (
 	"eni.telekom.de/horizon2go/pkg/enum"
@@ -6,6 +6,7 @@ import (
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
 	"golaris/config"
+	kube "golaris/kubernetes"
 	"golaris/utils"
 	"time"
 )
@@ -21,12 +22,11 @@ func InitializeScheduler(deps utils.Dependencies) {
 		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakers: %v", err)
 	}
 
-	//ToDo: When do we want to do this? Always or only on a pod restart?
-	if _, err := scheduler.Every(config.Current.Polling.RepublishingOrCheckingMessageInterval).Do(func() {
+	// Watch for pod restart and select REPUBLISHING/ CHECKING cbMessages when all pods are running again
+	clientSet := kube.InitializeKubernetesClient()
+	if kube.PodsHealthAfterRestart(clientSet) {
 		checkCircuitBreakersByStatus(deps, enum.CircuitBreakerStatusRepublishing)
 		checkCircuitBreakersByStatus(deps, enum.CircuitBreakerStatusChecking)
-	}); err != nil {
-		log.Error().Msgf("Error while scheduling for REPUBLISHING and CHECKING CircuitBreakers: %v", err)
 	}
 
 	scheduler.StartAsync()
@@ -46,13 +46,14 @@ func checkCircuitBreakersByStatus(deps utils.Dependencies, status enum.CircuitBr
 		if entry.Status != enum.CircuitBreakerStatusChecking {
 			entry.Status = enum.CircuitBreakerStatusChecking
 			entry.LastModified = time.Now().UTC()
-			err = deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, entry.SubscriptionId, entry)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while updating circuit breaker to status checking for subscription %s", entry.SubscriptionId)
+
+			if err = deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, entry.SubscriptionId, entry); err != nil {
+				log.Error().Err(err).Msgf("Error putting CircuitBreakerMessage to cache for subscription %s", entry.SubscriptionId)
 				return
 			}
 			log.Debug().Msgf("Updated CircuitBreaker with id %s to status checking", entry.SubscriptionId)
 		}
+
 		go checkSubscriptionForCbMessage(deps, entry)
 	}
 }

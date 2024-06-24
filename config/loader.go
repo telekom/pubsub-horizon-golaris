@@ -59,6 +59,9 @@ func setDefaults() {
 	viper.SetDefault("tracing.https", true)
 	viper.SetDefault("tracing.debugEnabled", false)
 
+	// Kubernetes
+	viper.SetDefault("kubernetes.namespace", "default")
+
 	// Hazelcast
 	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
 	viper.SetDefault("hazelcast.clusterName", "dev")
@@ -66,6 +69,7 @@ func setDefaults() {
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscription-cache", "subscriptions.subscriber.horizon.telekom.de.v1")
 	viper.SetDefault("hazelcast.caches.circuit-breaker-cache", "circuit-breakers")
+	viper.SetDefault("hazelcast.caches.health-check-cache", "health-checks")
 
 	// Kafka
 	viper.SetDefault("kafka.brokers", "localhost:9092")
