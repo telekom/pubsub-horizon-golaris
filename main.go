@@ -1,6 +1,8 @@
 package main
 
-import "golaris/cmd"
+import (
+	"golaris/cmd"
+)
 
 func main() {
 	cmd.Execute()

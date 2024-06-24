@@ -6,7 +6,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"golaris/config"
+	"golaris/internal/config"
 )
 
 type Handler struct {
@@ -53,14 +53,15 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 }
 
 func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) error {
-	modifiedValue, err := updateMessage(message)
+	newUuid := uuid.New()
+	modifiedValue, err := updateMessage(message, newUuid)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:   sarama.StringEncoder(message.Key),
+		Key:   sarama.StringEncoder(newUuid.String()),
 		Topic: message.Topic,
 		Value: sarama.ByteEncoder(modifiedValue),
 	}
@@ -76,7 +77,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	return nil
 }
 
-func updateMessage(message *sarama.ConsumerMessage) ([]byte, error) {
+func updateMessage(message *sarama.ConsumerMessage, uuid uuid.UUID) ([]byte, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
@@ -89,7 +90,7 @@ func updateMessage(message *sarama.ConsumerMessage) ([]byte, error) {
 	// --> circuitBreakerOptOut?
 	// --> HttpMethod?
 
-	messageValue["uuid"] = uuid.New().String()
+	messageValue["uuid"] = uuid.String()
 	messageValue["status"] = enum.StatusProcessed
 
 	modifiedValue, err := json.Marshal(messageValue)

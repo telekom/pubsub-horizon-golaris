@@ -5,7 +5,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golaris/config"
+	"golaris/internal/config"
 )
 
 type Connection struct {

@@ -12,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.25.0"
-	"golaris/config"
+	"golaris/internal/config"
 )
 
 // ToDo: Maybe remove the tracer to horizon2Go

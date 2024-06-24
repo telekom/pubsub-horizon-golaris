@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
-	"golaris/config"
-	"golaris/utils"
+	"golaris/internal/config"
+	"golaris/internal/utils"
 	"time"
 )
 
@@ -40,7 +40,7 @@ func NewHealthCheckCache(hzConfig hazelcast.Config) (*hazelcast.Map, error) {
 	return HealthCheckMap, nil
 }
 
-func performHealthCheck(deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
+func PerformHealthCheck(deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
 	// Specify HTTP method based on the subscription configuration
 	httpMethod := "HEAD"
 	if subscription.Spec.Subscription.EnforceGetHealthCheck == true {

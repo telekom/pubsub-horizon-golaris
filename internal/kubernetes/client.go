@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/rs/zerolog/log"
-	"golaris/config"
+	"golaris/internal/config"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"

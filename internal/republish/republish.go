@@ -1,11 +1,11 @@
-package golaris
+package republish
 
 import (
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golaris/config"
-	"golaris/utils"
+	"golaris/internal/config"
+	"golaris/internal/utils"
 	"time"
 )
 

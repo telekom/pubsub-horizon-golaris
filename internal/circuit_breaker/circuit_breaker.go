@@ -1,9 +1,9 @@
-package golaris
+package circuit_breaker
 
 import (
 	"github.com/rs/zerolog/log"
-	"golaris/config"
-	"golaris/utils"
+	"golaris/internal/config"
+	"golaris/internal/utils"
 )
 
 func CloseCircuitBreaker(deps utils.Dependencies, subscriptionId string) {

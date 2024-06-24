@@ -5,7 +5,7 @@ import (
 	"eni.telekom.de/horizon2go/pkg/enum"
 	"eni.telekom.de/horizon2go/pkg/message"
 	"github.com/rs/zerolog/log"
-	"golaris/config"
+	"golaris/internal/config"
 	"time"
 )
 

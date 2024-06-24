@@ -5,8 +5,8 @@ import (
 	"eni.telekom.de/horizon2go/pkg/message"
 	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/hazelcast/hazelcast-go-client"
-	"golaris/kafka"
-	"golaris/mongo"
+	"golaris/internal/kafka"
+	"golaris/internal/mongo"
 )
 
 type Dependencies struct {
