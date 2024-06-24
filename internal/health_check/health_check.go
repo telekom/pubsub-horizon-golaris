@@ -17,7 +17,7 @@ type HealthCheck struct {
 	Environment         string    `json:"environment"`
 	Method              string    `json:"method"`
 	CallbackUrl         string    `json:"callbackUrl"`
-	CheckingFor         string    `json:"checkingFor"`
+	RepublishingCount   int       `json:"republishingCount"`
 	LastChecked         time.Time `json:"lastChecked"`
 	LastedCheckedStatus int       `json:"lastCheckedStatus"`
 }
@@ -70,7 +70,7 @@ func PerformHealthCheck(deps utils.Dependencies, cbMessage message.CircuitBreake
 		return
 	}
 
-	checkConsumerHealth(ctx, deps, cbMessage, healthCheckData, healthCheckKey)
+	checkConsumerHealth(ctx, deps, cbMessage, healthCheckData, healthCheckKey, subscription)
 
 	log.Info().Msgf("Successfully updated health check for key %s", healthCheckKey)
 	return
@@ -81,7 +81,6 @@ func buildHealthCheckData(subscription *resource.SubscriptionResource, httpMetho
 		Environment: subscription.Spec.Environment,
 		Method:      httpMethod,
 		CallbackUrl: subscription.Spec.Subscription.Callback,
-		CheckingFor: subscription.Spec.Subscription.SubscriptionId,
 	}
 }
 

@@ -33,7 +33,7 @@ func configureViper() {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yml")
 	viper.AddConfigPath(".")
-	viper.SetEnvPrefix("golaris")
+	viper.SetEnvPrefix("service")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 }
 

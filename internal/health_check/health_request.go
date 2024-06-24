@@ -2,8 +2,8 @@ package health_check
 
 import (
 	"context"
-	"eni.telekom.de/horizon2go/pkg/enum"
 	"eni.telekom.de/horizon2go/pkg/message"
+	"eni.telekom.de/horizon2go/pkg/resource"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"golaris/internal/auth"
@@ -12,35 +12,40 @@ import (
 	"golaris/internal/republish"
 	"golaris/internal/utils"
 	"net/http"
-	"time"
+	"strings"
 )
 
-func checkConsumerHealth(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckData HealthCheck, healthCheckKey string) {
+func checkConsumerHealth(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckData HealthCheck, healthCheckKey string, subscription *resource.SubscriptionResource) {
 	log.Debug().Msg("Checking consumer health")
 
-	url, clientId, clientSecret := config.Current.Security.Url, config.Current.Security.ClientId, config.Current.Security.ClientSecret
-	token, err := auth.RetrieveToken(url, clientId, clientSecret)
+	clientSecret := strings.Split(config.Current.Security.ClientSecret, "=")
+	issuerUrl := strings.ReplaceAll(config.Current.Security.Url, "<realm>", clientSecret[0])
+
+	token, err := auth.RetrieveToken(issuerUrl, config.Current.Security.ClientId, clientSecret[1])
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve OAuth2 token")
 		return
 	}
 
-	resp, err := executeHealthRequestWithToken(healthCheckData.CallbackUrl, healthCheckData.Method, token)
+	resp, err := executeHealthRequestWithToken(healthCheckData.CallbackUrl, healthCheckData.Method, subscription, token)
 	if err != nil {
-		// Todo Check error handling while timeout
 		log.Error().Err(err).Msgf("Failed to perform http-request for callback-url %s", healthCheckData.CallbackUrl)
 		return
 	}
 	log.Debug().Msgf("Received response for callback-url %s with http-status: %v", healthCheckData.CallbackUrl, resp.StatusCode)
 
 	if utils.Contains(config.Current.SuccessfulResponseCodes, resp.StatusCode) {
-		handleSuccessfulHealthCheck(ctx, deps, cbMessage, healthCheckKey, healthCheckData, resp)
+		updateHealthCheck(ctx, deps, healthCheckKey, healthCheckData, resp.StatusCode)
+		go republish.RepublishPendingEvents(deps, subscription.Spec.Subscription.SubscriptionId)
+
+		// ToDo Check whether there are still  waiting messages in the db for the subscriptionId?
+		circuit_breaker.CloseCircuitBreaker(deps, cbMessage.SubscriptionId)
 	} else {
-		handleFailedHealthCheck(ctx, deps, cbMessage, healthCheckKey, healthCheckData, resp)
+		updateHealthCheck(ctx, deps, healthCheckKey, healthCheckData, resp.StatusCode)
 	}
 }
 
-func executeHealthRequestWithToken(callbackUrl string, httpMethod string, token string) (*http.Response, error) {
+func executeHealthRequestWithToken(callbackUrl string, httpMethod string, subscription *resource.SubscriptionResource, token string) (*http.Response, error) {
 	log.Debug().Msgf("Performing health request for calllback-url %s with http-method %s", callbackUrl, httpMethod)
 
 	request, err := http.NewRequest(httpMethod, callbackUrl, nil)
@@ -48,9 +53,9 @@ func executeHealthRequestWithToken(callbackUrl string, httpMethod string, token 
 		return nil, fmt.Errorf("Failed to create request for URL %s: %v", callbackUrl, err)
 	}
 
-	// Todo Add missing headers
 	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", token))
-	request.Header.Add("Accept", "application/stream+json")
+	request.Header.Add("x-pubsub-publisher-id", subscription.Spec.Subscription.PublisherId)
+	request.Header.Add("x-pubsub-subscriber-id", subscription.Spec.Subscription.SubscriberId)
 
 	response, err := auth.Client.Do(request)
 	if err != nil {
@@ -58,35 +63,4 @@ func executeHealthRequestWithToken(callbackUrl string, httpMethod string, token 
 	}
 
 	return response, nil
-}
-
-func handleSuccessfulHealthCheck(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckKey string, healthCheckData HealthCheck, resp *http.Response) {
-	// Todo Method for update CBMessage and delete handleSuccessfulHealthCheck
-	cbMessage.Status = enum.CircuitBreakerStatusRepublishing
-	cbMessage.LastModified = time.Now().UTC()
-
-	if err := deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage); err != nil {
-		log.Error().Err(err).Msgf("Error putting CircuitBreakerMessage to cache for subscription %s", cbMessage.SubscriptionId)
-		return
-	}
-	log.Debug().Msgf("Updated CircuitBreaker with id %s to status rebublishing", cbMessage.SubscriptionId)
-
-	updateHealthCheck(ctx, deps, healthCheckKey, healthCheckData, resp.StatusCode)
-	go republish.RepublishPendingEvents(deps, healthCheckData.CheckingFor)
-
-	// ToDo Check whether there are still  waiting messages in the db for the subscriptionId?
-	// ToDo When to increment the republishing counter?
-	circuit_breaker.CloseCircuitBreaker(deps, cbMessage.SubscriptionId)
-}
-
-func handleFailedHealthCheck(ctx context.Context, deps utils.Dependencies, cbMessage message.CircuitBreakerMessage, healthCheckKey string, healthCheckData HealthCheck, resp *http.Response) {
-	cbMessage.Status = enum.CircuitBreakerStatusOpen
-	cbMessage.LastModified = time.Now().UTC()
-
-	if err := deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage); err != nil {
-		log.Error().Err(err).Msgf("Error putting CircuitBreakerMessage to cache for subscription %s", cbMessage.SubscriptionId)
-		return
-	}
-	log.Debug().Msgf("Updated CircuitBreaker with id %s to status rebublishing", cbMessage.SubscriptionId)
-	updateHealthCheck(ctx, deps, healthCheckKey, healthCheckData, resp.StatusCode)
 }

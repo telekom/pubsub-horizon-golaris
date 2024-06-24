@@ -1,4 +1,4 @@
-package golaris
+package service
 
 import (
 	"eni.telekom.de/horizon2go/pkg/cache"

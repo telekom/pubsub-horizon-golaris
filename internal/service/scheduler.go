@@ -1,4 +1,4 @@
-package golaris
+package service
 
 import (
 	"eni.telekom.de/horizon2go/pkg/enum"
@@ -24,13 +24,6 @@ func StartScheduler(deps utils.Dependencies) {
 	}
 	scheduler.StartAsync()
 
-	// Watch for pod restart and select REPUBLISHING/ CHECKING cbMessages when all pods are running again
-	/*	clientSet := kube.InitializeKubernetesClient()
-		if kube.PodsHealthAfterRestart(clientSet) {
-			CheckCircuitBreakersByStatus(deps, enum.CircuitBreakerStatusRepublishing)
-			CheckCircuitBreakersByStatus(deps, enum.CircuitBreakerStatusChecking)
-		}*/
-
 }
 
 func CheckCircuitBreakersByStatus(deps utils.Dependencies, status enum.CircuitBreakerStatus) {
@@ -44,29 +37,15 @@ func CheckCircuitBreakersByStatus(deps utils.Dependencies, status enum.CircuitBr
 	for _, entry := range cbEntries {
 		log.Info().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
-		if entry.Status != enum.CircuitBreakerStatusChecking {
-			entry.Status = enum.CircuitBreakerStatusChecking
-			entry.LastModified = time.Now().UTC()
-
-			if err = deps.CbCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, entry.SubscriptionId, entry); err != nil {
-				log.Error().Err(err).Msgf("Error putting CircuitBreakerMessage to cache for subscription %s", entry.SubscriptionId)
-				return
-			}
-			log.Debug().Msgf("Updated CircuitBreaker with id %s to status checking", entry.SubscriptionId)
-		}
-
-		subscriptionId := entry.SubscriptionId
-		subscription := GetSubscriptionForCbMessage(deps, subscriptionId)
+		subscription := GetSubscriptionForCbMessage(deps, entry.SubscriptionId)
 		if subscription == nil {
-			// Todo Delete subscription
-			log.Info().Msgf("Subscripton is: %v with id %s.", subscription, subscriptionId)
+			log.Info().Msgf("Subscripton with id: %s does not exist. Delete cbMessage", entry.SubscriptionId)
 			return
 		} else {
-			log.Debug().Msgf("Subscription with id %s found: %v", subscriptionId, subscription)
+			log.Debug().Msgf("Subscription with id %s found: %v", entry.SubscriptionId, subscription)
 		}
 
 		// ToDo: Check whether the subscription has changed
-
 		go health_check.PerformHealthCheck(deps, entry, subscription)
 	}
 }

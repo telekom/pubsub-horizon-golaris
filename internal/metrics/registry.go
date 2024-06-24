@@ -8,7 +8,7 @@ var (
 	registry *prometheus.Registry
 )
 
-const namespace = "golaris"
+const namespace = "service"
 
 func init() {
 	OpenCircuitBreakers = prometheus.NewCounterVec(prometheus.CounterOpts{

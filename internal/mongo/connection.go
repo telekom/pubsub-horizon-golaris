@@ -34,7 +34,7 @@ func NewMongoConnection(config *config.Mongo) (*Connection, error) {
 func pingMongoNode(connection *mongo.Client) error {
 	log.Debug().Msg("Sending ping to mongoDB")
 
-	if err := connection.Ping(context.TODO(), nil); err != nil {
+	if err := connection.Ping(context.Background(), nil); err != nil {
 		log.Error().Err(err).Msg("Could not reach primary mongoDB node")
 		return err
 	}
