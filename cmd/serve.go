@@ -6,6 +6,7 @@ import (
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/kafka"
+	"golaris/internal/log"
 	"golaris/internal/mock"
 	"golaris/internal/mongo"
 	"golaris/internal/scheduler"
@@ -19,6 +20,8 @@ var serveCmd = &cobra.Command{
 
 func initialize() {
 	config.Load()
+
+	log.SetLogLevel(config.Current.LogLevel)
 
 	cache.Initialize()
 	mongo.Initialize()
