@@ -1,26 +1,19 @@
 package cmd
 
 import (
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"golaris/internal/api"
 	"golaris/internal/config"
-	"golaris/internal/service"
+	"golaris/internal/scheduler"
 )
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Starts the actual service",
+	Short: "Starts the actual scheduler",
 	Run:   startGolarisService,
 }
 
 func startGolarisService(cmd *cobra.Command, args []string) {
-	log.Info().Msg("Starting Golaris service")
-	config.LoadConfiguration()
-
-	service.InitializeService()
-	listenApiPort()
-}
-
-func listenApiPort() {
-	service.Listen(config.Current.Port)
+	scheduler.StartScheduler()
+	api.Listen(config.Current.Port)
 }

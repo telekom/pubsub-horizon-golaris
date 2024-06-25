@@ -5,11 +5,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golaris/internal/config"
-	"golaris/internal/utils"
+	"golaris/internal/kafka"
+	"golaris/internal/mongo"
 	"time"
 )
 
-func RepublishPendingEvents(deps utils.Dependencies, subscriptionId string) {
+func RepublishPendingEvents(subscriptionId string) {
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	batchSize := int64(config.Current.RepublishingBatchSize)
@@ -24,7 +25,7 @@ func RepublishPendingEvents(deps utils.Dependencies, subscriptionId string) {
 			SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 		//Get Waiting events from database pageable!
-		dbMessages, err := deps.MongoConn.FindWaitingMessages(time.Now(), pageable, subscriptionId)
+		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), pageable, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
 		}
@@ -45,12 +46,12 @@ func RepublishPendingEvents(deps utils.Dependencies, subscriptionId string) {
 				continue
 			}
 
-			kafkaMessage, err := deps.KafkaHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
+			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
 			if err != nil {
 				log.Warn().Msgf("Error while fetching message from kafka for subscription %s", subscriptionId)
 				continue
 			}
-			err = deps.KafkaHandler.RepublishMessage(kafkaMessage)
+			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscription %s", subscriptionId)
 			}

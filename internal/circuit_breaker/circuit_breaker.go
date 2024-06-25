@@ -2,12 +2,12 @@ package circuit_breaker
 
 import (
 	"github.com/rs/zerolog/log"
+	"golaris/internal/cache"
 	"golaris/internal/config"
-	"golaris/internal/utils"
 )
 
-func CloseCircuitBreaker(deps utils.Dependencies, subscriptionId string) {
-	if err := deps.CbCache.Delete(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
+func CloseCircuitBreaker(subscriptionId string) {
+	if err := cache.CircuitBreakers.Delete(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
 		log.Error().Err(err).Msgf("Error: %v while closing circuit breaker for subscription %s", err, subscriptionId)
 		return
 	}

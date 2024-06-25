@@ -1,68 +1,97 @@
 package config
 
-import "time"
+import (
+	"errors"
+	"github.com/rs/zerolog/log"
+	"github.com/spf13/viper"
+	"strings"
+)
 
-type Configuration struct {
-	LogLevel string `mapstructure:"logLevel"`
-	Port     int    `mapstructure:"port"`
+var Current Configuration
 
-	SuccessfulResponseCodes []int         `mapstructure:"successfulResponseCodes"`
-	RequestCooldownTime     time.Duration `mapstructure:"requestCooldownResetTime"`
-	RepublishingBatchSize   int64         `mapstructure:"republishingBatchSize"`
+func Load() {
+	configureViper()
+	setDefaults()
+	readConfiguration()
 
-	Polling Polling `mapstructure:"polling"`
-
-	Security   Security   `mapstructure:"security"`
-	Tracing    Tracing    `mapstructure:"tracing"`
-	Kubernetes Kubernetes `mapstructure:"kubernetes"`
-
-	Hazelcast Hazelcast `mapstructure:"hazelcast"`
-	Kafka     Kafka     `mapstructure:"kafka"`
-	Mongo     Mongo     `mapstructure:"mongo"`
+	if err := viper.Unmarshal(&Current); err != nil {
+		log.Fatal().Err(err).Msg("Could not unmarshal current configuration!")
+	}
 }
 
-type Security struct {
-	Url          string `mapstructure:"url"`
-	ClientId     string `mapstructure:"clientId"`
-	ClientSecret string `mapstructure:"clientSecret"`
+func Initialize() error {
+	configureViper()
+	setDefaults()
+	return viper.SafeWriteConfig()
 }
 
-type Tracing struct {
-	CollectorEndpoint string `mapstructure:"collectorEndpoint"`
-	Https             bool   `mapstructure:"https"`
-	DebugEnabled      bool   `mapstructure:"debugEnabled"`
-	Enabled           bool   `mapstructure:"enabled"`
+func configureViper() {
+	viper.SetConfigName("config")
+	viper.SetConfigType("yml")
+	viper.AddConfigPath(".")
+	viper.SetEnvPrefix("scheduler")
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 }
 
-type Kubernetes struct {
-	Namespace string `mapstructure:"namespace"`
+func setDefaults() {
+	viper.SetDefault("logLevel", "info")
+	viper.SetDefault("port", 8080)
+
+	viper.SetDefault("successfulResponseCodes", []int{200, 201, 202, 204})
+	viper.SetDefault("republishingBatchSize", 10)
+
+	// Polling
+	viper.SetDefault("polling.openCbMessageInterval", "10ms")
+	viper.SetDefault("polling.republishingOrCheckingMessageInterval", "10ms")
+
+	// Security
+	viper.SetDefault("security.url", "iris")
+	viper.SetDefault("security.clientId", "clientId")
+	viper.SetDefault("security.clientSecret", "clientSecret")
+
+	// Tracing
+	viper.SetDefault("tracing.enabled", true)
+	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
+	viper.SetDefault("tracing.https", true)
+	viper.SetDefault("tracing.debugEnabled", false)
+
+	// Kubernetes
+	viper.SetDefault("kubernetes.namespace", "default")
+
+	// Hazelcast
+	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
+	viper.SetDefault("hazelcast.clusterName", "dev")
+
+	// Caches
+	viper.SetDefault("hazelcast.caches.subscription-cache", "subscriptions.subscriber.horizon.telekom.de.v1")
+	viper.SetDefault("hazelcast.caches.circuit-breaker-cache", "circuit-breakers")
+	viper.SetDefault("hazelcast.caches.health-check-cache", "health-checks")
+
+	// Kafka
+	viper.SetDefault("kafka.brokers", "localhost:9092")
+	viper.SetDefault("kafka.topics", []string{"status"})
+
+	// Mongo
+	viper.SetDefault("mongo.url", "mongodb://localhost:27017")
+	viper.SetDefault("mongo.database", "horizon")
+	viper.SetDefault("mongo.collection", "status")
+	viper.SetDefault("mongo.bulkSize", 50)
 }
 
-type Hazelcast struct {
-	ServiceDNS  string `mapstructure:"serviceDNS"`
-	ClusterName string `mapstructure:"clusterName"`
-	Caches      Caches `mapstructure:"caches"`
-}
+func readConfiguration() *Configuration {
+	if err := viper.ReadInConfig(); err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFoundError) {
+			log.Info().Msg("Configuration file not found but environment variables will be taken into account!")
+		}
+	}
 
-type Polling struct {
-	OpenCbMessageInterval                 time.Duration `mapstructure:"openCbMessageInterval"`
-	RepublishingOrCheckingMessageInterval time.Duration `mapstructure:"republishingOrCheckingMessageInterval"`
-}
+	viper.AutomaticEnv()
 
-type Caches struct {
-	SubscriptionCache   string `mapstructure:"subscription-cache"`
-	CircuitBreakerCache string `mapstructure:"circuit-breaker-cache"`
-	HealthCheckCache    string `mapstructure:"health-check-cache"`
-}
+	var config Configuration
+	if err := viper.Unmarshal(&config); err != nil {
+		log.Fatal().Err(err).Msg("Could not unmarshal current configuration!")
+	}
 
-type Kafka struct {
-	Brokers []string `mapstructure:"brokers"`
-	Topics  []string `mapstructure:"topics"`
-}
-
-type Mongo struct {
-	Url        string `mapstructure:"url"`
-	Database   string `mapstructure:"database"`
-	Collection string `mapstructure:"collection"`
-	BulkSize   int    `mapstructure:"bulkSize"`
+	return &config
 }

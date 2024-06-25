@@ -15,7 +15,7 @@ var initCmd = &cobra.Command{
 }
 
 func initializeConfig(cmd *cobra.Command, args []string) {
-	if err := config.InitConfig(); err != nil {
+	if err := config.Initialize(); err != nil {
 		handleConfigInitErr(err)
 		return
 	}

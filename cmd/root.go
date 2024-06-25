@@ -8,5 +8,5 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Use:   "Golaris",
-	Short: "Our service for handling circuitBreakerMessages",
+	Short: "Our scheduler for handling circuitBreakerMessages",
 }
