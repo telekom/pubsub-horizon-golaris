@@ -4,24 +4,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golaris/cmd"
-	"golaris/internal/cache"
 	"golaris/internal/config"
-	"golaris/internal/kafka"
-	"golaris/internal/mock"
-	"golaris/internal/mongo"
 	"os"
 )
 
 func init() {
-	config.Load()
-
-	cache.Initialize()
-	mongo.Initialize()
-	kafka.Initialize()
-
-	// TODO Mock cb-messages until comet is adapted
-	mock.CreateMockedCircuitBreakerMessages(1)
-
 	setLogLevel(config.Current.LogLevel)
 }
 
@@ -37,7 +24,6 @@ func setLogLevel(level string) {
 		log.Logger = log.Logger.Output(zerolog.ConsoleWriter{Out: os.Stdout})
 	}
 }
-
 func main() {
 	cmd.Execute()
 }
