@@ -8,12 +8,18 @@ import (
 	"golaris/internal/config"
 )
 
-type Connection struct {
-	client *mongo.Client
-	config *config.Mongo
+var CurrentConnection *Connection
+
+func Initialize() {
+	var err error
+
+	CurrentConnection, err = newMongoConnection(&config.Current.Mongo)
+	if err != nil {
+		log.Panic().Err(err).Msg("error while initializing MongoDB connection")
+	}
 }
 
-func NewMongoConnection(config *config.Mongo) (*Connection, error) {
+func newMongoConnection(config *config.Mongo) (*Connection, error) {
 	log.Debug().Msg("Connecting to mongoDB")
 	connection, err := mongo.Connect(context.Background(), options.Client().ApplyURI(config.Url))
 	if err != nil {

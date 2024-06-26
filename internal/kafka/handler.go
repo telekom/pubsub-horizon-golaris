@@ -9,12 +9,18 @@ import (
 	"golaris/internal/config"
 )
 
-type Handler struct {
-	consumer sarama.Consumer
-	producer sarama.SyncProducer
+var CurrentHandler *Handler
+
+func Initialize() {
+	var err error
+
+	CurrentHandler, err = newKafkaHandler()
+	if err != nil {
+		log.Panic().Err(err).Msg("error while initializing Kafka picker")
+	}
 }
 
-func NewKafkaHandler() (*Handler, error) {
+func newKafkaHandler() (*Handler, error) {
 	kafkaConfig := sarama.NewConfig()
 
 	// Initialize the Kafka Consumer to read messages from Kafka

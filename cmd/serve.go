@@ -1,26 +1,39 @@
 package cmd
 
 import (
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+	"golaris/internal/api"
+	"golaris/internal/cache"
 	"golaris/internal/config"
-	"golaris/internal/service"
+	"golaris/internal/kafka"
+	"golaris/internal/log"
+	"golaris/internal/mock"
+	"golaris/internal/mongo"
+	"golaris/internal/scheduler"
 )
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Starts the actual service",
+	Short: "Starts the actual scheduler",
 	Run:   startGolarisService,
 }
 
-func startGolarisService(cmd *cobra.Command, args []string) {
-	log.Info().Msg("Starting Golaris service")
-	config.LoadConfiguration()
+func initialize() {
+	config.Load()
 
-	service.InitializeService()
-	listenApiPort()
+	log.SetLogLevel(config.Current.LogLevel)
+
+	cache.Initialize()
+	mongo.Initialize()
+	kafka.Initialize()
+
+	// TODO Mock cb-messages until comet is adapted
+	mock.CreateMockedCircuitBreakerMessages(1)
 }
 
-func listenApiPort() {
-	service.Listen(config.Current.Port)
+func startGolarisService(cmd *cobra.Command, args []string) {
+	initialize()
+
+	scheduler.StartScheduler()
+	api.Listen(config.Current.Port)
 }

@@ -6,7 +6,7 @@ ENV GONOSUMDB=$GONOSUMDB
 
 WORKDIR /build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -extldflags=-static" -o service .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -extldflags=-static" -o scheduler .
 
 FROM alpine:latest as certs
 RUN apk --update add ca-certificates

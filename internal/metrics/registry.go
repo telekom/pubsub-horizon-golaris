@@ -8,7 +8,7 @@ var (
 	registry *prometheus.Registry
 )
 
-const namespace = "service"
+const namespace = "scheduler"
 
 func init() {
 	OpenCircuitBreakers = prometheus.NewCounterVec(prometheus.CounterOpts{
