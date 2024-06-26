@@ -17,8 +17,9 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 	messages := make([]message.CircuitBreakerMessage, 0, numberMessages)
 
 	for i := 1; i <= numberMessages; i++ {
+		log.Info().Msgf("Creating mocked circuit breaker message %d", i)
 
-		subscriptionId := ""
+		subscriptionId := config.Current.MockCbSubscriptionId
 
 		circuitBreakerMessage := message.CircuitBreakerMessage{
 			SubscriptionId:    subscriptionId,
@@ -33,6 +34,8 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 		if err != nil {
 			log.Error().Err(err).Msg("Could not create mocked circuit breaker messages")
 		}
+
+		time.Sleep(60 * time.Second)
 
 	}
 	return messages

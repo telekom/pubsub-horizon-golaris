@@ -31,8 +31,8 @@ func initialize() {
 	mongo.Initialize()
 	kafka.Initialize()
 
-	// TODO Mock cb-messages until comet is adapted
-	mock.CreateMockedCircuitBreakerMessages(1)
+	// TODO Mock cb-messages for local development until comet is adapted
+	go mock.CreateMockedCircuitBreakerMessages(10)
 }
 
 func startGolarisService(cmd *cobra.Command, args []string) {

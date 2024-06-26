@@ -7,8 +7,9 @@ package config
 import "time"
 
 type Configuration struct {
-	LogLevel string `mapstructure:"logLevel"`
-	Port     int    `mapstructure:"port"`
+	LogLevel             string `mapstructure:"logLevel"`
+	Port                 int    `mapstructure:"port"`
+	MockCbSubscriptionId string `mapstructure:"mockCbSubscriptionId"`
 
 	SuccessfulResponseCodes []int         `mapstructure:"successfulResponseCodes"`
 	RequestCooldownTime     time.Duration `mapstructure:"requestCooldownResetTime"`

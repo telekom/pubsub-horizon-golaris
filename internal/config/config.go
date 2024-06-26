@@ -40,6 +40,7 @@ func configureViper() {
 func setDefaults() {
 	viper.SetDefault("logLevel", "info")
 	viper.SetDefault("port", 8080)
+	viper.SetDefault("mockCbSubscriptionId", " mockCbSubscriptionId")
 
 	viper.SetDefault("successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("republishingBatchSize", 10)

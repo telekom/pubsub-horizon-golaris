@@ -100,6 +100,7 @@ func shouldSkipHealthCheck(ctx context.Context, healthCheckKey string) bool {
 func checkConsumerHealth(ctx context.Context, cbMessage message.CircuitBreakerMessage, healthCheckData HealthCheck, healthCheckKey string, subscription *resource.SubscriptionResource) {
 	log.Debug().Msg("Checking consumer health")
 
+	//Todo Take several virtual environments into account
 	clientSecret := strings.Split(config.Current.Security.ClientSecret, "=")
 	issuerUrl := strings.ReplaceAll(config.Current.Security.Url, "<realm>", clientSecret[0])
 
@@ -115,15 +116,13 @@ func checkConsumerHealth(ctx context.Context, cbMessage message.CircuitBreakerMe
 		return
 	}
 	log.Debug().Msgf("Received response for callback-url %s with http-status: %v", healthCheckData.CallbackUrl, resp.StatusCode)
+	updateHealthCheck(ctx, healthCheckKey, healthCheckData, resp.StatusCode)
 
 	if utils.Contains(config.Current.SuccessfulResponseCodes, resp.StatusCode) {
-		updateHealthCheck(ctx, healthCheckKey, healthCheckData, resp.StatusCode)
 		go republish.RepublishPendingEvents(subscription.Spec.Subscription.SubscriptionId)
 
 		// ToDo Check whether there are still  waiting messages in the db for the subscriptionId?
 		circuit_breaker.CloseCircuitBreaker(cbMessage.SubscriptionId)
-	} else {
-		updateHealthCheck(ctx, healthCheckKey, healthCheckData, resp.StatusCode)
 	}
 }
 

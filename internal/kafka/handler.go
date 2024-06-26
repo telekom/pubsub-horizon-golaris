@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"eni.telekom.de/horizon2go/pkg/enum"
 	"github.com/IBM/sarama"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"golaris/internal/config"
 )
@@ -53,25 +52,30 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 
 	consumer, err := kafkaHandler.consumer.ConsumePartition(topic, *partition, *offset)
 	if err != nil {
-		log.Debug().Msgf("While kafkaPick, consumePartiton for topic %s failed.", topic)
+		log.Debug().Msgf("KafkaPick for  partition %s and topic %s and offset %s failed: %v", *partition, topic, *offset, err)
 		return nil, err
 	}
+	defer func() {
+		err := consumer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Could not close consumer")
+		}
+	}()
 
 	message := <-consumer.Messages()
-
 	return message, nil
 }
 
 func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) error {
-	newUuid := uuid.New()
-	modifiedValue, err := updateMessage(message, newUuid)
+
+	modifiedValue, err := updateMessage(message)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:   sarama.StringEncoder(newUuid.String()),
+		Key:   sarama.StringEncoder(message.Key),
 		Topic: message.Topic,
 		Value: sarama.ByteEncoder(modifiedValue),
 	}
@@ -87,7 +91,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	return nil
 }
 
-func updateMessage(message *sarama.ConsumerMessage, uuid uuid.UUID) ([]byte, error) {
+func updateMessage(message *sarama.ConsumerMessage) ([]byte, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
@@ -100,7 +104,7 @@ func updateMessage(message *sarama.ConsumerMessage, uuid uuid.UUID) ([]byte, err
 	// --> circuitBreakerOptOut?
 	// --> HttpMethod?
 
-	messageValue["uuid"] = uuid.String()
+	messageValue["uuid"] = message.Key
 	messageValue["status"] = enum.StatusProcessed
 
 	modifiedValue, err := json.Marshal(messageValue)
