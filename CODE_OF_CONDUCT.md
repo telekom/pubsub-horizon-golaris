@@ -1,6 +1,8 @@
 <!--
+Copyright 2024 Deutsche Telekom IT GmbH
 SPDX-FileCopyrightText: 2023 www.contributor-covenant.org
 
+SPDX-License-Identifier: Apache-2.0
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
