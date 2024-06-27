@@ -71,6 +71,7 @@ func setDefaults() {
 	viper.SetDefault("hazelcast.caches.subscription-cache", "subscriptions.subscriber.horizon.telekom.de.v1")
 	viper.SetDefault("hazelcast.caches.circuit-breaker-cache", "circuit-breakers")
 	viper.SetDefault("hazelcast.caches.health-check-cache", "health-checks")
+	viper.SetDefault("hazelcast.caches.republishing-cache", "republishing-cache")
 
 	// Kafka
 	viper.SetDefault("kafka.brokers", "localhost:9092")

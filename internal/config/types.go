@@ -58,6 +58,7 @@ type Caches struct {
 	SubscriptionCache   string `mapstructure:"subscription-cache"`
 	CircuitBreakerCache string `mapstructure:"circuit-breaker-cache"`
 	HealthCheckCache    string `mapstructure:"health-check-cache"`
+	RepublishingCache   string `mapstructure:"republishing-cache"`
 }
 
 type Kafka struct {

@@ -19,6 +19,7 @@ import (
 var Subscriptions *c.Cache[resource.SubscriptionResource]
 var CircuitBreakers *c.Cache[message.CircuitBreakerMessage]
 var HealthChecks *hazelcast.Map
+var RepublishingCache *hazelcast.Map
 
 func Initialize() {
 	c := createNewHazelcastConfig()
@@ -48,7 +49,7 @@ func initializeCaches(config hazelcast.Config) error {
 
 	CircuitBreakers, err = c.NewCache[message.CircuitBreakerMessage](config)
 	if err != nil {
-		return fmt.Errorf("error initializing CircuitBreaker health cache: %v", err)
+		return fmt.Errorf("error initializing CircuitBreakerCache: %v", err)
 	}
 
 	// TODO:
@@ -57,7 +58,12 @@ func initializeCaches(config hazelcast.Config) error {
 	//HealthChecks, err = c.NewCache[health_check.HealthCheck](config)
 	HealthChecks, err = newHealthCheckCache(config)
 	if err != nil {
-		return fmt.Errorf("error initializing HealthCheck cache: %v", err)
+		return fmt.Errorf("error initializing HealthCheckCache: %v", err)
+	}
+
+	RepublishingCache, err = newRepublishingCache(config)
+	if err != nil {
+		return fmt.Errorf("error initializing RebublishingCache: %v", err)
 	}
 
 	return nil
@@ -70,6 +76,20 @@ func newHealthCheckCache(hzConfig hazelcast.Config) (*hazelcast.Map, error) {
 	}
 
 	m, err := hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HealthCheckCache)
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
+}
+
+func newRepublishingCache(hzConfig hazelcast.Config) (*hazelcast.Map, error) {
+	hazelcastClient, err := hazelcast.StartNewClientWithConfig(context.Background(), hzConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
 		return nil, err
 	}
