@@ -52,7 +52,7 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 
 	consumer, err := kafkaHandler.consumer.ConsumePartition(topic, *partition, *offset)
 	if err != nil {
-		log.Debug().Msgf("KafkaPick for  partition %s and topic %s and offset %s failed: %v", *partition, topic, *offset, err)
+		log.Debug().Msgf("KafkaPick for  partition %d and topic %s and offset %d failed: %v", *partition, topic, *offset, err)
 		return nil, err
 	}
 	defer func() {
