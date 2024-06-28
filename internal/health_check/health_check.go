@@ -97,7 +97,7 @@ func shouldSkipHealthCheck(ctx context.Context, healthCheckKey string) bool {
 	if existingHealthCheckData != nil {
 		lastCheckedTime := existingHealthCheckData.(HealthCheck).LastChecked
 		duration := time.Since(lastCheckedTime)
-		if duration.Seconds() < config.Current.RequestCooldownTime.Seconds() {
+		if duration.Seconds() < config.Current.HealthCheck.CoolDownTime.Seconds() {
 			log.Debug().Msgf("Skipping health check for key %s due to cooldown", healthCheckKey)
 			return true
 		}
@@ -126,7 +126,7 @@ func checkConsumerHealth(ctx context.Context, cbMessage message.CircuitBreakerMe
 	log.Debug().Msgf("Received response for callback-url %s with http-status: %v", healthCheckData.CallbackUrl, resp.StatusCode)
 	updateHealthCheck(ctx, healthCheckKey, healthCheckData, resp.StatusCode)
 
-	if utils.Contains(config.Current.SuccessfulResponseCodes, resp.StatusCode) {
+	if utils.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, resp.StatusCode) {
 		go republish.RepublishPendingEvents(subscription.Spec.Subscription.SubscriptionId)
 
 		// ToDo Check whether there are still  waiting messages in the db for the subscriptionId?

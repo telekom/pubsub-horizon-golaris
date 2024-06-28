@@ -38,18 +38,40 @@ func configureViper() {
 }
 
 func setDefaults() {
+	// General
 	viper.SetDefault("logLevel", "info")
 	viper.SetDefault("port", 8080)
-	viper.SetDefault("mockCbSubscriptionId", " mockCbSubscriptionId")
 
-	viper.SetDefault("successfulResponseCodes", []int{200, 201, 202, 204})
-	viper.SetDefault("republishingBatchSize", 10)
+	// Processes
+	viper.SetDefault("circuitBreaker.openCbCheckInterval", 10)
+	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
+	viper.SetDefault("healthCheck.coolDownTime", "30s")
+	viper.SetDefault("republishing.checkInterval", "30s")
+	viper.SetDefault("republishing.batchSize", 10)
 
-	// Polling
-	viper.SetDefault("polling.openCbMessageInterval", "10ms")
-	viper.SetDefault("polling.republishingOrCheckingMessageInterval", "10ms")
+	// Caches
+	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
+	viper.SetDefault("hazelcast.caches.circuitBreakerCache", "circuit-breakers")
+	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-checks")
+	viper.SetDefault("hazelcast.caches.republishingCache", "republishing-cache")
+
+	// Hazelcast
+	viper.SetDefault("hazelcast.clusterName", "dev")
+	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
+	viper.SetDefault("hazelcast.customLoggerEnabled", false)
+
+	// Kafka
+	viper.SetDefault("kafka.brokers", "localhost:9092")
+	viper.SetDefault("kafka.topics", []string{"status"})
+
+	// Mongo
+	viper.SetDefault("mongo.url", "mongodb://localhost:27017")
+	viper.SetDefault("mongo.database", "horizon")
+	viper.SetDefault("mongo.collection", "status")
+	viper.SetDefault("mongo.bulkSize", 50)
 
 	// Security
+	viper.SetDefault("security.enabled", true)
 	viper.SetDefault("security.url", "iris")
 	viper.SetDefault("security.clientId", "clientId")
 	viper.SetDefault("security.clientSecret", "clientSecret")
@@ -63,25 +85,9 @@ func setDefaults() {
 	// Kubernetes
 	viper.SetDefault("kubernetes.namespace", "default")
 
-	// Hazelcast
-	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
-	viper.SetDefault("hazelcast.clusterName", "dev")
+	// Mocks
+	viper.SetDefault("mockCbSubscriptionId", " mockCbSubscriptionId")
 
-	// Caches
-	viper.SetDefault("hazelcast.caches.subscription-cache", "subscriptions.subscriber.horizon.telekom.de.v1")
-	viper.SetDefault("hazelcast.caches.circuit-breaker-cache", "circuit-breakers")
-	viper.SetDefault("hazelcast.caches.health-check-cache", "health-checks")
-	viper.SetDefault("hazelcast.caches.republishing-cache", "republishing-cache")
-
-	// Kafka
-	viper.SetDefault("kafka.brokers", "localhost:9092")
-	viper.SetDefault("kafka.topics", []string{"status"})
-
-	// Mongo
-	viper.SetDefault("mongo.url", "mongodb://localhost:27017")
-	viper.SetDefault("mongo.database", "horizon")
-	viper.SetDefault("mongo.collection", "status")
-	viper.SetDefault("mongo.bulkSize", 50)
 }
 
 func readConfiguration() *Configuration {

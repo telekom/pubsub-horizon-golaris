@@ -19,7 +19,7 @@ import (
 func RepublishPendingEvents(subscriptionId string) {
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
-	batchSize := int64(config.Current.RepublishingBatchSize)
+	batchSize := int64(config.Current.Republishing.BatchSize)
 	page := int64(0)
 
 	// Start a loop to paginate through the events

@@ -21,7 +21,7 @@ var scheduler *gocron.Scheduler
 func StartScheduler() {
 	scheduler = gocron.NewScheduler(time.UTC)
 
-	if _, err := scheduler.Every(config.Current.Polling.OpenCbMessageInterval).Do(func() {
+	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
 		CheckCircuitBreakersByStatus(enum.CircuitBreakerStatusOpen)
 	}); err != nil {
 		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakers: %v", err)
