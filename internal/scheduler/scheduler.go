@@ -30,6 +30,7 @@ func StartScheduler() {
 	scheduler.StartAsync()
 }
 
+// TODO why public?
 func CheckCircuitBreakersByStatus(status enum.CircuitBreakerStatus) {
 	statusQuery := predicate.Equal("status", string(status))
 	cbEntries, err := cache.CircuitBreakers.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
@@ -51,9 +52,11 @@ func CheckCircuitBreakersByStatus(status enum.CircuitBreakerStatus) {
 
 		// ToDo: Check whether the subscription has changed
 		go health_check.PerformHealthCheck(entry, subscription)
+
 	}
 }
 
+// TODO why public?
 func GetSubscriptionForCbMessage(subscriptionId string) *resource.SubscriptionResource {
 	subscription, err := cache.Subscriptions.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil {

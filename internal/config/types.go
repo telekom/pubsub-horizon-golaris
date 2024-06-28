@@ -44,9 +44,10 @@ type Kubernetes struct {
 }
 
 type Hazelcast struct {
-	ServiceDNS  string `mapstructure:"serviceDNS"`
-	ClusterName string `mapstructure:"clusterName"`
-	Caches      Caches `mapstructure:"caches"`
+	ServiceDNS          string `mapstructure:"serviceDNS"`
+	ClusterName         string `mapstructure:"clusterName"`
+	Caches              Caches `mapstructure:"caches"`
+	CustomLoggerEnabled bool   `mapstructure:"customLoggerEnabled"`
 }
 
 type Polling struct {

@@ -5,9 +5,11 @@
 package republish
 
 import (
+	"context"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/kafka"
 	"golaris/internal/mongo"
@@ -70,4 +72,58 @@ func RepublishPendingEvents(subscriptionId string) {
 		// Increment the page number for the next iteration
 		page++
 	}
+}
+
+// ForceDelete attempts to delete an entry from the RepublishingCache for a given subscriptionId.
+// The function first tries to retrieve the entry from the cache. If the entry does not exist, the function returns true.
+// If the entry exists, the function checks if it is locked. If it is locked, the function attempts to unlock it.
+// After ensuring the entry is not locked, the function attempts to delete the entry from the cache.
+// If any of the operations (getting, checking lock, unlocking, deleting) fail, the function logs the error and returns false.
+// If the entry is successfully deleted, the function logs a success message and returns true.
+//
+// Parameters:
+//   - subscriptionId: The ID of the subscription for which the cache entry should be deleted.
+//   - ctx: The context within which the function should operate. This is typically used for timeout and cancellation signals.
+//
+// Returns:
+//   - bool: Returns true if the operation is successful (either the entry did not exist or it was successfully deleted). Returns false if any operation fails.
+func ForceDelete(subscriptionId string, ctx context.Context) bool {
+	// Attempt to get the entry and check if it's locked
+	entry, err := cache.RepublishingCache.Get(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error getting entry from RepublishingCache for subscriptionId %s", subscriptionId)
+		return false
+	}
+
+	// If there is no entry, nothing to delete
+	if entry == nil {
+		log.Debug().Msgf("No RepublishingCache entry found for subscriptionId %s", subscriptionId)
+		return true
+	}
+
+	// Check if the entry is locked
+	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error checking if RepublishingCache entry is locked for subscriptionId %s", subscriptionId)
+		return false
+	}
+
+	// If locked, unlock it
+	if isLocked {
+		err = cache.RepublishingCache.ForceUnlock(ctx, subscriptionId)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error unlocking RepublishingCache entry for subscriptionId %s", subscriptionId)
+			return false
+		}
+	}
+
+	// Delete the entry
+	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry for subscriptionId %s", subscriptionId)
+		return false
+	}
+
+	log.Info().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", subscriptionId)
+	return true
 }
