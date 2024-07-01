@@ -51,13 +51,20 @@ func PerformHealthCheck(cbMessage message.CircuitBreakerMessage, subscription *r
 		log.Debug().Msgf("Successfully unlocked key %s", healthCheckKey)
 	}()
 
-	// ForceDelete eventual existing RepublishingCache entry for the subscriptionId
-	if republish.ForceDelete(cbMessage.SubscriptionId, ctx) == false {
-		return
+	// Attempt to get an republishingCache entry for the subscriptionId
+	entry, err := cache.RepublishingCache.Get(ctx, cbMessage.SubscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error getting entry from RepublishingCache for subscriptionId %s", cbMessage.SubscriptionId)
 	}
 
-	// Increase the republishing count for the subscription by 1
-	circuit_breaker.IncreaseRepublishingCount(cbMessage.SubscriptionId)
+	// If there is an entry, force delete and increase republishingCount
+	if entry != nil {
+		log.Info().Msgf("RepublishingCache entry found for subscriptionId %s", cbMessage.SubscriptionId)
+		// ForceDelete eventual existing RepublishingCache entry for the subscriptionId
+		republish.ForceDelete(cbMessage.SubscriptionId, ctx)
+		// Increase the republishing count for the subscription by 1
+		circuit_breaker.IncreaseRepublishingCount(cbMessage.SubscriptionId)
+	}
 
 	//Check if there is already a HealthCheck entry for the HealthCheckKey
 	if shouldSkipHealthCheck(ctx, healthCheckKey) {

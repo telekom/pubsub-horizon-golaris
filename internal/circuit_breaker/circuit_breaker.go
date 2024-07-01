@@ -10,7 +10,6 @@ import (
 	"golaris/internal/config"
 )
 
-// TODO lock/unlock the circuit breaker entry?
 // TODO set the status of the circuit breaker to closed instead of deleting the entry
 func CloseCircuitBreaker(subscriptionId string) {
 	if err := cache.CircuitBreakers.Delete(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
@@ -19,7 +18,6 @@ func CloseCircuitBreaker(subscriptionId string) {
 	}
 }
 
-// TODO lock/unlock the circuit breaker entry?
 // IncreaseRepublishingCount increments the republishing count for a given subscription.
 // The function first retrieves the CircuitBreaker message associated with the subscriptionId from the cache.
 // If the CircuitBreaker message is successfully retrieved, the republishing count of the message is incremented.
