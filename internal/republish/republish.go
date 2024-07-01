@@ -6,6 +6,8 @@ package republish
 
 import (
 	"context"
+	"encoding/gob"
+	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,6 +17,40 @@ import (
 	"golaris/internal/mongo"
 	"time"
 )
+
+func init() {
+	gob.Register(RepublishingCache{})
+}
+
+func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
+	ctx := cache.RepublishingCache.NewLockContext(context.Background())
+
+	subscriptionId := subscription.Spec.Subscription.SubscriptionId
+	republishingEntry, err := cache.RepublishingCache.Get(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error retrieving republishing cache entry for subscriptionId %s", subscriptionId)
+	}
+
+	if republishingEntry == nil {
+		log.Debug().Msgf("No republishing entry found for subscriptionId %s", subscriptionId)
+		return
+	}
+
+	// Attempt to acquire a lock for the health check key
+	if acquired, _ := cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
+		log.Debug().Msgf("Could not acquire lock for republishing entry with subscriptionId %s, skipping entry", subscriptionId)
+		return
+	}
+
+	RepublishPendingEvents(subscriptionId)
+
+	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error deleting republishing entry with subscriptionId %s", subscriptionId)
+		return
+	}
+	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
+}
 
 func RepublishPendingEvents(subscriptionId string) {
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)

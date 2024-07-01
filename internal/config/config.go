@@ -87,7 +87,7 @@ func setDefaults() {
 	viper.SetDefault("kubernetes.namespace", "default")
 
 	// Mocks
-	viper.SetDefault("mockCbSubscriptionId", " mockCbSubscriptionId")
+	viper.SetDefault("mockCbSubscriptionId", "mockCbSubscriptionId")
 
 }
 

@@ -5,14 +5,16 @@
 package scheduler
 
 import (
+	"context"
 	"eni.telekom.de/horizon2go/pkg/enum"
 	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/go-co-op/gocron"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
 	"golaris/internal/cache"
+	"golaris/internal/circuit_breaker"
 	"golaris/internal/config"
-	"golaris/internal/health_check"
+	"golaris/internal/republish"
 	"time"
 )
 
@@ -25,6 +27,12 @@ func StartScheduler() {
 		CheckCircuitBreakersByStatus(enum.CircuitBreakerStatusOpen)
 	}); err != nil {
 		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakers: %v", err)
+	}
+
+	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
+		CheckRepublishingEntries()
+	}); err != nil {
+		log.Error().Msgf("Error while scheduling for republishing entries: %v", err)
 	}
 
 	scheduler.StartAsync()
@@ -51,9 +59,34 @@ func CheckCircuitBreakersByStatus(status enum.CircuitBreakerStatus) {
 		}
 
 		// ToDo: Check whether the subscription has changed
-		go health_check.PerformHealthCheck(entry, subscription)
+		go circuit_breaker.HandleOpenCircuitBreaker(entry, subscription)
 
 	}
+}
+
+func CheckRepublishingEntries() {
+	republishingEntries, err := cache.RepublishingCache.GetEntrySet(context.Background())
+	if err != nil {
+		log.Debug().Msgf("Error while getting republishing entries: %v", err)
+		return
+	}
+
+	for _, entry := range republishingEntries {
+		subscriptionId := entry.Value.(republish.RepublishingCache).SubscriptionId
+		log.Info().Msgf("Checking republishing entry with id %s", subscriptionId)
+
+		subscription := GetSubscriptionForCbMessage(subscriptionId)
+		if subscription == nil {
+			log.Info().Msgf("Subscription with id %s for republishing entry does not exist.", subscriptionId)
+			return
+		}
+		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)
+
+		// ToDo: Check whether the subscription has changed
+		go republish.HandleRepublishingEntry(subscription)
+
+	}
+
 }
 
 // TODO why public?
