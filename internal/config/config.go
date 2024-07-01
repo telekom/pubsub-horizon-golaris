@@ -57,6 +57,7 @@ func setDefaults() {
 
 	// Hazelcast
 	viper.SetDefault("hazelcast.clusterName", "dev")
+	log.Info().Msgf("Hazelcast ServiceDNS: %s", viper.Get("hazelcast.serviceDNS"))
 	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
 	viper.SetDefault("hazelcast.customLoggerEnabled", false)
 
