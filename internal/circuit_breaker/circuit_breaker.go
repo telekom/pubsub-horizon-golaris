@@ -55,6 +55,9 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			log.Debug().Msgf("Error while checking consumer health for key %s", hcData.HealthCheckKey)
 			return
 		}
+	} else {
+		log.Debug().Msgf("HealthCheck for key %s is in cool down", hcData.HealthCheckKey)
+
 	}
 
 	// Create republishing cache entry if last health check was successful
