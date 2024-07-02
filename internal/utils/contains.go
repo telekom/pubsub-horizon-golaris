@@ -4,6 +4,7 @@
 
 package utils
 
+// Contains checks if a given value is present in a slice of integers.
 func Contains(slice []int, value int) bool {
 	for _, item := range slice {
 		if item == value {

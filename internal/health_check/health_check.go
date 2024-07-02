@@ -18,11 +18,13 @@ import (
 	"time"
 )
 
+// register the data type HealthCheck to gob for encoding and decoding of binary data
 func init() {
 	gob.Register(HealthCheck{})
 }
 
-func BuildHealthCheckData(subscription *resource.SubscriptionResource, httpMethod string) HealthCheck {
+// CreateHealthCheckEntry creates a new basic HealthCheck entry with the fields Environment, Method, and CallbackUrl.
+func CreateHealthCheckEntry(subscription *resource.SubscriptionResource, httpMethod string) HealthCheck {
 	return HealthCheck{
 		Environment: subscription.Spec.Environment,
 		Method:      httpMethod,
@@ -30,16 +32,18 @@ func BuildHealthCheckData(subscription *resource.SubscriptionResource, httpMetho
 	}
 }
 
-func UpdateHealthCheck(ctx context.Context, healthCheckKey string, healthCheckData HealthCheck, statusCode int) {
+// UpdateHealthCheckEntry updates a HealthCheck entry with the provided status code and the current time.
+func UpdateHealthCheckEntry(ctx context.Context, healthCheckKey string, healthCheckData HealthCheck, statusCode int) {
 	healthCheckData.LastedCheckedStatus = statusCode
 	healthCheckData.LastChecked = time.Now()
 
-	if err := cache.HealthChecks.Set(ctx, healthCheckKey, healthCheckData); err != nil {
+	if err := cache.HealthCheckCache.Set(ctx, healthCheckKey, healthCheckData); err != nil {
 		log.Error().Err(err).Msgf("Failed to update health check for key %s", healthCheckKey)
 	}
 }
 
-func InCoolDown(healthCheckData HealthCheck) bool {
+// IsHealthCheckInCoolDown compares the HealthCheck entry's LastChecked time with the configured cool down time.
+func IsHealthCheckInCoolDown(healthCheckData HealthCheck) bool {
 	lastCheckedTime := healthCheckData.LastChecked
 	duration := time.Since(lastCheckedTime)
 	if duration.Seconds() < config.Current.HealthCheck.CoolDownTime.Seconds() {
@@ -48,6 +52,8 @@ func InCoolDown(healthCheckData HealthCheck) bool {
 	return false
 }
 
+// CheckConsumerHealth retrieves the consumer token and calls the
+// executeHealthRequestWithToken function to perform the health check.
 func CheckConsumerHealth(healthCheckData HealthCheck, subscription *resource.SubscriptionResource) (*http.Response, error) {
 	log.Debug().Msg("Checking consumer health")
 

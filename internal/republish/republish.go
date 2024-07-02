@@ -18,10 +18,13 @@ import (
 	"time"
 )
 
+// register the data type RepublishingCache to gob for encoding and decoding of binary data
 func init() {
 	gob.Register(RepublishingCache{})
 }
 
+// HandleRepublishingEntry manages the republishing process for a given subscription.
+// The function takes a SubscriptionResource object as a parameter.
 func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())
 
@@ -36,14 +39,15 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
-	// Attempt to acquire a lock for the health check key
+	// Attempt to acquire a lock on the republishing entry
 	if acquired, _ := cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for republishing entry with subscriptionId %s, skipping entry", subscriptionId)
 		return
 	}
 
-	RepublishPendingEvents(subscriptionId)
+	RepublishWaitingEvents(subscriptionId)
 
+	// Delete the republishing entry after processing
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error deleting republishing entry with subscriptionId %s", subscriptionId)
@@ -52,8 +56,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
 }
 
-func RepublishPendingEvents(subscriptionId string) {
-	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
+// RepublishWaitingEvents handles the republishing of pending events for a given subscription.
+// The function fetches waiting events from the database and republishes them to Kafka.
+// The function takes a subscriptionId as a parameter.
+func RepublishWaitingEvents(subscriptionId string) {
+	log.Info().Msgf("Republishing waiting events for subscription %s", subscriptionId)
 
 	batchSize := int64(config.Current.Republishing.BatchSize)
 	page := int64(0)
@@ -69,7 +76,7 @@ func RepublishPendingEvents(subscriptionId string) {
 		//Get Waiting events from database pageable!
 		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), pageable, subscriptionId)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
+			log.Error().Err(err).Msgf("Error while fetching messages for subscriptionId %s from db", subscriptionId)
 		}
 
 		log.Info().Msgf("Found %d event states in MongoDb", len(dbMessages))
@@ -81,43 +88,39 @@ func RepublishPendingEvents(subscriptionId string) {
 
 		// Iterate over each message to republish
 		for _, dbMessage := range dbMessages {
-			log.Debug().Msgf("Republishing message for subscription %s: %v", subscriptionId, dbMessage)
+			log.Debug().Msgf("Republishing message for subscriptionId %s: %v", subscriptionId, dbMessage)
 
 			if dbMessage.Coordinates == nil {
-				log.Error().Msgf("Coordinates in message for subscription %s are nil: %v", subscriptionId, dbMessage)
+				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
 				continue
 			}
 
 			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
 			if err != nil {
-				log.Warn().Msgf("Error while fetching message from kafka for subscription %s", subscriptionId)
+				log.Warn().Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
 			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage)
 			if err != nil {
-				log.Warn().Msgf("Error while republishing message for subscription %s", subscriptionId)
+				log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
 			}
-			log.Debug().Msgf("Successfully republished message for subscription %s", subscriptionId)
+			log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
 		}
 
 		// If the number of fetched messages is less than the batch size, exit the loop
+		// as there are no more messages to fetch
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
 
-		// Increment the page number for the next iteration
 		page++
 	}
 }
 
 // ForceDelete attempts to forcefully delete a RepublishingCache entry for a given subscriptionId.
-// The function first checks if the cache entry is locked. If it is, it attempts to unlock it.
-// After ensuring the entry is not locked, it attempts to delete the cache entry.
-// If any of these operations (checking lock status, unlocking, deleting) fail, the function logs the error.
 // The function takes two parameters:
 // - subscriptionId: a string representing the subscriptionId of the cache entry to be deleted.
 // - ctx: a context.Context object for managing timeouts and cancellation signals.
-// This function does not return a value.
 func ForceDelete(subscriptionId string, ctx context.Context) {
 	// Check if the entry is locked
 	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)

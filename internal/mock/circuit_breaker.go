@@ -13,6 +13,7 @@ import (
 	"time"
 )
 
+// TODO remove after initial development is done
 func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBreakerMessage {
 	messages := make([]message.CircuitBreakerMessage, 0, numberMessages)
 
@@ -30,7 +31,7 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 			RepublishingCount: 0,
 		}
 
-		err := cache.CircuitBreakers.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, circuitBreakerMessage)
+		err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, circuitBreakerMessage)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not create mocked circuit breaker messages")
 		}

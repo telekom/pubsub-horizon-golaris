@@ -52,7 +52,7 @@ func setDefaults() {
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
 	viper.SetDefault("hazelcast.caches.circuitBreakerCache", "circuit-breakers")
-	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-checks")
+	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-check-cache")
 	viper.SetDefault("hazelcast.caches.republishingCache", "republishing-cache")
 
 	// Hazelcast

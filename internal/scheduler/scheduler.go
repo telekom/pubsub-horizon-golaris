@@ -29,7 +29,7 @@ func StartScheduler() {
 	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
 		checkOpenCircuitBreakers()
 	}); err != nil {
-		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakers: %v", err)
+		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
 	}
 
 	// Schedule the task for checking republishing entries
@@ -49,7 +49,7 @@ func StartScheduler() {
 func checkOpenCircuitBreakers() {
 	// Get all CircuitBreaker entries with status OPEN
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
-	cbEntries, err := cache.CircuitBreakers.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
+	cbEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
 	if err != nil {
 		log.Debug().Msgf("Error while getting CircuitBreaker messages: %v", err)
 		return
@@ -100,7 +100,7 @@ func checkRepublishingEntries() {
 }
 
 func getSubscription(subscriptionId string) *resource.SubscriptionResource {
-	subscription, err := cache.Subscriptions.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil {
 		return nil
 	}

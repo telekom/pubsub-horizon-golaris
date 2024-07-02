@@ -16,9 +16,9 @@ import (
 	"golaris/internal/config"
 )
 
-var Subscriptions *c.Cache[resource.SubscriptionResource]
-var CircuitBreakers *c.Cache[message.CircuitBreakerMessage]
-var HealthChecks *hazelcast.Map
+var SubscriptionCache *c.Cache[resource.SubscriptionResource]
+var CircuitBreakerCache *c.Cache[message.CircuitBreakerMessage]
+var HealthCheckCache *hazelcast.Map
 var RepublishingCache *hazelcast.Map
 
 func Initialize() {
@@ -42,15 +42,18 @@ func createNewHazelcastConfig() hazelcast.Config {
 	return cacheConfig
 }
 
+// initializeCaches sets up the Hazelcast caches used in the application.
+// It takes a Hazelcast configuration object as a parameter.
+// The function initializes the SubscriptionCache, CircuitBreakerCache, HealthCheckCache, and RepublishingCache.
 func initializeCaches(config hazelcast.Config) error {
 	var err error
 
-	Subscriptions, err = c.NewCache[resource.SubscriptionResource](config)
+	SubscriptionCache, err = c.NewCache[resource.SubscriptionResource](config)
 	if err != nil {
 		return fmt.Errorf("error initializing Hazelcast subscription health cache: %v", err)
 	}
 
-	CircuitBreakers, err = c.NewCache[message.CircuitBreakerMessage](config)
+	CircuitBreakerCache, err = c.NewCache[message.CircuitBreakerMessage](config)
 	if err != nil {
 		return fmt.Errorf("error initializing CircuitBreakerCache: %v", err)
 	}
@@ -58,8 +61,8 @@ func initializeCaches(config hazelcast.Config) error {
 	// TODO:
 	// We should initialize the healthcheck cache similar to the other caches
 	// For this we need to update the parent, as the interface currently does not support locking operations
-	//HealthChecks, err = c.NewCache[health_check.HealthCheck](config)
-	HealthChecks, err = newHealthCheckCache(config)
+	//HealthCheckCache, err = c.NewCache[health_check.HealthCheck](config)
+	HealthCheckCache, err = newHealthCheckCache(config)
 	if err != nil {
 		return fmt.Errorf("error initializing HealthCheckCache: %v", err)
 	}
