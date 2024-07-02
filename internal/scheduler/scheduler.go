@@ -20,82 +20,89 @@ import (
 
 var scheduler *gocron.Scheduler
 
+// StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
+// for checking open circuit breakers and republishing entries based on the configured intervals.
 func StartScheduler() {
 	scheduler = gocron.NewScheduler(time.UTC)
 
+	// Schedule the task for checking open circuit breakers
 	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
-		CheckCircuitBreakersByStatus(enum.CircuitBreakerStatusOpen)
+		checkOpenCircuitBreakers()
 	}); err != nil {
 		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakers: %v", err)
 	}
 
+	// Schedule the task for checking republishing entries
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
-		CheckRepublishingEntries()
+		checkRepublishingEntries()
 	}); err != nil {
 		log.Error().Msgf("Error while scheduling for republishing entries: %v", err)
 	}
 
+	// Start the scheduler asynchronously
 	scheduler.StartAsync()
 }
 
-// TODO why public?
-func CheckCircuitBreakersByStatus(status enum.CircuitBreakerStatus) {
-	statusQuery := predicate.Equal("status", string(status))
+// checkOpenCircuitBreakers queries the circuit breaker cache for entries with the specified status
+// and processes each entry asynchronously. It checks if the corresponding subscription exists
+// and handles the open circuit breaker entry if the subscription is found.
+func checkOpenCircuitBreakers() {
+	// Get all CircuitBreaker entries with status OPEN
+	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	cbEntries, err := cache.CircuitBreakers.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
 	if err != nil {
 		log.Debug().Msgf("Error while getting CircuitBreaker messages: %v", err)
 		return
 	}
 
+	// Iterate over all circuit breaker entries and handle them
 	for _, entry := range cbEntries {
 		log.Info().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
-		subscription := GetSubscriptionForCbMessage(entry.SubscriptionId)
+		// ToDo: Check whether the subscription has changed or was deleted and handle it
+		subscription := getSubscription(entry.SubscriptionId)
 		if subscription == nil {
-			log.Info().Msgf("Subscripton with id: %s does not exist. Delete cbMessage", entry.SubscriptionId)
+			log.Info().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
 			return
 		} else {
-			log.Debug().Msgf("Subscription with id %s found: %v", entry.SubscriptionId, subscription)
+			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
 		}
-
-		// ToDo: Check whether the subscription has changed
+		// Handle each circuit breaker entry asynchronously
 		go circuit_breaker.HandleOpenCircuitBreaker(entry, subscription)
-
 	}
 }
 
-func CheckRepublishingEntries() {
+// checkRepublishingEntries queries the republishing cache for entries and processes each entry asynchronously.
+// It checks if the corresponding subscription exists and handles the republishing entry if the subscription is found.
+func checkRepublishingEntries() {
+	// Get all republishing entries
 	republishingEntries, err := cache.RepublishingCache.GetEntrySet(context.Background())
 	if err != nil {
 		log.Debug().Msgf("Error while getting republishing entries: %v", err)
 		return
 	}
 
+	// Iterate over all republishing entries and handle them
 	for _, entry := range republishingEntries {
 		subscriptionId := entry.Value.(republish.RepublishingCache).SubscriptionId
-		log.Info().Msgf("Checking republishing entry with id %s", subscriptionId)
+		log.Info().Msgf("Checking republishing entry for subscriptionId %s", subscriptionId)
 
-		subscription := GetSubscriptionForCbMessage(subscriptionId)
+		// ToDo: Check whether the subscription has changed or was deleted and handle it
+		subscription := getSubscription(subscriptionId)
 		if subscription == nil {
-			log.Info().Msgf("Subscription with id %s for republishing entry does not exist.", subscriptionId)
+			log.Info().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
 			return
 		}
 		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)
-
-		// ToDo: Check whether the subscription has changed
+		// Handle each republishing entry asynchronously
 		go republish.HandleRepublishingEntry(subscription)
-
 	}
-
 }
 
-// TODO why public?
-func GetSubscriptionForCbMessage(subscriptionId string) *resource.SubscriptionResource {
+func getSubscription(subscriptionId string) *resource.SubscriptionResource {
 	subscription, err := cache.Subscriptions.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Could not read subscription with id %s", subscriptionId)
 		return nil
 	}
-
 	return subscription
 }
