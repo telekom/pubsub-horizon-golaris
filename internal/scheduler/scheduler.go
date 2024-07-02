@@ -57,12 +57,12 @@ func checkOpenCircuitBreakers() {
 
 	// Iterate over all circuit breaker entries and handle them
 	for _, entry := range cbEntries {
-		log.Info().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
+		log.Debug().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
 		// ToDo: Check whether the subscription has changed or was deleted and handle it
 		subscription := getSubscription(entry.SubscriptionId)
 		if subscription == nil {
-			log.Info().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
+			log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
 			return
 		} else {
 			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
@@ -85,12 +85,12 @@ func checkRepublishingEntries() {
 	// Iterate over all republishing entries and handle them
 	for _, entry := range republishingEntries {
 		subscriptionId := entry.Value.(republish.RepublishingCache).SubscriptionId
-		log.Info().Msgf("Checking republishing entry for subscriptionId %s", subscriptionId)
+		log.Debug().Msgf("Checking republishing entry for subscriptionId %s", subscriptionId)
 
 		// ToDo: Check whether the subscription has changed or was deleted and handle it
 		subscription := getSubscription(subscriptionId)
 		if subscription == nil {
-			log.Info().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
+			log.Debug().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
 			return
 		}
 		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)

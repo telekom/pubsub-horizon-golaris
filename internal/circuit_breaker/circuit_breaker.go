@@ -28,17 +28,17 @@ import (
 func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
 	hcData := prepareHealthCheck(subscription)
 
-	if hcData.isAcquired == false {
-		log.Debug().Msgf("Could not acquire lock for health check key %s, skipping entry", hcData.healthCheckKey)
+	if hcData.IsAcquired == false {
+		log.Debug().Msgf("Could not acquire lock for health check key %s, skipping entry", hcData.HealthCheckKey)
 		return
 	}
 
 	// Ensure that the lock is released when the function is ended
 	defer func() {
-		if err := cache.HealthCheckCache.Unlock(hcData.ctx, hcData.healthCheckKey); err != nil {
-			log.Error().Err(err).Msgf("Error unlocking key %s", hcData.healthCheckKey)
+		if err := cache.HealthCheckCache.Unlock(hcData.Ctx, hcData.HealthCheckKey); err != nil {
+			log.Error().Err(err).Msgf("Error unlocking key %s", hcData.HealthCheckKey)
 		}
-		log.Debug().Msgf("Successfully unlocked key %s", hcData.healthCheckKey)
+		log.Debug().Msgf("Successfully unlocked key %s", hcData.HealthCheckKey)
 	}()
 
 	cbMessage, err := deleteRepubEntryAndIncreaseRepubCount(cbMessage, hcData)
@@ -48,23 +48,19 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	}
 
 	// Check if circuit breaker is in cool down
-	healthStatusCode := hcData.healthCheckEntry.LastedCheckedStatus
-	// Check if the health check has to be performed again or if the old result can be reused
-	if health_check.IsHealthCheckInCoolDown(hcData.healthCheckEntry) == false {
+	if health_check.IsHealthCheckInCoolDown(hcData.HealthCheckEntry) == false {
 		// Perform health check and update health check data
-		resp, err := health_check.CheckConsumerHealth(hcData.healthCheckEntry, subscription)
+		err := health_check.CheckConsumerHealth(hcData, subscription)
 		if err != nil {
-			log.Debug().Msgf("Error while checking consumer health for key %s", hcData.healthCheckKey)
+			log.Debug().Msgf("Error while checking consumer health for key %s", hcData.HealthCheckKey)
 			return
 		}
-		health_check.UpdateHealthCheckEntry(hcData.ctx, hcData.healthCheckKey, hcData.healthCheckEntry, resp.StatusCode)
-		healthStatusCode = resp.StatusCode
 	}
 
 	// Create republishing cache entry if last health check was successful
-	if utils.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, healthStatusCode) {
+	if utils.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
 		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Time{}}
-		err := cache.RepublishingCache.Set(hcData.ctx, cbMessage.SubscriptionId, republishingCacheEntry)
+		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
 			log.Error().Msgf("Error while creating republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 			return
@@ -73,13 +69,14 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 	closeCircuitBreaker(cbMessage)
 
-	log.Info().Msgf("Successfully proccessed open circuit breaker entry for subscriptionId %s", cbMessage.SubscriptionId)
+	log.Debug().Msgf("Successfully processed open circuit breaker entry for subscriptionId %s", cbMessage.SubscriptionId)
 	return
 }
 
-func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessage, hcData *PreparedHealthCheckData) (message.CircuitBreakerMessage, error) {
+// deleteRepubEntryAndIncreaseRepubCount deletes a republishing cache entry and increases the republishing count for a given subscription.
+func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessage, hcData *health_check.PreparedHealthCheckData) (message.CircuitBreakerMessage, error) {
 	// Attempt to get an republishingCache entry for the subscriptionId
-	republishingEntry, err := cache.RepublishingCache.Get(hcData.ctx, cbMessage.SubscriptionId)
+	republishingEntry, err := cache.RepublishingCache.Get(hcData.Ctx, cbMessage.SubscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error getting entry from RepublishingCache for subscriptionId %s", cbMessage.SubscriptionId)
 	}
@@ -88,7 +85,7 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 	if republishingEntry != nil {
 		log.Debug().Msgf("RepublishingCache entry found for subscriptionId %s", cbMessage.SubscriptionId)
 		// ForceDelete eventual existing RepublishingCache entry for the subscriptionId
-		republish.ForceDelete(cbMessage.SubscriptionId, hcData.ctx)
+		republish.ForceDelete(cbMessage.SubscriptionId, hcData.Ctx)
 		// Increase the republishing count for the subscription by 1
 		updatedCbMessage, err := IncreaseRepublishingCount(cbMessage.SubscriptionId)
 		if err != nil {
@@ -100,18 +97,22 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 	return cbMessage, nil
 }
 
-func prepareHealthCheck(subscription *resource.SubscriptionResource) *PreparedHealthCheckData {
+// prepareHealthCheck tries to get an entry from the HealthCheckCache. If no entry exists it creates a new one. The entry then gets locked.
+// It returns a PreparedHealthCheckData struct containing the context, health check key, health check entry, and a boolean indicating if the lock was acquired.
+func prepareHealthCheck(subscription *resource.SubscriptionResource) *health_check.PreparedHealthCheckData {
 	httpMethod := getHttpMethod(subscription)
 
 	healthCheckKey := fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, httpMethod, subscription.Spec.Subscription.Callback)
 
 	ctx := cache.HealthCheckCache.NewLockContext(context.Background())
 
+	// Get the health check entry for the healthCacheKey
 	healthCheckEntry, err := cache.HealthCheckCache.Get(ctx, healthCheckKey)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error retrieving health check entry for key %s", healthCheckKey)
 	}
 
+	// If no entry exists, create a new one
 	if healthCheckEntry == nil {
 		healthCheckEntry = health_check.CreateHealthCheckEntry(subscription, httpMethod)
 		log.Debug().Msgf("Creating new health check entry for key %s", healthCheckKey)
@@ -121,7 +122,7 @@ func prepareHealthCheck(subscription *resource.SubscriptionResource) *PreparedHe
 	isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
 
 	castedHealthCheckEntry := healthCheckEntry.(health_check.HealthCheck)
-	return &PreparedHealthCheckData{ctx: ctx, healthCheckKey: healthCheckKey, healthCheckEntry: castedHealthCheckEntry, isAcquired: isAcquired}
+	return &health_check.PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}
 }
 
 // getHttpMethod specifies the HTTP method based on the subscription configuration

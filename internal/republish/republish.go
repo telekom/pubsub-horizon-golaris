@@ -60,7 +60,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // The function fetches waiting events from the database and republishes them to Kafka.
 // The function takes a subscriptionId as a parameter.
 func RepublishWaitingEvents(subscriptionId string) {
-	log.Info().Msgf("Republishing waiting events for subscription %s", subscriptionId)
+	log.Debug().Msgf("Republishing waiting events for subscription %s", subscriptionId)
 
 	batchSize := int64(config.Current.Republishing.BatchSize)
 	page := int64(0)
@@ -79,7 +79,7 @@ func RepublishWaitingEvents(subscriptionId string) {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscriptionId %s from db", subscriptionId)
 		}
 
-		log.Info().Msgf("Found %d event states in MongoDb", len(dbMessages))
+		log.Debug().Msgf("Found %d messages in MongoDb", len(dbMessages))
 		log.Debug().Msgf("dbMessages: %v", dbMessages)
 
 		if len(dbMessages) == 0 {

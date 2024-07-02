@@ -32,7 +32,7 @@ func RetrieveToken(url string, clientId string, clientSecret string) (string, er
 	}
 	defer response.Body.Close()
 
-	log.Info().Msgf("StatusCode is: %d", response.StatusCode)
+	log.Debug().Msgf("StatusCode is: %d", response.StatusCode)
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d", response.StatusCode)
 	}
