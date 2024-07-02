@@ -26,6 +26,7 @@ func init() {
 // HandleRepublishingEntry manages the republishing process for a given subscription.
 // The function takes a SubscriptionResource object as a parameter.
 func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
+	var acquired = false
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())
 
 	subscriptionId := subscription.Spec.Subscription.SubscriptionId
@@ -40,17 +41,19 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	}
 
 	// Attempt to acquire a lock on the republishing entry
-	if acquired, _ := cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
+	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for republishing entry with subscriptionId %s, skipping entry", subscriptionId)
 		return
 	}
 
-	// Ensure that the lock is released when the function is ended
+	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
-		if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
-			log.Error().Err(err).Msgf("Error unlocking RepublishingCache entry with subscriptionId %s", subscriptionId)
+		if acquired == true {
+			if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
+				log.Error().Err(err).Msgf("Error unlocking RepublishingCache entry with subscriptionId %s", subscriptionId)
+			}
+			log.Debug().Msgf("Successfully unlocked RepublishingCache entry with subscriptionId %s", subscriptionId)
 		}
-		log.Debug().Msgf("Successfully unlocked RepublishingCache entry with subscriptionId %s", subscriptionId)
 	}()
 
 	RepublishWaitingEvents(subscriptionId)
