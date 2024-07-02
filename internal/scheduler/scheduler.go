@@ -29,14 +29,14 @@ func StartScheduler() {
 	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
 		checkOpenCircuitBreakers()
 	}); err != nil {
-		log.Error().Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
+		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
 	}
 
 	// Schedule the task for checking republishing entries
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
 		checkRepublishingEntries()
 	}); err != nil {
-		log.Error().Msgf("Error while scheduling for republishing entries: %v", err)
+		log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
 	}
 
 	// Start the scheduler asynchronously

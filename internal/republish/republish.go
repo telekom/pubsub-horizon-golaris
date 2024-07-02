@@ -62,13 +62,6 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
-	// Unlock the republishing entry after processing
-	err = cache.RepublishingCache.Unlock(ctx, subscriptionId)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error unlocking republishing entry with subscriptionId %s", subscriptionId)
-		return
-	}
-
 	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
 }
 
