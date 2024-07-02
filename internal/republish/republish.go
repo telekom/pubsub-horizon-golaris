@@ -45,6 +45,14 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
+	// Ensure that the lock is released when the function is ended
+	defer func() {
+		if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
+			log.Error().Err(err).Msgf("Error unlocking RepublishingCache entry with subscriptionId %s", subscriptionId)
+		}
+		log.Debug().Msgf("Successfully unlocked RepublishingCache entry with subscriptionId %s", subscriptionId)
+	}()
+
 	RepublishWaitingEvents(subscriptionId)
 
 	// Delete the republishing entry after processing
@@ -53,6 +61,14 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		log.Error().Err(err).Msgf("Error deleting republishing entry with subscriptionId %s", subscriptionId)
 		return
 	}
+
+	// Unlock the republishing entry after processing
+	err = cache.RepublishingCache.Unlock(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error unlocking republishing entry with subscriptionId %s", subscriptionId)
+		return
+	}
+
 	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
 }
 
