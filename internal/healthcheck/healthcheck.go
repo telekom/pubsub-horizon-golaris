@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package health_check
+package healthcheck
 
 import (
 	"context"
@@ -23,8 +23,8 @@ func init() {
 	gob.Register(HealthCheck{})
 }
 
-// CreateHealthCheckEntry creates a new basic HealthCheck entry with the fields Environment, Method, and CallbackUrl.
-func CreateHealthCheckEntry(subscription *resource.SubscriptionResource, httpMethod string) HealthCheck {
+// NewHealthCheckEntry creates a new basic HealthCheck entry with the fields Environment, Method, and CallbackUrl.
+func NewHealthCheckEntry(subscription *resource.SubscriptionResource, httpMethod string) HealthCheck {
 	return HealthCheck{
 		Environment: subscription.Spec.Environment,
 		Method:      httpMethod,
@@ -84,7 +84,10 @@ func CheckConsumerHealth(hcData *PreparedHealthCheckData, subscription *resource
 func executeHealthRequestWithToken(callbackUrl string, httpMethod string, subscription *resource.SubscriptionResource, token string) (*http.Response, error) {
 	log.Debug().Msgf("Performing health request for calllback-url %s with http-method %s", callbackUrl, httpMethod)
 
-	request, err := http.NewRequest(httpMethod, callbackUrl, nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(ctx, httpMethod, callbackUrl, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create request for URL %s: %v", callbackUrl, err)
 	}
@@ -97,6 +100,7 @@ func executeHealthRequestWithToken(callbackUrl string, httpMethod string, subscr
 	if err != nil {
 		return nil, fmt.Errorf("Failed to perform %s request to %s: %v", httpMethod, callbackUrl, err)
 	}
+	defer response.Body.Close()
 
 	return response, nil
 }

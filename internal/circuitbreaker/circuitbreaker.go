@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package circuit_breaker
+package circuitbreaker
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"golaris/internal/cache"
 	"golaris/internal/config"
-	"golaris/internal/health_check"
+	"golaris/internal/healthcheck"
 	"golaris/internal/republish"
 	"golaris/internal/utils"
 	"time"
@@ -50,9 +50,9 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	}
 
 	// Check if circuit breaker is in cool down
-	if health_check.IsHealthCheckInCoolDown(hcData.HealthCheckEntry) == false {
+	if healthcheck.IsHealthCheckInCoolDown(hcData.HealthCheckEntry) == false {
 		// Perform health check and update health check data
-		err := health_check.CheckConsumerHealth(hcData, subscription)
+		err := healthcheck.CheckConsumerHealth(hcData, subscription)
 		if err != nil {
 			log.Debug().Msgf("Error while checking consumer health for key %s", hcData.HealthCheckKey)
 			return
@@ -69,16 +69,15 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			log.Error().Err(err).Msgf("Error while creating republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 			return
 		}
+		closeCircuitBreaker(cbMessage)
 	}
-
-	closeCircuitBreaker(cbMessage)
 
 	log.Debug().Msgf("Successfully processed open circuit breaker entry for subscriptionId %s", cbMessage.SubscriptionId)
 	return
 }
 
 // deleteRepubEntryAndIncreaseRepubCount deletes a republishing cache entry and increases the republishing count for a given subscription.
-func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessage, hcData *health_check.PreparedHealthCheckData) (message.CircuitBreakerMessage, error) {
+func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessage, hcData *healthcheck.PreparedHealthCheckData) (message.CircuitBreakerMessage, error) {
 	// Attempt to get an republishingCache entry for the subscriptionId
 	republishingEntry, err := cache.RepublishingCache.Get(hcData.Ctx, cbMessage.SubscriptionId)
 	if err != nil {
@@ -103,7 +102,7 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 
 // prepareHealthCheck tries to get an entry from the HealthCheckCache. If no entry exists it creates a new one. The entry then gets locked.
 // It returns a PreparedHealthCheckData struct containing the context, health check key, health check entry, and a boolean indicating if the lock was acquired.
-func prepareHealthCheck(subscription *resource.SubscriptionResource) *health_check.PreparedHealthCheckData {
+func prepareHealthCheck(subscription *resource.SubscriptionResource) *healthcheck.PreparedHealthCheckData {
 	httpMethod := getHttpMethod(subscription)
 
 	healthCheckKey := fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, httpMethod, subscription.Spec.Subscription.Callback)
@@ -118,15 +117,15 @@ func prepareHealthCheck(subscription *resource.SubscriptionResource) *health_che
 
 	// If no entry exists, create a new one
 	if healthCheckEntry == nil {
-		healthCheckEntry = health_check.CreateHealthCheckEntry(subscription, httpMethod)
+		healthCheckEntry = healthcheck.NewHealthCheckEntry(subscription, httpMethod)
 		log.Debug().Msgf("Creating new health check entry for key %s", healthCheckKey)
 	}
 
 	// Attempt to acquire a lock for the health check key
 	isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
 
-	castedHealthCheckEntry := healthCheckEntry.(health_check.HealthCheck)
-	return &health_check.PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}
+	castedHealthCheckEntry := healthCheckEntry.(healthcheck.HealthCheck)
+	return &healthcheck.PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}
 }
 
 // getHttpMethod specifies the HTTP method based on the subscription configuration

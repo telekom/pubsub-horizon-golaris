@@ -42,7 +42,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 
 	// Attempt to acquire a lock on the republishing entry
 	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
-		log.Debug().Msgf("Could not acquire lock for republishing entry with subscriptionId %s, skipping entry", subscriptionId)
+		log.Debug().Msgf("Could not acquire lock for republishing entry with subscriptionId %s in time, skipping entry", subscriptionId)
 		return
 	}
 
@@ -74,19 +74,19 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 func RepublishWaitingEvents(subscriptionId string) {
 	log.Debug().Msgf("Republishing waiting events for subscription %s", subscriptionId)
 
-	batchSize := int64(config.Current.Republishing.BatchSize)
+	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
 	// Start a loop to paginate through the events
 	for {
-		pageable := options.Find().
+		opts := options.Find().
 			SetLimit(batchSize).
 			// Skip the number of events already processed
 			SetSkip(page * batchSize).
 			SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 		//Get Waiting events from database pageable!
-		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), pageable, subscriptionId)
+		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscriptionId %s from db", subscriptionId)
 		}
@@ -124,7 +124,6 @@ func RepublishWaitingEvents(subscriptionId string) {
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
-
 		page++
 	}
 }

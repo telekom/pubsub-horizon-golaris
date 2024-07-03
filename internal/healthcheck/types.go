@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package health_check
+package healthcheck
 
 import (
 	"context"
@@ -19,8 +19,8 @@ type HealthCheck struct {
 }
 
 type PreparedHealthCheckData struct {
-	Ctx              context.Context `mapstructure:"ctx"`
-	HealthCheckKey   string          `mapstructure:"healthCheckKey"`
-	HealthCheckEntry HealthCheck     `mapstructure:"healthCheckEntry"`
-	IsAcquired       bool            `mapstructure:"isAcquired"`
+	Ctx              context.Context `json:"ctx"`
+	HealthCheckKey   string          `json:"healthCheckKey"`
+	HealthCheckEntry HealthCheck     `json:"healthCheckEntry"`
+	IsAcquired       bool            `json:"isAcquired"`
 }

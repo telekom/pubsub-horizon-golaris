@@ -12,7 +12,7 @@ import (
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
 	"golaris/internal/cache"
-	"golaris/internal/circuit_breaker"
+	"golaris/internal/circuitbreaker"
 	"golaris/internal/config"
 	"golaris/internal/republish"
 	"time"
@@ -68,7 +68,7 @@ func checkOpenCircuitBreakers() {
 			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
 		}
 		// Handle each circuit breaker entry asynchronously
-		go circuit_breaker.HandleOpenCircuitBreaker(entry, subscription)
+		go circuitbreaker.HandleOpenCircuitBreaker(entry, subscription)
 	}
 }
 

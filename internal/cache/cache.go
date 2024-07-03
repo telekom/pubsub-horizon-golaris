@@ -61,7 +61,7 @@ func initializeCaches(config hazelcast.Config) error {
 	// TODO:
 	// We should initialize the healthcheck cache similar to the other caches
 	// For this we need to update the parent, as the interface currently does not support locking operations
-	//HealthCheckCache, err = c.NewCache[health_check.HealthCheck](config)
+	//HealthCheckCache, err = c.NewCache[healthcheck.HealthCheck](config)
 	HealthCheckCache, err = newHealthCheckCache(config)
 	if err != nil {
 		return fmt.Errorf("error initializing HealthCheckCache: %v", err)
