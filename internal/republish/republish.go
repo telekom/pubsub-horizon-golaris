@@ -7,8 +7,8 @@ package republish
 import (
 	"context"
 	"encoding/gob"
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golaris/internal/cache"
@@ -55,19 +55,19 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 func RepublishPendingEvents(subscriptionId string) {
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
-	batchSize := int64(config.Current.Republishing.BatchSize)
+	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
 	// Start a loop to paginate through the events
 	for {
-		pageable := options.Find().
+		opts := options.Find().
 			SetLimit(batchSize).
 			// Skip the number of events already processed
 			SetSkip(page * batchSize).
 			SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 		//Get Waiting events from database pageable!
-		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), pageable, subscriptionId)
+		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
 		}
