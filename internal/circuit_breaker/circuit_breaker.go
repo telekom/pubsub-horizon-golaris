@@ -6,10 +6,10 @@ package circuit_breaker
 
 import (
 	"context"
-	"eni.telekom.de/horizon2go/pkg/message"
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/health_check"
