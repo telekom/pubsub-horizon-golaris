@@ -6,11 +6,11 @@ package scheduler
 
 import (
 	"context"
-	"eni.telekom.de/horizon2go/pkg/enum"
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/go-co-op/gocron"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/cache"
 	"golaris/internal/circuit_breaker"
 	"golaris/internal/config"
@@ -59,14 +59,55 @@ func checkOpenCircuitBreakers() {
 	for _, entry := range cbEntries {
 		log.Info().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
-		// ToDo: Check whether the subscription has changed or was deleted and handle it
 		subscription := getSubscription(entry.SubscriptionId)
 		if subscription == nil {
-			log.Info().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
+			log.Info().Msgf("Subscription with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
 			return
-		} else {
-			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
 		}
+
+		if subscription.Spec.Subscription.CircuitBreakerOptOut {
+			// Context? Actually we need right ctx here or?
+			optionalEntry, err := cache.RepublishingCache.Get(context.Background(), entry.SubscriptionId)
+			if optionalEntry != nil {
+				// What can we do if the RepublishingCache entry is locked? Maybe lock and close CircuitBreaker?
+				republish.ForceDelete(entry.SubscriptionId, context.Background())
+			}
+
+			// Create an unlocked RepublishingCache entry. The scheduler will then pick it up and republish it
+			err = cache.RepublishingCache.Set(context.Background(), entry.SubscriptionId, republish.RepublishingCache{
+				SubscriptionId: entry.SubscriptionId,
+			})
+			if err != nil {
+				return
+			}
+
+			circuit_breaker.CloseCircuitBreaker(entry)
+			return
+		}
+
+		if subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
+			log.Info().Msgf("Subscription with id %s has delivery type %s and is not supported by circuit breaker.", entry.SubscriptionId, subscription.Spec.Subscription.DeliveryType)
+
+			optionalEntry, err := cache.RepublishingCache.Get(context.Background(), entry.SubscriptionId)
+			if optionalEntry != nil {
+				// What can we do if the RepublishingCache entry is locked? Maybe lock and close CircuitBreaker?
+				republish.ForceDelete(entry.SubscriptionId, context.Background())
+			}
+
+			err = cache.RepublishingCache.Set(context.Background(), entry.SubscriptionId, republish.RepublishingCache{
+				SubscriptionId: entry.SubscriptionId,
+			})
+			if err != nil {
+				return
+			}
+
+			// Remove HealthCheckData?
+
+			circuit_breaker.CloseCircuitBreaker(entry)
+
+			return
+		}
+
 		// Handle each circuit breaker entry asynchronously
 		go circuit_breaker.HandleOpenCircuitBreaker(entry, subscription)
 	}
@@ -93,6 +134,7 @@ func checkRepublishingEntries() {
 			log.Info().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
 			return
 		}
+
 		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)
 		// Handle each republishing entry asynchronously
 		go republish.HandleRepublishingEntry(subscription)
