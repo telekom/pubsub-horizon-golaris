@@ -45,8 +45,10 @@ func updateHealthCheckEntry(ctx context.Context, healthCheckKey string, healthCh
 // IsHealthCheckInCoolDown compares the HealthCheck entry's LastChecked time with the configured cool down time.
 func IsHealthCheckInCoolDown(healthCheckData HealthCheck) bool {
 	lastCheckedTime := healthCheckData.LastChecked
-	duration := time.Since(lastCheckedTime)
-	if duration.Seconds() < config.Current.HealthCheck.CoolDownTime.Seconds() {
+	if lastCheckedTime.IsZero() {
+		return false
+	}
+	if time.Since(lastCheckedTime).Seconds() < config.Current.HealthCheck.CoolDownTime.Seconds() {
 		return true
 	}
 	return false
