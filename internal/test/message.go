@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-package mock
+package test
 
 import (
 	"eni.telekom.de/horizon2go/pkg/enum"

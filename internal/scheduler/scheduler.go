@@ -48,7 +48,7 @@ func StartScheduler() {
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
 	// Get all CircuitBreaker entries with status OPEN
-	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
+	statusQuery := predicate.Equal("status", enum.CircuitBreakerStatusOpen)
 	cbEntries, err := cache.CircuitBreakers.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
 	if err != nil {
 		log.Debug().Msgf("Error while getting CircuitBreaker messages: %v", err)

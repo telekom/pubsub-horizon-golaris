@@ -12,12 +12,27 @@ import (
 	"eni.telekom.de/horizon2go/pkg/util"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
 	"golaris/internal/config"
 )
 
-var Subscriptions *c.Cache[resource.SubscriptionResource]
-var CircuitBreakers *c.Cache[message.CircuitBreakerMessage]
+type SubscriptionCache interface {
+	Get(cacheName string, key string) (*resource.SubscriptionResource, error)
+	Put(cacheName string, key string, value resource.SubscriptionResource) error
+	Delete(cacheName string, key string) error
+	GetQuery(cacheName string, query predicate.Predicate) ([]resource.SubscriptionResource, error)
+}
+
+type CircuitBreakerCache interface {
+	Get(cacheName string, key string) (*message.CircuitBreakerMessage, error)
+	Put(cacheName string, key string, value message.CircuitBreakerMessage) error
+	Delete(cacheName string, key string) error
+	GetQuery(cacheName string, query predicate.Predicate) ([]message.CircuitBreakerMessage, error)
+}
+
+var Subscriptions SubscriptionCache
+var CircuitBreakers CircuitBreakerCache
 var HealthChecks *hazelcast.Map
 var RepublishingCache *hazelcast.Map
 
