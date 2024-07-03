@@ -1,10 +1,10 @@
 package health_check
 
 import (
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/auth"
 	"net/http"
 	"os"

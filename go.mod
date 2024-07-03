@@ -7,7 +7,6 @@ module golaris
 go 1.22.3
 
 require (
-	eni.telekom.de/horizon2go v0.0.15
 	github.com/IBM/sarama v1.43.2
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/contrib/otelfiber/v2 v2.1.0
@@ -79,6 +78,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/telekom/pubsub-horizon-go v0.0.0-20240703104902-345662703fdd // indirect
 	github.com/tklauser/go-sysconf v0.3.4 // indirect
 	github.com/tklauser/numcpus v0.2.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

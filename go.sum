@@ -212,6 +212,12 @@ github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsT
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240703072725-ba8f56110179 h1:WZrcbfkRhxhCW6nBghhyJuQykCHJZPmGWMe/BgmTKi0=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240703072725-ba8f56110179/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240703082056-2510fe68e368 h1:oNciu8gABUSsI3f46ipPPyDhuN898EgMBk8/Qex0zWw=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240703082056-2510fe68e368/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240703104902-345662703fdd h1:jXX7uyy8mbnBZl2RXL2bRUXINyeVXc6H53Nr5gVjLug=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240703104902-345662703fdd/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
 github.com/tklauser/go-sysconf v0.3.4 h1:HT8SVixZd3IzLdfs/xlpq0jeSfTX57g1v6wB1EuzV7M=
 github.com/tklauser/go-sysconf v0.3.4/go.mod h1:Cl2c8ZRWfHD5IrfHo9VN+FX9kCFjIOyVklgXycLB6ek=
 github.com/tklauser/numcpus v0.2.1 h1:ct88eFm+Q7m2ZfXJdan1xYoXKlmwsfP+k88q05KvlZc=

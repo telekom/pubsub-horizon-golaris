@@ -1,9 +1,9 @@
 package mongo
 
 import (
-	"eni.telekom.de/horizon2go/pkg/enum"
-	"eni.telekom.de/horizon2go/pkg/message"
 	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 	"go.mongodb.org/mongo-driver/mongo/options"

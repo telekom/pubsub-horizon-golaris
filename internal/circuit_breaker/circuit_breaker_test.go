@@ -1,8 +1,8 @@
 package circuit_breaker
 
 import (
-	"eni.telekom.de/horizon2go/pkg/message"
 	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/test"

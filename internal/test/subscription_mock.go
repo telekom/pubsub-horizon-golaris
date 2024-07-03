@@ -1,13 +1,30 @@
 package test
 
 import (
-	"eni.telekom.de/horizon2go/pkg/resource"
+	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/stretchr/testify/mock"
+	c "github.com/telekom/pubsub-horizon-go/cache"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 type SubscriptionMockCache struct {
 	mock.Mock
+}
+
+func (m *SubscriptionMockCache) GetClient() *hazelcast.Client {
+	args := m.Called()
+	return args.Get(0).(*hazelcast.Client)
+}
+
+func (m *SubscriptionMockCache) GetMap(mapKey string) (*hazelcast.Map, error) {
+	args := m.Called(mapKey)
+	return args.Get(0).(*hazelcast.Map), args.Error(1)
+}
+
+func (m *SubscriptionMockCache) AddListener(mapName string, listener c.Listener[resource.SubscriptionResource]) error {
+	args := m.Called(mapName, listener)
+	return args.Error(0)
 }
 
 func (m *SubscriptionMockCache) Get(cacheName string, key string) (*resource.SubscriptionResource, error) {

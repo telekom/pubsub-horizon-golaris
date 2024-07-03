@@ -1,8 +1,8 @@
 package scheduler
 
 import (
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/test"
