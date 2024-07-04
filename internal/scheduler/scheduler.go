@@ -73,6 +73,7 @@ func checkOpenCircuitBreakers() {
 		subscription := getSubscription(entry.SubscriptionId)
 		if subscription == nil {
 			log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
+			circuitbreaker.CloseCircuitBreaker(entry)
 			return
 		} else {
 			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)

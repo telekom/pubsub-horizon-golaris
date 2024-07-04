@@ -74,7 +74,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			return
 		}
 		log.Debug().Msgf("Successfully created republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
-		closeCircuitBreaker(cbMessage)
+		CloseCircuitBreaker(cbMessage)
 	}
 
 	log.Debug().Msgf("Successfully processed open circuit breaker entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -147,8 +147,8 @@ func getHttpMethod(subscription *resource.SubscriptionResource) string {
 	return httpMethod
 }
 
-// closeCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
-func closeCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
+// CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
+func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
 	cbMessage.LastModified = time.Now()
 	// ToDo Enhance horizon2go library with status closed
 	cbMessage.Status = "CLOSED"
