@@ -20,7 +20,11 @@ var scheduler *gocron.Scheduler
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
 func StartScheduler() {
+	log.Debug().Msg("#TEST StartScheduler")
+
 	scheduler = gocron.NewScheduler(time.UTC)
+
+	log.Debug().Msgf("#TEST new scheduler created: %v", scheduler)
 
 	// Schedule the task for checking open circuit breakers
 	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
@@ -28,6 +32,8 @@ func StartScheduler() {
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
 	}
+
+	log.Debug().Msgf("#TEST scheduled checkOpenCircuitBreakers")
 
 	// Schedule the task for checking republishing entries
 	//if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
