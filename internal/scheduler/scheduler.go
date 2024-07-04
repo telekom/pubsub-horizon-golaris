@@ -12,7 +12,6 @@ import (
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/republish"
-	"time"
 )
 
 //var scheduler *gocron.Scheduler
@@ -20,20 +19,20 @@ import (
 func StartScheduler() {
 	log.Debug().Msg("#TEST StartScheduler")
 
-	ticker := time.NewTicker(config.Current.CircuitBreaker.OpenCbCheckInterval)
-	done := make(chan bool)
-
-	go func() {
-		for {
-			log.Debug().Msg("#TEST start checkOpenCircuitBreakers")
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				checkOpenCircuitBreakers()
-			}
-		}
-	}()
+	//ticker := time.NewTicker(config.Current.CircuitBreaker.OpenCbCheckInterval)
+	//done := make(chan bool)
+	//
+	//go func() {
+	//	for {
+	//		log.Debug().Msg("#TEST start checkOpenCircuitBreakers")
+	//		select {
+	//		case <-done:
+	//			return
+	//		case <-ticker.C:
+	//			checkOpenCircuitBreakers()
+	//		}
+	//	}
+	//}()
 
 	// To stop the ticker, send a signal on the "done" channel
 	// done <- true
