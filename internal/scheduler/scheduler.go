@@ -10,6 +10,7 @@ import (
 	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/go-co-op/gocron"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"golaris/internal/circuitbreaker"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -19,28 +20,6 @@ import (
 )
 
 var scheduler *gocron.Scheduler
-
-//func StartScheduler() {
-//	log.Debug().Msg("#TEST StartScheduler")
-//
-//ticker := time.NewTicker(config.Current.CircuitBreaker.OpenCbCheckInterval)
-//done := make(chan bool)
-//
-//go func() {
-//	for {
-//		log.Debug().Msg("#TEST start checkOpenCircuitBreakers")
-//		select {
-//		case <-done:
-//			return
-//		case <-ticker.C:
-//			checkOpenCircuitBreakers()
-//		}
-//	}
-//}()
-
-// To stop the ticker, send a signal on the "done" channel
-// done <- true
-//}
 
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
@@ -61,11 +40,11 @@ func StartScheduler() {
 	log.Debug().Msgf("#TEST scheduled checkOpenCircuitBreakers")
 
 	// Schedule the task for checking republishing entries
-	//if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
-	//	checkRepublishingEntries()
-	//}); err != nil {
-	//	log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
-	//}
+	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
+		checkRepublishingEntries()
+	}); err != nil {
+		log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
+	}
 
 	// Start the scheduler asynchronously
 	scheduler.StartAsync()
@@ -91,15 +70,15 @@ func checkOpenCircuitBreakers() {
 		log.Debug().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
 		//// ToDo: Check whether the subscription has changed or was deleted and handle it
-		//subscription := getSubscription(entry.SubscriptionId)
-		//if subscription == nil {
-		//	log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
-		//	return
-		//} else {
-		//	log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
-		//}
-		// Handle each circuit breaker entry asynchronously
-		//go circuitbreaker.HandleOpenCircuitBreaker(entry, subscription)
+		subscription := getSubscription(entry.SubscriptionId)
+		if subscription == nil {
+			log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
+			return
+		} else {
+			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
+		}
+		//Handle each circuit breaker entry asynchronously
+		go circuitbreaker.HandleOpenCircuitBreaker(entry, subscription)
 	}
 }
 
