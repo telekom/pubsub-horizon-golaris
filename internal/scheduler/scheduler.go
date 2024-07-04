@@ -24,11 +24,7 @@ var scheduler *gocron.Scheduler
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
 func StartScheduler() {
-	log.Debug().Msg("#TEST StartScheduler")
-
 	scheduler = gocron.NewScheduler(time.UTC)
-
-	log.Debug().Msgf("#TEST new scheduler created: %v", scheduler)
 
 	// Schedule the task for checking open circuit breakers
 	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
@@ -36,8 +32,6 @@ func StartScheduler() {
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
 	}
-
-	log.Debug().Msgf("#TEST scheduled checkOpenCircuitBreakers")
 
 	// Schedule the task for checking republishing entries
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
@@ -54,7 +48,6 @@ func StartScheduler() {
 // and processes each entry asynchronously. It checks if the corresponding subscription exists
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
-	log.Debug().Msg("#TEST execute checkOpenCircuitBreakers")
 	// Get all CircuitBreaker entries with status OPEN
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	cbEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
@@ -62,8 +55,6 @@ func checkOpenCircuitBreakers() {
 		log.Debug().Msgf("Error while getting CircuitBreaker messages: %v", err)
 		return
 	}
-
-	log.Debug().Msgf("#TEST cbEntries: %v", cbEntries)
 
 	//Iterate over all circuit breaker entries and handle them
 	for _, entry := range cbEntries {
@@ -115,10 +106,8 @@ func checkRepublishingEntries() {
 }
 
 func getSubscription(subscriptionId string) *resource.SubscriptionResource {
-	log.Debug().Msgf("#TEST Getting subscription with subscriptionId %s", subscriptionId)
 	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("#TEST Error while getting subscription with subscriptionId %s", subscriptionId)
 		return nil
 	}
 	return subscription

@@ -21,8 +21,6 @@ func Load() {
 	if err := viper.Unmarshal(&Current); err != nil {
 		log.Fatal().Err(err).Msg("Could not unmarshal current configuration!")
 	}
-
-	log.Debug().Msgf("Current configuration: %+v", Current)
 }
 
 func Initialize() error {
