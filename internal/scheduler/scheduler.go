@@ -46,6 +46,7 @@ func StartScheduler() {
 // and processes each entry asynchronously. It checks if the corresponding subscription exists
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
+	log.Debug().Msg("#TEST start checkOpenCircuitBreakers")
 	// Get all CircuitBreaker entries with status OPEN
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	cbEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
@@ -99,8 +100,10 @@ func checkRepublishingEntries() {
 }
 
 func getSubscription(subscriptionId string) *resource.SubscriptionResource {
+	log.Debug().Msgf("#TEST Getting subscription with subscriptionId %s", subscriptionId)
 	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil {
+		log.Error().Err(err).Msgf("#TEST Error while getting subscription with subscriptionId %s", subscriptionId)
 		return nil
 	}
 	return subscription
