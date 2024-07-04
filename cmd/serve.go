@@ -11,6 +11,7 @@ import (
 	"golaris/internal/config"
 	"golaris/internal/kafka"
 	"golaris/internal/log"
+	"golaris/internal/mock"
 	"golaris/internal/mongo"
 	"golaris/internal/scheduler"
 )
@@ -31,7 +32,7 @@ func initialize() {
 	kafka.Initialize()
 
 	// TODO Mock cb-messages for local development until comet is adapted
-	// go mock.CreateMockedCircuitBreakerMessages(0)
+	go mock.CreateMockedCircuitBreakerMessages(0)
 }
 
 func startGolarisService(cmd *cobra.Command, args []string) {
