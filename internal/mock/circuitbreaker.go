@@ -21,10 +21,7 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 	for {
 		log.Info().Msgf("Creating mocked circuit breaker message %d", counter)
 
-		//subscriptionId := config.Current.MockCbSubscriptionId
-
-		log.Debug().Msgf("MockCbSubscriptionId from current config %s", config.Current.MockCbSubscriptionId)
-		subscriptionId := "6484c635dc100e32bf976c7b17a2fde9605899fa"
+		subscriptionId := config.Current.MockCbSubscriptionId
 
 		circuitBreakerMessage := message.CircuitBreakerMessage{
 			SubscriptionId:    subscriptionId,

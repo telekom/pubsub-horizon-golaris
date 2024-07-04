@@ -102,6 +102,10 @@ func checkRepublishingEntries() {
 		subscription := getSubscription(subscriptionId)
 		if subscription == nil {
 			log.Debug().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
+			err := republish.Delete(context.Background(), subscriptionId)
+			if err != nil {
+				return
+			}
 			return
 		}
 		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)

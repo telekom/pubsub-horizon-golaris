@@ -171,3 +171,10 @@ func Unlock(ctx context.Context, subscriptionId string) error {
 	}
 	return nil
 }
+
+func Delete(ctx context.Context, subscriptionId string) error {
+	if err := cache.RepublishingCache.Delete(ctx, subscriptionId); err != nil {
+		return err
+	}
+	return nil
+}
