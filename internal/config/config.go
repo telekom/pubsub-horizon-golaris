@@ -104,5 +104,10 @@ func readConfiguration() *Configuration {
 		log.Fatal().Err(err).Msg("Could not unmarshal current configuration!")
 	}
 
+	// Print all configuration keys and their values
+	for key, value := range viper.AllSettings() {
+		log.Info().Msgf("Config key: %s, value: %v", key, value)
+	}
+
 	return &config
 }
