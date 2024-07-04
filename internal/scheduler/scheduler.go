@@ -90,14 +90,14 @@ func checkOpenCircuitBreakers() {
 	for _, entry := range cbEntries {
 		log.Debug().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
-		// ToDo: Check whether the subscription has changed or was deleted and handle it
-		subscription := getSubscription(entry.SubscriptionId)
-		if subscription == nil {
-			log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
-			return
-		} else {
-			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
-		}
+		//// ToDo: Check whether the subscription has changed or was deleted and handle it
+		//subscription := getSubscription(entry.SubscriptionId)
+		//if subscription == nil {
+		//	log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
+		//	return
+		//} else {
+		//	log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
+		//}
 		// Handle each circuit breaker entry asynchronously
 		//go circuitbreaker.HandleOpenCircuitBreaker(entry, subscription)
 	}
