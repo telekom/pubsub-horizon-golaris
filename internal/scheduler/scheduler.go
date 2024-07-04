@@ -33,11 +33,11 @@ func StartScheduler() {
 	}
 
 	// Schedule the task for checking republishing entries
-	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
-		checkRepublishingEntries()
-	}); err != nil {
-		log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
-	}
+	//if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
+	//	checkRepublishingEntries()
+	//}); err != nil {
+	//	log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
+	//}
 
 	// Start the scheduler asynchronously
 	scheduler.StartAsync()
