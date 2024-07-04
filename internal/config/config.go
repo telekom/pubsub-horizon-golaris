@@ -21,6 +21,8 @@ func Load() {
 	if err := viper.Unmarshal(&Current); err != nil {
 		log.Fatal().Err(err).Msg("Could not unmarshal current configuration!")
 	}
+
+	log.Debug().Msgf("Current configuration: %+v", Current)
 }
 
 func Initialize() error {
@@ -102,11 +104,6 @@ func readConfiguration() *Configuration {
 	var config Configuration
 	if err := viper.Unmarshal(&config); err != nil {
 		log.Fatal().Err(err).Msg("Could not unmarshal current configuration!")
-	}
-
-	// Print all configuration keys and their values
-	for key, value := range viper.AllSettings() {
-		log.Info().Msgf("Config key: %s, value: %v", key, value)
 	}
 
 	return &config
