@@ -49,8 +49,9 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
 		if acquired == true {
-			if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
-				log.Error().Err(err).Msgf("Error unlocking RepublishingCache entry with subscriptionId %s", subscriptionId)
+			err := Unlock(ctx, subscriptionId)
+			if err != nil {
+				log.Debug().Msgf("Failed to unlock RepublishingCache entry with subscriptionId %s and error %v", subscriptionId, err)
 			}
 			log.Debug().Msgf("Successfully unlocked RepublishingCache entry with subscriptionId %s", subscriptionId)
 		}
@@ -122,6 +123,7 @@ func RepublishWaitingEvents(subscriptionId string) {
 		// If the number of fetched messages is less than the batch size, exit the loop
 		// as there are no more messages to fetch
 		if len(dbMessages) < int(batchSize) {
+			time.Sleep(60 * time.Second)
 			break
 		}
 		page++
@@ -143,7 +145,7 @@ func ForceDelete(subscriptionId string, ctx context.Context) {
 	if isLocked {
 		err = cache.RepublishingCache.ForceUnlock(ctx, subscriptionId)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error unlocking RepublishingCache entry for subscriptionId %s", subscriptionId)
+			log.Error().Err(err).Msgf("Error force-unlocking RepublishingCache entry for subscriptionId %s", subscriptionId)
 		}
 	}
 
@@ -155,4 +157,17 @@ func ForceDelete(subscriptionId string, ctx context.Context) {
 
 	log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", subscriptionId)
 	return
+}
+
+func Unlock(ctx context.Context, subscriptionId string) error {
+	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	if err != nil {
+		return err
+	}
+	if isLocked {
+		if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
+			return err
+		}
+	}
+	return nil
 }

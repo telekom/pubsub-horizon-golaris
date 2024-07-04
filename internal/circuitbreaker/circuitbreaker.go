@@ -73,6 +73,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			log.Error().Err(err).Msgf("Error while creating republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 			return
 		}
+		log.Debug().Msgf("Successfully created republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 		closeCircuitBreaker(cbMessage)
 	}
 

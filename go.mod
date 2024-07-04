@@ -11,7 +11,7 @@ require (
 	github.com/IBM/sarama v1.43.2
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/contrib/otelfiber/v2 v2.1.0
-	github.com/gofiber/fiber/v2 v2.52.4
+	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/hazelcast/hazelcast-go-client v1.4.1
 	github.com/prometheus/client_golang v1.19.1
 	github.com/rs/zerolog v1.33.0
