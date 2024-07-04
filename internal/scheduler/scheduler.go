@@ -7,7 +7,7 @@ package scheduler
 import (
 	"context"
 	"eni.telekom.de/horizon2go/pkg/resource"
-	"github.com/go-co-op/gocron"
+	//"github.com/go-co-op/gocron"
 	"github.com/rs/zerolog/log"
 	"golaris/internal/cache"
 	"golaris/internal/config"
@@ -15,42 +15,64 @@ import (
 	"time"
 )
 
-var scheduler *gocron.Scheduler
+//var scheduler *gocron.Scheduler
 
-// StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
-// for checking open circuit breakers and republishing entries based on the configured intervals.
 func StartScheduler() {
 	log.Debug().Msg("#TEST StartScheduler")
 
-	scheduler = gocron.NewScheduler(time.UTC)
+	ticker := time.NewTicker(config.Current.CircuitBreaker.OpenCbCheckInterval)
+	done := make(chan bool)
 
-	log.Debug().Msgf("#TEST new scheduler created: %v", scheduler)
+	go func() {
+		for {
+			log.Debug().Msg("#TEST start checkOpenCircuitBreakers")
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				checkOpenCircuitBreakers()
+			}
+		}
+	}()
 
-	// Schedule the task for checking open circuit breakers
-	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
-		checkOpenCircuitBreakers()
-	}); err != nil {
-		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
-	}
-
-	log.Debug().Msgf("#TEST scheduled checkOpenCircuitBreakers")
-
-	// Schedule the task for checking republishing entries
-	//if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
-	//	checkRepublishingEntries()
-	//}); err != nil {
-	//	log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
-	//}
-
-	// Start the scheduler asynchronously
-	scheduler.StartAsync()
+	// To stop the ticker, send a signal on the "done" channel
+	// done <- true
 }
+
+// StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
+// for checking open circuit breakers and republishing entries based on the configured intervals.
+//func StartScheduler() {
+//	log.Debug().Msg("#TEST StartScheduler")
+//
+//	scheduler = gocron.NewScheduler(time.UTC)
+//
+//	log.Debug().Msgf("#TEST new scheduler created: %v", scheduler)
+//
+//	// Schedule the task for checking open circuit breakers
+//	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
+//		checkOpenCircuitBreakers()
+//	}); err != nil {
+//		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
+//	}
+//
+//	log.Debug().Msgf("#TEST scheduled checkOpenCircuitBreakers")
+//
+//	// Schedule the task for checking republishing entries
+//	//if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
+//	//	checkRepublishingEntries()
+//	//}); err != nil {
+//	//	log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)
+//	//}
+//
+//	// Start the scheduler asynchronously
+//	scheduler.StartAsync()
+//}
 
 // checkOpenCircuitBreakers queries the circuit breaker cache for entries with the specified status
 // and processes each entry asynchronously. It checks if the corresponding subscription exists
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
-	log.Debug().Msg("#TEST start checkOpenCircuitBreakers")
+	log.Debug().Msg("#TEST execute checkOpenCircuitBreakers")
 	// Get all CircuitBreaker entries with status OPEN
 	//statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	//cbEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
