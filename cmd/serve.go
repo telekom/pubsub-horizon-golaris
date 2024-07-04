@@ -13,7 +13,6 @@ import (
 	"golaris/internal/log"
 	"golaris/internal/mock"
 	"golaris/internal/mongo"
-	"golaris/internal/scheduler"
 )
 
 var serveCmd = &cobra.Command{
@@ -38,6 +37,6 @@ func initialize() {
 func startGolarisService(cmd *cobra.Command, args []string) {
 	initialize()
 
-	scheduler.StartScheduler()
+	// scheduler.StartScheduler()
 	api.Listen(config.Current.Port)
 }
