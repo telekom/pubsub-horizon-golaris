@@ -65,26 +65,6 @@ func checkOpenCircuitBreakers() {
 			return
 		}
 
-		if subscription.Spec.Subscription.CircuitBreakerOptOut {
-			log.Info().Msgf("Subscription with id %s has opted out of circuit breaker.", entry.SubscriptionId)
-
-			err = cache.RepublishingCache.Set(context.Background(), entry.SubscriptionId, republish.RepublishingCache{
-				SubscriptionId: entry.SubscriptionId,
-			})
-			if err != nil {
-				log.Info().Msgf("Error while setting republishing entry for subscriptionId %s", entry.SubscriptionId)
-			}
-
-			_ = cache.HealthChecks.Delete(context.Background(), entry.SubscriptionId)
-			if err != nil {
-				log.Error().Msgf("Error while deleting health check for subscriptionId %s", entry.SubscriptionId)
-			}
-
-			circuit_breaker.CloseCircuitBreaker(entry)
-
-			return
-		}
-
 		// Handle each circuit breaker entry asynchronously
 		go circuit_breaker.HandleOpenCircuitBreaker(entry, subscription)
 	}
