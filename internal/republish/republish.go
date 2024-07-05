@@ -89,6 +89,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource) {
 				newDeliveryType = string(subscription.Spec.Subscription.DeliveryType)
 			}
 
+			var newCallbackUrl string
+			if subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"] {
+				newCallbackUrl = subscription.Spec.Subscription.Callback
+			}
+
 			log.Debug().Msgf("Republishing message for subscription %s: %v", subscriptionId, dbMessage)
 
 			if dbMessage.Coordinates == nil {
@@ -101,7 +106,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource) {
 				log.Warn().Msgf("Error while fetching message from kafka for subscription %s", subscriptionId)
 				continue
 			}
-			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType)
+			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscription %s", subscriptionId)
 			}
