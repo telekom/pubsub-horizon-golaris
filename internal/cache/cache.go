@@ -46,12 +46,12 @@ func createNewHazelcastConfig() hazelcast.Config {
 func initializeCaches(hzConfig hazelcast.Config) error {
 	var err error
 
-	Subscriptions, err = c.NewCache[resource.SubscriptionResource](hzConfig)
+	Subscriptions, err = c.NewHazelcastCache[resource.SubscriptionResource](hzConfig)
 	if err != nil {
 		return fmt.Errorf("error initializing Hazelcast subscription health cache: %v", err)
 	}
 
-	CircuitBreakers, err = c.NewCache[message.CircuitBreakerMessage](hzConfig)
+	CircuitBreakers, err = c.NewHazelcastCache[message.CircuitBreakerMessage](hzConfig)
 	if err != nil {
 		return fmt.Errorf("error initializing CircuitBreakerCache: %v", err)
 	}
