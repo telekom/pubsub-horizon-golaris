@@ -5,9 +5,9 @@
 package mock
 
 import (
-	"eni.telekom.de/horizon2go/pkg/enum"
-	"eni.telekom.de/horizon2go/pkg/message"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"time"

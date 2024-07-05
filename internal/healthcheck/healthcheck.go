@@ -7,9 +7,9 @@ package healthcheck
 import (
 	"context"
 	"encoding/gob"
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/auth"
 	"golaris/internal/cache"
 	"golaris/internal/config"

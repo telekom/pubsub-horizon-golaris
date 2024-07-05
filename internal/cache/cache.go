@@ -6,20 +6,21 @@ package cache
 
 import (
 	"context"
-	c "eni.telekom.de/horizon2go/pkg/cache"
-	"eni.telekom.de/horizon2go/pkg/message"
-	"eni.telekom.de/horizon2go/pkg/resource"
-	"eni.telekom.de/horizon2go/pkg/util"
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
+	c "github.com/telekom/pubsub-horizon-go/cache"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/util"
 	"golaris/internal/config"
 )
 
-var SubscriptionCache *c.Cache[resource.SubscriptionResource]
-var CircuitBreakerCache *c.Cache[message.CircuitBreakerMessage]
+var SubscriptionCache *c.HazelcastCache[resource.SubscriptionResource]
+var CircuitBreakerCache *c.HazelcastCache[message.CircuitBreakerMessage]
 var HealthCheckCache *hazelcast.Map
 var RepublishingCache *hazelcast.Map
+var hazelcastClient *hazelcast.Client
 
 func Initialize() {
 	c := createNewHazelcastConfig()
@@ -45,60 +46,36 @@ func createNewHazelcastConfig() hazelcast.Config {
 // initializeCaches sets up the Hazelcast caches used in the application.
 // It takes a Hazelcast configuration object as a parameter.
 // The function initializes the SubscriptionCache, CircuitBreakerCache, HealthCheckCache, and RepublishingCache.
-func initializeCaches(config hazelcast.Config) error {
+func initializeCaches(hzConfig hazelcast.Config) error {
 	var err error
 
-	SubscriptionCache, err = c.NewCache[resource.SubscriptionResource](config)
+	SubscriptionCache, err = c.NewHazelcastCache[resource.SubscriptionResource](hzConfig)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return fmt.Errorf("error initializing Hazelcast subscription health cache: %v", err)
 	}
 
-	CircuitBreakerCache, err = c.NewCache[message.CircuitBreakerMessage](config)
+	CircuitBreakerCache, err = c.NewHazelcastCache[message.CircuitBreakerMessage](hzConfig)
 	if err != nil {
 		return fmt.Errorf("error initializing CircuitBreakerCache: %v", err)
 	}
 
-	// TODO:
-	// We should initialize the healthcheck cache similar to the other caches
-	// For this we need to update the parent, as the interface currently does not support locking operations
-	//HealthCheckCache, err = c.NewCache[healthcheck.HealthCheck](config)
-	HealthCheckCache, err = newHealthCheckCache(config)
+	hazelcastClient, err = hazelcast.StartNewClientWithConfig(context.Background(), hzConfig)
+	if err != nil {
+		return fmt.Errorf("error initializing Hazelcast client: %v", err)
+	}
+
+	HealthCheckCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HealthCheckCache)
 	if err != nil {
 		return fmt.Errorf("error initializing HealthCheckCache: %v", err)
 	}
 
-	RepublishingCache, err = newRepublishingCache(config)
+	RepublishingCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
 		return fmt.Errorf("error initializing RebublishingCache: %v", err)
 	}
 
 	return nil
-}
-
-func newHealthCheckCache(hzConfig hazelcast.Config) (*hazelcast.Map, error) {
-	hazelcastClient, err := hazelcast.StartNewClientWithConfig(context.Background(), hzConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HealthCheckCache)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
-}
-
-func newRepublishingCache(hzConfig hazelcast.Config) (*hazelcast.Map, error) {
-	hazelcastClient, err := hazelcast.StartNewClientWithConfig(context.Background(), hzConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
 }

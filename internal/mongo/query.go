@@ -6,8 +6,8 @@ package mongo
 
 import (
 	"context"
-	"eni.telekom.de/horizon2go/pkg/message"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"

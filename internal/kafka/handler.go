@@ -6,9 +6,9 @@ package kafka
 
 import (
 	"encoding/json"
-	"eni.telekom.de/horizon2go/pkg/enum"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"golaris/internal/config"
 )
 

@@ -7,8 +7,8 @@ package republish
 import (
 	"context"
 	"encoding/gob"
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golaris/internal/cache"

@@ -6,10 +6,10 @@ package scheduler
 
 import (
 	"context"
-	"eni.telekom.de/horizon2go/pkg/enum"
-	"eni.telekom.de/horizon2go/pkg/resource"
 	"github.com/go-co-op/gocron"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/circuitbreaker"
 	"time"
 
