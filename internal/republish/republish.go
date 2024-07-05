@@ -42,7 +42,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
-	RepublishPendingEvents(subscriptionId)
+	RepublishPendingEvents(subscription)
 
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
@@ -52,7 +52,9 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
 }
 
-func RepublishPendingEvents(subscriptionId string) {
+func RepublishPendingEvents(subscription *resource.SubscriptionResource) {
+	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
+
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	batchSize := config.Current.Republishing.BatchSize
@@ -81,6 +83,12 @@ func RepublishPendingEvents(subscriptionId string) {
 
 		// Iterate over each message to republish
 		for _, dbMessage := range dbMessages {
+
+			var newDeliveryType string
+			if subscription.Spec.Subscription.DeliveryType != dbMessage.DeliveryType {
+				newDeliveryType = string(subscription.Spec.Subscription.DeliveryType)
+			}
+
 			log.Debug().Msgf("Republishing message for subscription %s: %v", subscriptionId, dbMessage)
 
 			if dbMessage.Coordinates == nil {
@@ -93,7 +101,7 @@ func RepublishPendingEvents(subscriptionId string) {
 				log.Warn().Msgf("Error while fetching message from kafka for subscription %s", subscriptionId)
 				continue
 			}
-			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage)
+			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscription %s", subscriptionId)
 			}

@@ -6,9 +6,9 @@ package kafka
 
 import (
 	"encoding/json"
-	"eni.telekom.de/horizon2go/pkg/enum"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"golaris/internal/config"
 )
 
@@ -66,18 +66,19 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 	return message, nil
 }
 
-func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) error {
+func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string) error {
 
-	modifiedValue, err := updateMessage(message)
+	modifiedValue, newHeaders, err := updateMessage(message, newDeliveryType)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:   sarama.StringEncoder(message.Key),
-		Topic: message.Topic,
-		Value: sarama.ByteEncoder(modifiedValue),
+		Key:     sarama.StringEncoder(message.Key),
+		Topic:   message.Topic,
+		Headers: newHeaders,
+		Value:   sarama.ByteEncoder(modifiedValue),
 	}
 
 	_, _, err = kafkaHandler.producer.SendMessage(msg)
@@ -91,27 +92,43 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	return nil
 }
 
-func updateMessage(message *sarama.ConsumerMessage) ([]byte, error) {
+func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string) ([]byte, []sarama.RecordHeader, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
-		return nil, err
+		return nil, nil, err
 	}
 
-	// ToDo: If there are changes, we have to adjust the data here so that the current data is written to the kafka
-	// --> DeliveryType
-	// --> CallbackUrl
-	// --> circuitBreakerOptOut?
-	// --> HttpMethod?
+	// Map newDeliveryType to the appropriate value
+	switch newDeliveryType {
+	case "callback":
+		newDeliveryType = "CALLBACK"
+	case "server_sent_event", "sse":
+		newDeliveryType = "SERVER_SENT_EVENT"
+	}
 
-	messageValue["uuid"] = message.Key
-	messageValue["status"] = enum.StatusProcessed
+	var metadataValue = map[string]any{
+		"uuid": messageValue["uuid"],
+		"event": map[string]any{
+			"id": messageValue["event"].(map[string]any)["id"],
+		},
+		"status": enum.StatusProcessed,
+	}
 
-	modifiedValue, err := json.Marshal(messageValue)
+	if newDeliveryType != "" {
+		metadataValue["deliveryType"] = newDeliveryType
+	}
+
+	newMessageType := "METADATA"
+	newHeaders := []sarama.RecordHeader{
+		{Key: []byte("type"), Value: []byte(newMessageType)},
+	}
+
+	modifiedValue, err := json.Marshal(metadataValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not marshal modified message value")
-		return nil, err
+		return nil, nil, err
 	}
 
-	return modifiedValue, nil
+	return modifiedValue, newHeaders, nil
 }
