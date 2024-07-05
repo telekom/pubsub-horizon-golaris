@@ -66,9 +66,9 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 	return message, nil
 }
 
-func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string) error {
+func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
 
-	modifiedValue, newHeaders, err := updateMessage(message, newDeliveryType)
+	modifiedValue, newHeaders, err := updateMessage(message, newDeliveryType, newCallbackUrl)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
@@ -92,7 +92,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 	return nil
 }
 
-func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string) ([]byte, []sarama.RecordHeader, error) {
+func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) ([]byte, []sarama.RecordHeader, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
@@ -117,6 +117,10 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string) ([]b
 
 	if newDeliveryType != "" {
 		metadataValue["deliveryType"] = newDeliveryType
+	}
+
+	if newCallbackUrl != "" {
+		metadataValue["additionalFields"].(map[string]any)["callback-url"] = newCallbackUrl
 	}
 
 	newMessageType := "METADATA"
