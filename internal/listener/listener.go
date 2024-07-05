@@ -57,6 +57,10 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 			log.Error().Msgf("failed with err: %v to set republishing cache", err)
 			return
 		}
+
+		err = cache.HealthChecks.Delete(context.Background(), obj.Spec.Subscription.SubscriptionId)
+		// How can we delete the CB here?
+
 	}
 }
 

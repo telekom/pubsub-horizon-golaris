@@ -66,42 +66,19 @@ func checkOpenCircuitBreakers() {
 		}
 
 		if subscription.Spec.Subscription.CircuitBreakerOptOut {
-			// Context? Actually we need right ctx here or?
-			optionalEntry, err := cache.RepublishingCache.Get(context.Background(), entry.SubscriptionId)
-			if optionalEntry != nil {
-				// What can we do if the RepublishingCache entry is locked? Maybe lock and close CircuitBreaker?
-				republish.ForceDelete(entry.SubscriptionId, context.Background())
-			}
-
-			// Create an unlocked RepublishingCache entry. The scheduler will then pick it up and republish it
-			err = cache.RepublishingCache.Set(context.Background(), entry.SubscriptionId, republish.RepublishingCache{
-				SubscriptionId: entry.SubscriptionId,
-			})
-			if err != nil {
-				return
-			}
-
-			circuit_breaker.CloseCircuitBreaker(entry)
-			return
-		}
-
-		if subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
-			log.Info().Msgf("Subscription with id %s has delivery type %s and is not supported by circuit breaker.", entry.SubscriptionId, subscription.Spec.Subscription.DeliveryType)
-
-			optionalEntry, err := cache.RepublishingCache.Get(context.Background(), entry.SubscriptionId)
-			if optionalEntry != nil {
-				// What can we do if the RepublishingCache entry is locked? Maybe lock and close CircuitBreaker?
-				republish.ForceDelete(entry.SubscriptionId, context.Background())
-			}
+			log.Info().Msgf("Subscription with id %s has opted out of circuit breaker.", entry.SubscriptionId)
 
 			err = cache.RepublishingCache.Set(context.Background(), entry.SubscriptionId, republish.RepublishingCache{
 				SubscriptionId: entry.SubscriptionId,
 			})
 			if err != nil {
-				return
+				log.Info().Msgf("Error while setting republishing entry for subscriptionId %s", entry.SubscriptionId)
 			}
 
-			// Remove HealthCheckData?
+			_ = cache.HealthChecks.Delete(context.Background(), entry.SubscriptionId)
+			if err != nil {
+				log.Error().Msgf("Error while deleting health check for subscriptionId %s", entry.SubscriptionId)
+			}
 
 			circuit_breaker.CloseCircuitBreaker(entry)
 
@@ -124,8 +101,8 @@ func checkRepublishingEntries() {
 	}
 
 	// Iterate over all republishing entries and handle them
-	for _, entry := range republishingEntries {
-		subscriptionId := entry.Value.(republish.RepublishingCache).SubscriptionId
+	for _, republishEntry := range republishingEntries {
+		subscriptionId := republishEntry.Value.(republish.RepublishingCache).SubscriptionId
 		log.Info().Msgf("Checking republishing entry for subscriptionId %s", subscriptionId)
 
 		// ToDo: Check whether the subscription has changed or was deleted and handle it
