@@ -10,6 +10,7 @@ import (
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/kafka"
+	"golaris/internal/listener"
 	"golaris/internal/log"
 	"golaris/internal/mongo"
 	"golaris/internal/scheduler"
@@ -30,6 +31,7 @@ func initialize() {
 	cache.Initialize()
 	mongo.Initialize()
 	kafka.Initialize()
+	listener.Initialize()
 
 	// TODO Mock cb-messages for local development until comet is adapted
 	go test.CreateMockedCircuitBreakerMessages(10)

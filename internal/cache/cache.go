@@ -14,7 +14,6 @@ import (
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/util"
 	"golaris/internal/config"
-	"golaris/internal/listener"
 )
 
 var Subscriptions c.HazelcastBasedCache[resource.SubscriptionResource]
@@ -70,12 +69,6 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 	RepublishingCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
 		return fmt.Errorf("error initializing RebublishingCache: %v", err)
-	}
-
-	subscriptionListener := &listener.SubscriptionListener{}
-	err = Subscriptions.AddListener(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionListener)
-	if err != nil {
-		return fmt.Errorf("error adding listener to SubscriptionCache: %v", err)
 	}
 
 	return nil
