@@ -16,8 +16,8 @@ import (
 	"golaris/internal/config"
 )
 
-var SubscriptionCache *c.HazelcastCache[resource.SubscriptionResource]
-var CircuitBreakerCache *c.HazelcastCache[message.CircuitBreakerMessage]
+var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
+var CircuitBreakerCache c.HazelcastBasedCache[message.CircuitBreakerMessage]
 var HealthCheckCache *hazelcast.Map
 var RepublishingCache *hazelcast.Map
 var hazelcastClient *hazelcast.Client
