@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/cache"
@@ -16,6 +17,10 @@ import (
 	"golaris/internal/republish"
 	"golaris/internal/utils"
 	"time"
+)
+
+var (
+	healthCheckFunc = healthcheck.CheckConsumerHealth
 )
 
 // HandleOpenCircuitBreaker handles the process when a circuit breaker is open.
@@ -56,7 +61,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	// Check if circuit breaker is in cool down
 	if healthcheck.IsHealthCheckInCoolDown(hcData.HealthCheckEntry) == false {
 		// Perform health check and update health check data
-		err := healthcheck.CheckConsumerHealth(hcData, subscription)
+		err := healthCheckFunc(hcData, subscription)
 		if err != nil {
 			log.Debug().Msgf("Error while checking consumer health for key %s", hcData.HealthCheckKey)
 			return
@@ -67,7 +72,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 	// Create republishing cache entry if last health check was successful
 	if utils.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
-		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Time{}}
+		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while creating republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -151,7 +156,7 @@ func getHttpMethod(subscription *resource.SubscriptionResource) string {
 func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
 	cbMessage.LastModified = time.Now()
 	// ToDo Enhance horizon2go library with status closed
-	cbMessage.Status = "CLOSED"
+	cbMessage.Status = enum.CircuitBreakerStatusCooldown
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error: %v while closing circuit breaker for subscription %s", err, cbMessage.SubscriptionId)
