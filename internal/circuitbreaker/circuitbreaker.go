@@ -156,7 +156,7 @@ func getHttpMethod(subscription *resource.SubscriptionResource) string {
 func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
 	cbMessage.LastModified = time.Now()
 	// ToDo Enhance horizon2go library with status closed
-	cbMessage.Status = enum.CircuitBreakerStatusCooldown
+	cbMessage.Status = enum.CircuitBreakerStatusClosed
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error: %v while closing circuit breaker for subscription %s", err, cbMessage.SubscriptionId)
@@ -169,13 +169,13 @@ func IncreaseRepublishingCount(subscriptionId string) (*message.CircuitBreakerMe
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
-		return &message.CircuitBreakerMessage{}, err
+		return nil, err
 	}
 
 	cbMessage.RepublishingCount++
 	if err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *cbMessage); err != nil {
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker message for subscription %s", subscriptionId)
-		return &message.CircuitBreakerMessage{}, err
+		return nil, err
 	}
 
 	log.Debug().Msgf("Successfully increased RepublishingCount to %d for subscription %s", cbMessage.RepublishingCount, subscriptionId)

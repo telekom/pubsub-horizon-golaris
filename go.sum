@@ -221,6 +221,10 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/telekom/pubsub-horizon-go v0.0.0-20240704055521-513e3d6bd20f h1:e8YZXxFim1c6i41zsW8n+qMaHtBWxpd0EJmfCPU5PUg=
 github.com/telekom/pubsub-horizon-go v0.0.0-20240704055521-513e3d6bd20f/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240708121515-321dd5c2e008 h1:T19Fy4C0J/MHDPXXKZXFXRpWNhHecN74FD8zlYTbcIw=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240708121515-321dd5c2e008/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240708124123-e7dda46a750b h1:ppZMD1xJ1VdO5rAvBErmvhYrk5ESLtSnaViW0mpoG4I=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240708124123-e7dda46a750b/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
 github.com/tklauser/go-sysconf v0.3.4 h1:HT8SVixZd3IzLdfs/xlpq0jeSfTX57g1v6wB1EuzV7M=
 github.com/tklauser/go-sysconf v0.3.4/go.mod h1:Cl2c8ZRWfHD5IrfHo9VN+FX9kCFjIOyVklgXycLB6ek=
 github.com/tklauser/numcpus v0.2.1 h1:ct88eFm+Q7m2ZfXJdan1xYoXKlmwsfP+k88q05KvlZc=

@@ -31,52 +31,33 @@ func TestMain(m *testing.M) {
 }
 
 func TestIncreaseRepublishingCount_Success(t *testing.T) {
-	mockCache := new(test.CircuitBreakerMockCache)
-	cache.CircuitBreakerCache = mockCache
-	config.Current.Hazelcast.Caches.CircuitBreakerCache = "circuit_breaker_test_cache"
+	var assertions = assert.New(t)
 
-	subscriptionId := "sub123"
-	initialMessage := &message.CircuitBreakerMessage{RepublishingCount: 1}
-	updatedMessage := &message.CircuitBreakerMessage{RepublishingCount: 2}
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
 
-	mockCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(initialMessage, nil)
-	mockCache.On("Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *updatedMessage).Return(nil)
+	testCircuitBreakerMessage := newTestCbMessage(testSubscriptionId)
 
-	result, err := IncreaseRepublishingCount(subscriptionId)
+	// set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
 
-	assert.NoError(t, err)
-	assert.Equal(t, updatedMessage, result)
-	assert.Equal(t, 2, result.RepublishingCount)
+	result, err := IncreaseRepublishingCount(testSubscriptionId)
+
+	assertions.NoError(err)
+	assertions.Equal(1, result.RepublishingCount)
 }
 
 func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
+	var assertions = assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
 
-	testCircuitBreakerMessage := message.CircuitBreakerMessage{
-		SubscriptionId:    testSubscriptionId,
-		Status:            "OPEN",
-		RepublishingCount: 0,
-		LastRepublished:   time.Now(),
-		LastModified:      time.Now(),
-	}
+	testCircuitBreakerMessage := newTestCbMessage(testSubscriptionId)
 
-	testSubscriptionResource := &resource.SubscriptionResource{
-		Spec: struct {
-			Subscription resource.Subscription `json:"subscription"`
-			Environment  string                `json:"environment"`
-		}{
-			Subscription: resource.Subscription{
-				SubscriptionId:        testSubscriptionId,
-				Callback:              testCallbackUrl,
-				EnforceGetHealthCheck: false,
-			},
-			Environment: testEnvironment,
-		},
-	}
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
 
 	// mock health check function
@@ -93,11 +74,41 @@ func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
 
 	// assert the result
 	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
-	assert.True(t, circuitBreakerCacheEntry.Status == enum.CircuitBreakerStatusCooldown)
+	assertions.Equal(enum.CircuitBreakerStatusClosed, circuitBreakerCacheEntry.Status)
+
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
-	assert.True(t, republishingCacheEntry.(republish.RepublishingCache).SubscriptionId == testSubscriptionId)
+	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCache).SubscriptionId)
+
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
-	assert.False(t, healthCheckCacheLocked)
+	assertions.False(healthCheckCacheLocked)
+}
+
+func newTestSubscriptionResource(testSubscriptionId string, testCallbackUrl string, testEnvironment string) *resource.SubscriptionResource {
+	testSubscriptionResource := &resource.SubscriptionResource{
+		Spec: struct {
+			Subscription resource.Subscription `json:"subscription"`
+			Environment  string                `json:"environment"`
+		}{
+			Subscription: resource.Subscription{
+				SubscriptionId:        testSubscriptionId,
+				Callback:              testCallbackUrl,
+				EnforceGetHealthCheck: false,
+			},
+			Environment: testEnvironment,
+		},
+	}
+	return testSubscriptionResource
+}
+
+func newTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
+	testCircuitBreakerMessage := message.CircuitBreakerMessage{
+		SubscriptionId:    testSubscriptionId,
+		Status:            enum.CircuitBreakerStatusOpen,
+		RepublishingCount: 0,
+		LastRepublished:   time.Now(),
+		LastModified:      time.Now(),
+	}
+	return testCircuitBreakerMessage
 }
 
 func buildTestConfig() config.Configuration {

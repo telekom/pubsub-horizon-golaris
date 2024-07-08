@@ -66,7 +66,7 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 		}))
 
 		opts := *options.Find()
-		messages, err := connection.FindDeliveringMessagesByDeliveryType(string(enum.StatusDelivering), time.Now(), opts, enum.DeliveryTypeCallback)
+		messages, err := connection.FindDeliveringMessagesByDeliveryType(string(enum.StatusDelivering), time.Now(), opts, string(enum.DeliveryTypeCallback))
 
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)

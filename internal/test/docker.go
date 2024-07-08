@@ -143,7 +143,7 @@ func setupHazelcast() error {
 			"5701/tcp": {{HostIP: hazelcastHost, HostPort: hazelcastPort}},
 		},
 		Env: []string{
-			"HZ_CLUSTERNAME=horizon",
+			"HZ_CLUSTERNAME=dev",
 		},
 	}, configureTeardown)
 	resources = append(resources, resource)
@@ -154,7 +154,7 @@ func pingHazelcast() error {
 	var ctx = context.Background()
 	config := hazelcast.NewConfig()
 
-	config.Cluster.Name = "horizon"
+	config.Cluster.Name = "dev"
 	config.Cluster.Network.SetAddresses(hazelcastHost)
 	config.Cluster.ConnectionStrategy.ReconnectMode = cluster.ReconnectModeOff
 
