@@ -128,7 +128,7 @@ func buildTestConfig() config.Configuration {
 			BatchSize:     100,
 		},
 		Hazelcast: config.Hazelcast{
-			ServiceDNS:  "localhost",
+			ServiceDNS:  test.EnvOrDefault("HAZELCAST_HOST", "localhost"),
 			ClusterName: "dev",
 			Caches: config.Caches{
 				SubscriptionCache:   "subCache",
