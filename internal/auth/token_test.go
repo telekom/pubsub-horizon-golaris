@@ -16,6 +16,8 @@ func TestMain(m *testing.M) {
 }
 
 func TestRetrieveToken_Success(t *testing.T) {
+	var assertions = assert.New(t)
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -25,12 +27,14 @@ func TestRetrieveToken_Success(t *testing.T) {
 
 	token, err := RetrieveToken("https://validTokenUrl", "client_id", "client_secret")
 
-	assert.NoError(t, err)
-	assert.NotNil(t, token)
+	assertions.NoError(err)
+	assertions.NotNil(token)
 
 }
 
 func TestRetrieveToken_RequestError(t *testing.T) {
+	var assertions = assert.New(t)
+
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 
@@ -40,6 +44,6 @@ func TestRetrieveToken_RequestError(t *testing.T) {
 
 	token, err := RetrieveToken("http://invalidTokenUrl", "client_id", "client_secret")
 
-	assert.Error(t, err)
-	assert.Equal(t, "", token)
+	assertions.Error(err)
+	assertions.Equal("", token)
 }
