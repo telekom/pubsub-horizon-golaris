@@ -86,10 +86,7 @@ func CheckConsumerHealth(hcData *PreparedHealthCheckData, subscription *resource
 func executeHealthRequestWithToken(callbackUrl string, httpMethod string, subscription *resource.SubscriptionResource, token string) (*http.Response, error) {
 	log.Debug().Msgf("Performing health request for calllback-url %s with http-method %s", callbackUrl, httpMethod)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	request, err := http.NewRequestWithContext(ctx, httpMethod, callbackUrl, nil)
+	request, err := http.NewRequest(httpMethod, callbackUrl, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create request for URL %s: %v", callbackUrl, err)
 	}

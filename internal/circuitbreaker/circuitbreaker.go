@@ -15,7 +15,8 @@ import (
 	"golaris/internal/config"
 	"golaris/internal/healthcheck"
 	"golaris/internal/republish"
-	"golaris/internal/utils"
+	"net/http"
+	"slices"
 	"time"
 )
 
@@ -71,7 +72,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	}
 
 	// Create republishing cache entry if last health check was successful
-	if utils.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
+	if slices.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
 		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
@@ -145,9 +146,9 @@ func prepareHealthCheck(subscription *resource.SubscriptionResource) (*healthche
 
 // getHttpMethod specifies the HTTP method based on the subscription configuration
 func getHttpMethod(subscription *resource.SubscriptionResource) string {
-	httpMethod := "HEAD"
+	httpMethod := http.MethodHead
 	if subscription.Spec.Subscription.EnforceGetHealthCheck == true {
-		httpMethod = "GET"
+		httpMethod = http.MethodGet
 	}
 	return httpMethod
 }
@@ -155,7 +156,6 @@ func getHttpMethod(subscription *resource.SubscriptionResource) string {
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
 func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
 	cbMessage.LastModified = time.Now()
-	// ToDo Enhance horizon2go library with status closed
 	cbMessage.Status = enum.CircuitBreakerStatusClosed
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
 	if err != nil {

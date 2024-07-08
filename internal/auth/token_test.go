@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"github.com/jarcoal/httpmock"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
@@ -15,7 +16,14 @@ func TestMain(m *testing.M) {
 }
 
 func TestRetrieveToken_Success(t *testing.T) {
-	token, err := RetrieveToken("https://httpstat.us/200", "client_id", "client_secret")
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	// Exact URL match
+	httpmock.RegisterResponder("POST", "https://validTokenUrl",
+		httpmock.NewStringResponder(200, `{"access_token": "token"}`))
+
+	token, err := RetrieveToken("https://validTokenUrl", "client_id", "client_secret")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, token)
@@ -23,7 +31,14 @@ func TestRetrieveToken_Success(t *testing.T) {
 }
 
 func TestRetrieveToken_RequestError(t *testing.T) {
-	token, err := RetrieveToken("http://invalid-url", "client_id", "client_secret")
+	httpmock.Activate()
+	defer httpmock.DeactivateAndReset()
+
+	// Exact URL match
+	httpmock.RegisterResponder("POST", "https://invalidTokenUrl",
+		httpmock.NewStringResponder(401, `{"error": "unauthorized"}`))
+
+	token, err := RetrieveToken("http://invalidTokenUrl", "client_id", "client_secret")
 
 	assert.Error(t, err)
 	assert.Equal(t, "", token)

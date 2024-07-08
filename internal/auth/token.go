@@ -6,7 +6,6 @@ package auth
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog/log"
@@ -14,15 +13,12 @@ import (
 	"time"
 )
 
-var Client = &http.Client{}
+var Client = &http.Client{Timeout: 30 * time.Second}
 
 func RetrieveToken(url string, clientId string, clientSecret string) (string, error) {
 	requestBody := bytes.NewBuffer([]byte("grant_type=client_credentials"))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url, requestBody)
+	request, err := http.NewRequest(http.MethodPost, url, requestBody)
 	if err != nil {
 		return "", err
 	}

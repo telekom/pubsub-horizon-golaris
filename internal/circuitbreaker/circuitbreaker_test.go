@@ -31,6 +31,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestIncreaseRepublishingCount_Success(t *testing.T) {
+	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
 	// Prepare test data
@@ -48,6 +49,7 @@ func TestIncreaseRepublishingCount_Success(t *testing.T) {
 }
 
 func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
+	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
 	// Prepare test data
@@ -81,6 +83,168 @@ func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
 
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
 	assertions.False(healthCheckCacheLocked)
+}
+
+func TestPrepareHealthCheck_NewEntry(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	healthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
+
+	// call the function under test
+	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+
+	// assert the result
+	assertions.NoError(err)
+	assertions.NotNil(preparedHealthCheck)
+	assertions.NotNil(preparedHealthCheck.Ctx)
+	assertions.Equal(healthCheckKey, preparedHealthCheck.HealthCheckKey)
+	assertions.True(preparedHealthCheck.IsAcquired)
+	assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
+}
+
+func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test2.com"
+
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	healthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
+
+	healthCheckEntry := healthcheck.NewHealthCheckEntry(testSubscriptionResource, getHttpMethod(testSubscriptionResource))
+	healthCheckEntry.LastChecked = time.Now()
+	err := cache.HealthCheckCache.Set(context.Background(), healthCheckKey, healthCheckEntry)
+
+	assertions.NoError(err)
+
+	// call the function under test
+	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+
+	// assert the result
+	assertions.NoError(err)
+	assertions.NotNil(preparedHealthCheck)
+	assertions.NotNil(preparedHealthCheck.Ctx)
+	assertions.NotNil(preparedHealthCheck.HealthCheckEntry.LastChecked)
+	assertions.Equal(healthCheckKey, preparedHealthCheck.HealthCheckKey)
+	//assertions.True(preparedHealthCheck.IsAcquired)
+	//assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
+}
+
+func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testCbMessage := newTestCbMessage(testSubscriptionId)
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	// call the function under test
+	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+
+	cbMessageAfterDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+
+	// assert the result
+	assertions.NoError(err)
+	assertions.NotNil(cbMessageAfterDeletion)
+	assertions.Equal(0, cbMessageAfterDeletion.RepublishingCount)
+}
+
+func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testCbMessage := newTestCbMessage(testSubscriptionId)
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCbMessage)
+
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	republishingCacheEntry := republish.RepublishingCache{SubscriptionId: testCbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
+	err := cache.RepublishingCache.Set(context.Background(), testCbMessage.SubscriptionId, republishingCacheEntry)
+
+	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+
+	// call the function under test
+	cbMessageAfterRepubEntryDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+
+	// assert the result
+	assertions.NoError(err)
+	assertions.Nil(cache.RepublishingCache.Get(context.Background(), testSubscriptionId))
+	assertions.Equal(1, cbMessageAfterRepubEntryDeletion.RepublishingCount)
+	assertions.NotNil(cbMessageAfterRepubEntryDeletion)
+}
+
+func TestCloseCircuitBreaker(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testCbMessage := newTestCbMessage(testSubscriptionId)
+
+	// call the function under test
+	CloseCircuitBreaker(testCbMessage)
+
+	// assert the result
+	cbMessage, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.NotNil(cbMessage)
+	assertions.Equal(enum.CircuitBreakerStatusClosed, cbMessage.Status)
+}
+
+func TestGetHttpMethod_GetMethod(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testSubscriptionResource.Spec.Subscription.EnforceGetHealthCheck = true
+
+	// call the function under test
+	httpMethod := getHttpMethod(testSubscriptionResource)
+
+	// assert the result
+	assertions.Equal("GET", httpMethod)
+}
+
+func TestGetHttpMethod_HeadMethod(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testSubscriptionResource.Spec.Subscription.EnforceGetHealthCheck = false
+
+	// call the function under test
+	httpMethod := getHttpMethod(testSubscriptionResource)
+
+	// assert the result
+	assertions.Equal("HEAD", httpMethod)
 }
 
 func newTestSubscriptionResource(testSubscriptionId string, testCallbackUrl string, testEnvironment string) *resource.SubscriptionResource {
