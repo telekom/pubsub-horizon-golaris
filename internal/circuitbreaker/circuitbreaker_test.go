@@ -111,6 +111,9 @@ func TestPrepareHealthCheck_NewEntry(t *testing.T) {
 	assertions.Equal(healthCheckKey, preparedHealthCheck.HealthCheckKey)
 	assertions.True(preparedHealthCheck.IsAcquired)
 	assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
+
+	// Unlock the cache entry
+	defer cache.HealthCheckCache.Unlock(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey)
 }
 
 func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
@@ -120,7 +123,7 @@ func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 	testEnvironment := "test"
-	testCallbackUrl := "http://test2.com"
+	testCallbackUrl := "http://test.com"
 
 	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	healthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
@@ -140,8 +143,11 @@ func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
 	assertions.NotNil(preparedHealthCheck.Ctx)
 	assertions.NotNil(preparedHealthCheck.HealthCheckEntry.LastChecked)
 	assertions.Equal(healthCheckKey, preparedHealthCheck.HealthCheckKey)
-	//assertions.True(preparedHealthCheck.IsAcquired)
-	//assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
+	assertions.True(preparedHealthCheck.IsAcquired)
+	assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
+
+	// Unlock the cache entry
+	defer cache.HealthCheckCache.Unlock(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey)
 }
 
 func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
