@@ -103,3 +103,45 @@ func executeHealthRequestWithToken(callbackUrl string, httpMethod string, subscr
 
 	return response, nil
 }
+
+// PrepareHealthCheck tries to get an entry from the HealthCheckCache. If no entry exists it creates a new one. The entry then gets locked.
+// It returns a PreparedHealthCheckData struct containing the context, health check key, health check entry, and a boolean indicating if the lock was acquired.
+func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedHealthCheckData, error) {
+	httpMethod := GetHttpMethod(subscription)
+
+	healthCheckKey := fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, httpMethod, subscription.Spec.Subscription.Callback)
+
+	ctx := cache.HealthCheckCache.NewLockContext(context.Background())
+
+	// Get the health check entry for the healthCacheKey
+	healthCheckEntry, err := cache.HealthCheckCache.Get(ctx, healthCheckKey)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error retrieving health check entry for key %s", healthCheckKey)
+	}
+
+	// If no entry exists, create a new one
+	if healthCheckEntry == nil {
+		healthCheckEntry = NewHealthCheckEntry(subscription, httpMethod)
+		err := cache.HealthCheckCache.Set(ctx, healthCheckKey, healthCheckEntry)
+		if err != nil {
+			return &PreparedHealthCheckData{}, err
+		}
+
+		log.Debug().Msgf("Creating new health check entry for key %s", healthCheckKey)
+	}
+
+	// Attempt to acquire a lock for the health check key
+	isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
+
+	castedHealthCheckEntry := healthCheckEntry.(HealthCheck)
+	return &PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}, nil
+}
+
+// GetHttpMethod specifies the HTTP method based on the subscription configuration
+func GetHttpMethod(subscription *resource.SubscriptionResource) string {
+	httpMethod := http.MethodHead
+	if subscription.Spec.Subscription.EnforceGetHealthCheck == true {
+		httpMethod = http.MethodGet
+	}
+	return httpMethod
+}

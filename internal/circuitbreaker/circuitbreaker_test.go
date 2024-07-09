@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/cache"
 	"golaris/internal/config"
@@ -26,7 +25,7 @@ func TestMain(m *testing.M) {
 		MongoDb:   false,
 		Hazelcast: true,
 	})
-	config.Current = buildTestConfig()
+	config.Current = test.BuildTestConfig()
 	cache.Initialize()
 	code := m.Run()
 
@@ -41,7 +40,7 @@ func TestIncreaseRepublishingCount_Success(t *testing.T) {
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 
-	testCircuitBreakerMessage := newTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
 
 	// set mocked  circuit breaker message in the cache
 	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
@@ -61,10 +60,10 @@ func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
 
-	testCircuitBreakerMessage := newTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
 
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
 
 	// mock health check function
 	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
@@ -73,7 +72,7 @@ func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
 	}
 
 	// set mocked  circuit breaker message in the cache
-	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
 
 	// call the function under test
 	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
@@ -87,67 +86,50 @@ func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
 
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
 	assertions.False(healthCheckCacheLocked)
+	assertions.NoError(err)
 }
-
-func TestPrepareHealthCheck_NewEntry(t *testing.T) {
+func TestHandleOpenCircuitBreaker_CoolDown(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
-	testEnvironment := "test"
+	testEnvironment := "test2"
 	testCallbackUrl := "http://test.com"
 
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-	healthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
+
+	// mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 200
+		return nil
+	}
+
+	hcData, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
+	//castedHealthCheckEntry := hcData.(healthcheck.HealthCheck)
+	hcData.HealthCheckEntry.LastChecked = time.Now()
+	hcData.HealthCheckEntry.LastCheckedStatus = 500
+	cache.HealthCheckCache.Set(context.Background(), testHealthCheckKey, hcData.HealthCheckEntry)
+
+	// set mocked  circuit breaker message in the cache
+	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
 
 	// call the function under test
-	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
 
 	// assert the result
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(enum.CircuitBreakerStatusOpen, circuitBreakerCacheEntry.Status)
+
+	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
+	assertions.Nil(testSubscriptionId, republishingCacheEntry)
+
+	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
+	assertions.False(healthCheckCacheLocked)
 	assertions.NoError(err)
-	assertions.NotNil(preparedHealthCheck)
-	assertions.NotNil(preparedHealthCheck.Ctx)
-	assertions.Equal(healthCheckKey, preparedHealthCheck.HealthCheckKey)
-	assertions.True(preparedHealthCheck.IsAcquired)
-	assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
-
-	// Unlock the cache entry
-	defer cache.HealthCheckCache.Unlock(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey)
-}
-
-func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-	testEnvironment := "test"
-	testCallbackUrl := "http://test.com"
-
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-	healthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, getHttpMethod(testSubscriptionResource), testCallbackUrl)
-
-	healthCheckEntry := healthcheck.NewHealthCheckEntry(testSubscriptionResource, getHttpMethod(testSubscriptionResource))
-	healthCheckEntry.LastChecked = time.Now()
-	err := cache.HealthCheckCache.Set(context.Background(), healthCheckKey, healthCheckEntry)
-
-	assertions.NoError(err)
-
-	// call the function under test
-	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
-
-	// assert the result
-	assertions.NoError(err)
-	assertions.NotNil(preparedHealthCheck)
-	assertions.NotNil(preparedHealthCheck.Ctx)
-	assertions.NotNil(preparedHealthCheck.HealthCheckEntry.LastChecked)
-	assertions.Equal(healthCheckKey, preparedHealthCheck.HealthCheckKey)
-	assertions.True(preparedHealthCheck.IsAcquired)
-	assertions.True(cache.HealthCheckCache.IsLocked(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey))
-
-	// Unlock the cache entry
-	defer cache.HealthCheckCache.Unlock(preparedHealthCheck.Ctx, preparedHealthCheck.HealthCheckKey)
 }
 
 func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
@@ -159,11 +141,11 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
 
-	testCbMessage := newTestCbMessage(testSubscriptionId)
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testCbMessage := test.NewTestCbMessage(testSubscriptionId)
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
 	// call the function under test
-	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	cbMessageAfterDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
 
@@ -182,15 +164,15 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
 
-	testCbMessage := newTestCbMessage(testSubscriptionId)
+	testCbMessage := test.NewTestCbMessage(testSubscriptionId)
 	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCbMessage)
 
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
 	republishingCacheEntry := republish.RepublishingCache{SubscriptionId: testCbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
 	err := cache.RepublishingCache.Set(context.Background(), testCbMessage.SubscriptionId, republishingCacheEntry)
 
-	preparedHealthCheck, err := prepareHealthCheck(testSubscriptionResource)
+	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
 	cbMessageAfterRepubEntryDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
@@ -208,7 +190,7 @@ func TestCloseCircuitBreaker(t *testing.T) {
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
-	testCbMessage := newTestCbMessage(testSubscriptionId)
+	testCbMessage := test.NewTestCbMessage(testSubscriptionId)
 
 	// call the function under test
 	CloseCircuitBreaker(testCbMessage)
@@ -217,126 +199,4 @@ func TestCloseCircuitBreaker(t *testing.T) {
 	cbMessage, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
 	assertions.NotNil(cbMessage)
 	assertions.Equal(enum.CircuitBreakerStatusClosed, cbMessage.Status)
-}
-
-func TestGetHttpMethod_GetMethod(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-	testEnvironment := "test"
-	testCallbackUrl := "http://test.com"
-
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-	testSubscriptionResource.Spec.Subscription.EnforceGetHealthCheck = true
-
-	// call the function under test
-	httpMethod := getHttpMethod(testSubscriptionResource)
-
-	// assert the result
-	assertions.Equal("GET", httpMethod)
-}
-
-func TestGetHttpMethod_HeadMethod(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-	testEnvironment := "test"
-	testCallbackUrl := "http://test.com"
-
-	testSubscriptionResource := newTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-	testSubscriptionResource.Spec.Subscription.EnforceGetHealthCheck = false
-
-	// call the function under test
-	httpMethod := getHttpMethod(testSubscriptionResource)
-
-	// assert the result
-	assertions.Equal("HEAD", httpMethod)
-}
-
-func newTestSubscriptionResource(testSubscriptionId string, testCallbackUrl string, testEnvironment string) *resource.SubscriptionResource {
-	testSubscriptionResource := &resource.SubscriptionResource{
-		Spec: struct {
-			Subscription resource.Subscription `json:"subscription"`
-			Environment  string                `json:"environment"`
-		}{
-			Subscription: resource.Subscription{
-				SubscriptionId:        testSubscriptionId,
-				Callback:              testCallbackUrl,
-				EnforceGetHealthCheck: false,
-			},
-			Environment: testEnvironment,
-		},
-	}
-	return testSubscriptionResource
-}
-
-func newTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
-	testCircuitBreakerMessage := message.CircuitBreakerMessage{
-		SubscriptionId:    testSubscriptionId,
-		Status:            enum.CircuitBreakerStatusOpen,
-		RepublishingCount: 0,
-		LastRepublished:   time.Now(),
-		LastModified:      time.Now(),
-	}
-	return testCircuitBreakerMessage
-}
-
-func buildTestConfig() config.Configuration {
-
-	return config.Configuration{
-		LogLevel: "debug",
-		Port:     8080,
-		CircuitBreaker: config.CircuitBreaker{
-			OpenCbCheckInterval: 30 * time.Second,
-		},
-		HealthCheck: config.HealthCheck{
-			SuccessfulResponseCodes: []int{200, 201, 202},
-			CoolDownTime:            30 * time.Second,
-		},
-		Republishing: config.Republishing{
-			CheckInterval: 10 * time.Second,
-			BatchSize:     100,
-		},
-		Hazelcast: config.Hazelcast{
-			ServiceDNS:  test.EnvOrDefault("HAZELCAST_HOST", "localhost"),
-			ClusterName: "dev",
-			Caches: config.Caches{
-				SubscriptionCache:   "subCache",
-				CircuitBreakerCache: "cbCache",
-				HealthCheckCache:    "hcCache",
-				RepublishingCache:   "repCache",
-			},
-			CustomLoggerEnabled: false,
-		},
-		Kafka: config.Kafka{
-			Brokers: []string{"broker1:9092", "broker2:9092"},
-			Topics:  []string{"testTopic"},
-		},
-		Mongo: config.Mongo{
-			Url:        "mongodb://localhost:27017",
-			Database:   "mydatabase",
-			Collection: "mycollection",
-			BulkSize:   10,
-		},
-		Security: config.Security{
-			Enabled:      true,
-			Url:          "https://security.local",
-			ClientId:     "my-client-id",
-			ClientSecret: "my-client-secret",
-		},
-		Tracing: config.Tracing{
-			CollectorEndpoint: "http://tracing.local/collect",
-			Https:             true,
-			DebugEnabled:      false,
-			Enabled:           true,
-		},
-		Kubernetes: config.Kubernetes{
-			Namespace: "default",
-		},
-		MockCbSubscriptionId: "mock-sub-id-123",
-	}
 }

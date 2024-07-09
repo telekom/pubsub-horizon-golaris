@@ -5,8 +5,6 @@
 package circuitbreaker
 
 import (
-	"context"
-	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -15,7 +13,6 @@ import (
 	"golaris/internal/config"
 	"golaris/internal/healthcheck"
 	"golaris/internal/republish"
-	"net/http"
 	"slices"
 	"time"
 )
@@ -32,7 +29,7 @@ var (
 // retrieving and updating health check data, performing a health check if not in cool down, and creating a republishing cache entry if the last health check was successful.
 // It also handles the process of closing the circuit breaker once all operations are successfully completed.
 func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
-	hcData, err := prepareHealthCheck(subscription)
+	hcData, err := healthcheck.PrepareHealthCheck(subscription)
 	if err != nil {
 		log.Error().Err(err).Msgf("Failed to create new health check entry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
 		return
@@ -109,48 +106,6 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 		cbMessage = *updatedCbMessage
 	}
 	return cbMessage, nil
-}
-
-// prepareHealthCheck tries to get an entry from the HealthCheckCache. If no entry exists it creates a new one. The entry then gets locked.
-// It returns a PreparedHealthCheckData struct containing the context, health check key, health check entry, and a boolean indicating if the lock was acquired.
-func prepareHealthCheck(subscription *resource.SubscriptionResource) (*healthcheck.PreparedHealthCheckData, error) {
-	httpMethod := getHttpMethod(subscription)
-
-	healthCheckKey := fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, httpMethod, subscription.Spec.Subscription.Callback)
-
-	ctx := cache.HealthCheckCache.NewLockContext(context.Background())
-
-	// Get the health check entry for the healthCacheKey
-	healthCheckEntry, err := cache.HealthCheckCache.Get(ctx, healthCheckKey)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving health check entry for key %s", healthCheckKey)
-	}
-
-	// If no entry exists, create a new one
-	if healthCheckEntry == nil {
-		healthCheckEntry = healthcheck.NewHealthCheckEntry(subscription, httpMethod)
-		err := cache.HealthCheckCache.Set(ctx, healthCheckKey, healthCheckEntry)
-		if err != nil {
-			return &healthcheck.PreparedHealthCheckData{}, err
-		}
-
-		log.Debug().Msgf("Creating new health check entry for key %s", healthCheckKey)
-	}
-
-	// Attempt to acquire a lock for the health check key
-	isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
-
-	castedHealthCheckEntry := healthCheckEntry.(healthcheck.HealthCheck)
-	return &healthcheck.PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}, nil
-}
-
-// getHttpMethod specifies the HTTP method based on the subscription configuration
-func getHttpMethod(subscription *resource.SubscriptionResource) string {
-	httpMethod := http.MethodHead
-	if subscription.Spec.Subscription.EnforceGetHealthCheck == true {
-		httpMethod = http.MethodGet
-	}
-	return httpMethod
 }
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
