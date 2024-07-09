@@ -7,6 +7,7 @@ package kafka
 import (
 	"encoding/json"
 	"github.com/IBM/sarama"
+	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"golaris/internal/config"
@@ -35,6 +36,7 @@ func newKafkaHandler() (*Handler, error) {
 
 	// Initialize the Kafka Producer to send the updated messages back to Kafka (resetMessage)
 	kafkaConfig.Producer.Return.Successes = true
+	kafkaConfig.Producer.Partitioner = kafkautil.NewJVMCompatiblePartitioner
 	producer, err := sarama.NewSyncProducer(config.Current.Kafka.Brokers, kafkaConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create Kafka producer")
