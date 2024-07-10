@@ -11,3 +11,17 @@ type RepublishingCache struct {
 	RepublishingUpTo time.Time `json:"republishingUpTo"`
 	PostponedUntil   time.Time `json:"postponedUntil"`
 }
+
+type DBMessage struct {
+	Topic       string
+	Coordinates *Coordinates
+}
+
+type Coordinates struct {
+	Partition int32
+	Offset    int64
+}
+
+type KafkaMessage struct {
+	Content string
+}

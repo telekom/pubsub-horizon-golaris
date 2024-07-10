@@ -96,7 +96,7 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 	if republishingEntry != nil {
 		log.Debug().Msgf("RepublishingCache entry found for subscriptionId %s", cbMessage.SubscriptionId)
 		// ForceDelete eventual existing RepublishingCache entry for the subscriptionId
-		republish.ForceDelete(cbMessage.SubscriptionId, hcData.Ctx)
+		republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
 		// Increase the republishing count for the subscription by 1
 		updatedCbMessage, err := IncreaseRepublishingCount(cbMessage.SubscriptionId)
 		if err != nil {

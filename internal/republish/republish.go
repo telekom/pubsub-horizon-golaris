@@ -13,10 +13,13 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golaris/internal/cache"
 	"golaris/internal/config"
-	"golaris/internal/kafka"
-	"golaris/internal/mongo"
 	"time"
 )
+
+var mongoHandler MongoHandler
+var kafkaHandler KafkaHandler
+
+var republishWaitingEventsFunc = republishWaitingEvents
 
 // register the data type RepublishingCache to gob for encoding and decoding of binary data
 func init() {
@@ -57,7 +60,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		}
 	}()
 
-	RepublishWaitingEvents(subscriptionId)
+	republishWaitingEventsFunc(subscriptionId)
 
 	// Delete the republishing entry after processing
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
@@ -69,10 +72,10 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
 }
 
-// RepublishWaitingEvents handles the republishing of pending events for a given subscription.
+// republishWaitingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 // The function takes a subscriptionId as a parameter.
-func RepublishWaitingEvents(subscriptionId string) {
+func republishWaitingEvents(subscriptionId string) {
 	log.Debug().Msgf("Republishing waiting events for subscription %s", subscriptionId)
 
 	batchSize := config.Current.Republishing.BatchSize
@@ -87,7 +90,7 @@ func RepublishWaitingEvents(subscriptionId string) {
 			SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 		//Get Waiting events from database pageable!
-		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
+		dbMessages, err := mongoHandler.FindWaitingMessages(time.Now(), opts, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscriptionId %s from db", subscriptionId)
 		}
@@ -108,12 +111,12 @@ func RepublishWaitingEvents(subscriptionId string) {
 				continue
 			}
 
-			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
+			kafkaMessage, err := kafkaHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
 			if err != nil {
 				log.Warn().Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
-			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage)
+			err = kafkaHandler.RepublishMessage(kafkaMessage)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
 			}
@@ -123,7 +126,6 @@ func RepublishWaitingEvents(subscriptionId string) {
 		// If the number of fetched messages is less than the batch size, exit the loop
 		// as there are no more messages to fetch
 		if len(dbMessages) < int(batchSize) {
-			time.Sleep(60 * time.Second)
 			break
 		}
 		page++
@@ -134,7 +136,7 @@ func RepublishWaitingEvents(subscriptionId string) {
 // The function takes two parameters:
 // - subscriptionId: a string representing the subscriptionId of the cache entry to be deleted.
 // - ctx: a context.Context object for managing timeouts and cancellation signals.
-func ForceDelete(subscriptionId string, ctx context.Context) {
+func ForceDelete(ctx context.Context, subscriptionId string) {
 	// Check if the entry is locked
 	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
 	if err != nil {
@@ -168,13 +170,6 @@ func Unlock(ctx context.Context, subscriptionId string) error {
 		if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-func Delete(ctx context.Context, subscriptionId string) error {
-	if err := cache.RepublishingCache.Delete(ctx, subscriptionId); err != nil {
-		return err
 	}
 	return nil
 }

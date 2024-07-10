@@ -20,6 +20,8 @@ import (
 )
 
 var scheduler *gocron.Scheduler
+var HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
+var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
 
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
@@ -70,7 +72,7 @@ func checkOpenCircuitBreakers() {
 			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
 		}
 		//Handle each circuit breaker entry asynchronously
-		go circuitbreaker.HandleOpenCircuitBreaker(entry, subscription)
+		go HandleOpenCircuitBreakerFunc(entry, subscription)
 	}
 }
 
@@ -93,7 +95,7 @@ func checkRepublishingEntries() {
 		subscription := getSubscription(subscriptionId)
 		if subscription == nil {
 			log.Debug().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
-			err := republish.Delete(context.Background(), subscriptionId)
+			err := cache.RepublishingCache.Delete(context.Background(), subscriptionId)
 			if err != nil {
 				return
 			}
@@ -101,7 +103,7 @@ func checkRepublishingEntries() {
 		}
 		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)
 		// Handle each republishing entry asynchronously
-		go republish.HandleRepublishingEntry(subscription)
+		go HandleRepublishingEntryFunc(subscription)
 	}
 }
 
