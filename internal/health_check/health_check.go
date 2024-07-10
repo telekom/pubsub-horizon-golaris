@@ -39,6 +39,13 @@ func UpdateHealthCheck(ctx context.Context, healthCheckKey string, healthCheckDa
 	}
 }
 
+func DeleteHealthCheck(subscriptionID string) {
+	err := cache.HealthChecks.Delete(context.Background(), subscriptionID)
+	if err != nil {
+		log.Error().Msgf("Failed to delete health check for subscription %s: %v", subscriptionID, err)
+	}
+}
+
 func InCoolDown(healthCheckData HealthCheck) bool {
 	lastCheckedTime := healthCheckData.LastChecked
 	duration := time.Since(lastCheckedTime)
