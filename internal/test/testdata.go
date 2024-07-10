@@ -7,11 +7,8 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"golaris/internal/config"
-	"sync"
 	"time"
 )
-
-var DockerMutex = sync.Mutex{}
 
 func NewTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
 	testCircuitBreakerMessage := message.CircuitBreakerMessage{

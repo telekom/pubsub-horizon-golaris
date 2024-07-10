@@ -21,7 +21,6 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	test.DockerMutex.Lock()
 	test.SetupDocker(&test.Options{
 		MongoDb:   false,
 		Hazelcast: true,
@@ -31,8 +30,6 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	test.TeardownDocker()
-	time.Sleep(5000 * time.Millisecond)
-	test.DockerMutex.Unlock()
 	os.Exit(code)
 }
 

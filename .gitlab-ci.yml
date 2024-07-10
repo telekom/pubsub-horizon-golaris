@@ -5,7 +5,7 @@
 include:
   - project: dhei/teams/pandora/gitlab-ci-templates
     file: products/gocomponents/GoComponent.Pipeline.gitlab-ci.yml
-    ref: develop
+    ref: feature/go-parallel
 
 variables:
   TARGET_IMAGE_SUBGROUP: horizon
@@ -21,3 +21,4 @@ variables:
 test:
   variables:
     GO_TEST_TAGS: testing
+    GO_TEST_PARALLEL: 1
