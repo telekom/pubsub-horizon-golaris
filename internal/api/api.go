@@ -42,7 +42,7 @@ func init() {
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
 	// Create a predicate to select all entries
-	//pred := predicate.True()
+
 	pred := predicate.Equal("status", enum.CircuitBreakerStatusOpen)
 
 	// Set the Content-Type header to application/json
