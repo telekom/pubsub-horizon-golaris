@@ -65,7 +65,7 @@ func TestHandler_RepublishMessage_NoError(t *testing.T) {
 		Value:     []byte(`{"example": "value"}`),
 	}
 
-	err := mockHandler.RepublishMessage(message)
+	err := mockHandler.RepublishMessage(message, "", "")
 	assert.NoError(t, err)
 }
 
@@ -80,7 +80,7 @@ func TestHandler_RepublishMessage_Error(t *testing.T) {
 		Value:     []byte(`{"example": "value"}`),
 	}
 
-	err := mockHandler.RepublishMessage(message)
+	err := mockHandler.RepublishMessage(message, "", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Could not send message with id")
 }
