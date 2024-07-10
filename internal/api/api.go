@@ -73,9 +73,6 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 	// Read from the circuit breaker cache
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 
-	// Set the Content-Type header to application/json
-	ctx.Set("Content-Type", "application/json")
-
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
