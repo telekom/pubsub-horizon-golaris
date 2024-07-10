@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/gob"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -42,7 +43,13 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
-	RepublishPendingEvents(subscription)
+	republishCache, ok := republishingEntry.(RepublishingCache)
+	if !ok {
+		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
+		return
+	}
+
+	RepublishPendingEvents(subscription, republishCache)
 
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
@@ -52,7 +59,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
 }
 
-func RepublishPendingEvents(subscription *resource.SubscriptionResource) {
+func RepublishPendingEvents(subscription *resource.SubscriptionResource, repulishEntry RepublishingCache) {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
@@ -60,18 +67,36 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource) {
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
+	cache.CancelMapMutex.Lock()
+	defer cache.CancelMapMutex.Unlock()
+
+	cache.SubscriptionCancelMap[subscriptionId] = false
+
 	// Start a loop to paginate through the events
 	for {
+		if cache.SubscriptionCancelMap[subscriptionId] {
+			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+			return
+		}
+
 		opts := options.Find().
 			SetLimit(batchSize).
 			// Skip the number of events already processed
 			SetSkip(page * batchSize).
 			SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
-		//Get Waiting events from database pageable!
-		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
-		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
+		var dbMessages []message.StatusMessage
+		var err error
+		if repulishEntry.OldDeliveryType == "sse" || repulishEntry.OldDeliveryType == "server_sent_event" {
+			dbMessages, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), opts, subscriptionId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
+			}
+		} else {
+			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
+			}
 		}
 
 		log.Info().Msgf("Found %d event states in MongoDb", len(dbMessages))
@@ -83,7 +108,12 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource) {
 
 		// Iterate over each message to republish
 		for _, dbMessage := range dbMessages {
+			if cache.SubscriptionCancelMap[subscriptionId] {
+				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+				return
+			}
 
+			// TODo: Delete callbackUrl
 			var newDeliveryType string
 			if subscription.Spec.Subscription.DeliveryType != dbMessage.DeliveryType {
 				newDeliveryType = string(subscription.Spec.Subscription.DeliveryType)
