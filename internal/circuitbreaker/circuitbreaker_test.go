@@ -21,6 +21,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	test.DockerMutex.Lock()
 	test.SetupDocker(&test.Options{
 		MongoDb:   false,
 		Hazelcast: true,
@@ -30,6 +31,8 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	test.TeardownDocker()
+	time.Sleep(500 * time.Millisecond)
+	test.DockerMutex.Unlock()
 	os.Exit(code)
 }
 
@@ -51,7 +54,7 @@ func TestIncreaseRepublishingCount_Success(t *testing.T) {
 	assertions.Equal(1, result.RepublishingCount)
 }
 
-func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
+func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -90,7 +93,52 @@ func TestHandleOpenCircuitBreaker_Success(t *testing.T) {
 	assertions.False(healthCheckCacheLocked)
 }
 
-func TestHandleOpenCircuitBreaker_AlreadyLocked(t *testing.T) {
+func TestHandleOpenCircuitBreaker_WithExistingHealthCheckEntry(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
+
+	// Create  health check entry that  provokes a cool down and no republishing because of lst http status
+	hcData, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
+	cache.HealthCheckCache.Unlock(hcData.Ctx, testHealthCheckKey)
+	hcData.HealthCheckEntry.LastChecked = time.Now().Add(-time.Duration(config.Current.HealthCheck.CoolDownTime.Seconds() * float64(time.Second)))
+	cache.HealthCheckCache.Set(context.Background(), testHealthCheckKey, hcData.HealthCheckEntry)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 200
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if cb entry is closed
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(enum.CircuitBreakerStatusClosed, circuitBreakerCacheEntry.Status)
+
+	// Check if there is a new republishing entry
+	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
+	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCache).SubscriptionId)
+
+	// Check if health check cache entry is not locked
+	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
+	assertions.False(healthCheckCacheLocked)
+}
+
+func TestHandleOpenCircuitBreaker_HealthCheckEntryAlreadyLocked(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -105,7 +153,7 @@ func TestHandleOpenCircuitBreaker_AlreadyLocked(t *testing.T) {
 	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
 
 	// Create  locked health check entry
-	healthcheck.PrepareHealthCheck(testSubscriptionResource)
+	hcData, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// Set mocked  circuit breaker message in the cache
 	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
@@ -122,11 +170,11 @@ func TestHandleOpenCircuitBreaker_AlreadyLocked(t *testing.T) {
 	assertions.Nil(republishingCacheEntry)
 
 	// Check if health check cache entry is locked furthermore
-	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
+	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(hcData.Ctx, testHealthCheckKey)
 	assertions.True(healthCheckCacheLocked)
 
 	//Cleanup
-	defer cache.HealthCheckCache.ForceUnlock(context.Background(), testHealthCheckKey)
+	defer cache.HealthCheckCache.Unlock(hcData.Ctx, testHealthCheckKey)
 }
 
 func TestHandleOpenCircuitBreaker_CoolDownWithoutRepublishing(t *testing.T) {
