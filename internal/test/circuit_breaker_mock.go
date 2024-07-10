@@ -6,16 +6,15 @@ import (
 	"github.com/stretchr/testify/mock"
 	c "github.com/telekom/pubsub-horizon-go/cache"
 	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 type CircuitBreakerMockCache struct {
 	mock.Mock
 }
 
-func (m *CircuitBreakerMockCache) Get(mapName string, key string) (*resource.SubscriptionResource, error) {
+func (m *CircuitBreakerMockCache) Get(mapName string, key string) (*message.CircuitBreakerMessage, error) {
 	args := m.Called(mapName, key)
-	return args.Get(0).(*resource.SubscriptionResource), args.Error(1)
+	return args.Get(0).(*message.CircuitBreakerMessage), args.Error(1)
 }
 
 func (m *CircuitBreakerMockCache) GetQuery(cacheName string, query predicate.Predicate) ([]message.CircuitBreakerMessage, error) {
