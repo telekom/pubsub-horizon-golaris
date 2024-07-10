@@ -31,7 +31,7 @@ func TestMain(m *testing.M) {
 	code := m.Run()
 
 	test.TeardownDocker()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(5000 * time.Millisecond)
 	test.DockerMutex.Unlock()
 	os.Exit(code)
 }
