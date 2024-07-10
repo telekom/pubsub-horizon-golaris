@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
 
 	"pubsub-horizon-golaris/internal/cache"
@@ -39,9 +40,25 @@ func init() {
 }
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
+	// Create a predicate to select all entries
+	pred := predicate.True()
 
-	//return hello world
-	return ctx.SendString("Hello, World!")
+	// Get all circuit breaker messages
+	cbMessages, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, pred)
+	if err != nil {
+		log.Error().Err(err).Msg("Error while getting all CircuitBreaker messages")
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error retrieving circuit breaker messages"})
+	}
+
+	// Convert the circuit breaker messages to JSON
+	cbMessagesJSON, err := json.Marshal(cbMessages)
+	if err != nil {
+		log.Error().Err(err).Msg("Error converting circuit breaker messages to JSON")
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error converting circuit breaker messages to JSON"})
+	}
+
+	// Send the circuit breaker messages as the response
+	return ctx.Status(fiber.StatusOK).Send(cbMessagesJSON)
 }
 
 func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
