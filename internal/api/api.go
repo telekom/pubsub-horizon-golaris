@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -41,7 +42,11 @@ func init() {
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
 	// Create a predicate to select all entries
-	pred := predicate.True()
+	//pred := predicate.True()
+	pred := predicate.Equal("status", enum.CircuitBreakerStatusOpen)
+
+	// Set the Content-Type header to application/json
+	ctx.Set("Content-Type", "application/json")
 
 	// Get all circuit breaker messages
 	cbMessages, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, pred)
@@ -68,6 +73,9 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 	// Read from the circuit breaker cache
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 
+	// Set the Content-Type header to application/json
+	ctx.Set("Content-Type", "application/json")
+
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
@@ -76,6 +84,7 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 	if cbMessage == nil {
 		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
 	}
+
 	// Convert the circuit breaker message to JSON
 	cbMessageJSON, err := json.Marshal(cbMessage)
 	if err != nil {
