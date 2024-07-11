@@ -12,15 +12,16 @@ import (
 	"golaris/internal/config"
 )
 
-var CurrentConnection *Connection
+var CurrentConnection HandlerInterface
 
 func Initialize() {
 	var err error
 
-	CurrentConnection, err = newMongoConnection(&config.Current.Mongo)
+	conn, err := newMongoConnection(&config.Current.Mongo)
 	if err != nil {
 		log.Panic().Err(err).Msg("error while initializing MongoDB connection")
 	}
+	CurrentConnection = conn
 }
 
 func newMongoConnection(config *config.Mongo) (*Connection, error) {

@@ -13,15 +13,16 @@ import (
 	"golaris/internal/config"
 )
 
-var CurrentHandler *Handler
+var CurrentHandler HandlerInterface
 
 func Initialize() {
 	var err error
 
-	CurrentHandler, err = newKafkaHandler()
+	conn, err := newKafkaHandler()
 	if err != nil {
 		log.Panic().Err(err).Msg("error while initializing Kafka picker")
 	}
+	CurrentHandler = conn
 }
 
 func newKafkaHandler() (*Handler, error) {

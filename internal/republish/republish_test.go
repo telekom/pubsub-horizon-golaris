@@ -2,11 +2,14 @@ package republish
 
 import (
 	"context"
+	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"golaris/internal/cache"
 	"golaris/internal/config"
+	"golaris/internal/kafka"
+	"golaris/internal/mongo"
 	"golaris/internal/test"
 	"os"
 	"testing"
@@ -27,27 +30,18 @@ func TestMain(m *testing.M) {
 }
 
 // Mock structures for Mongo and Kafka handlers
-type MockMongoHandler struct {
-	mock.Mock
-}
 
 type MockKafkaHandler struct {
 	mock.Mock
 }
 
-// Mock methods for MongoHandler
-func (m *MockMongoHandler) FindWaitingMessages(now time.Time, opts *options.FindOptions, subscriptionId string) ([]DBMessage, error) {
-	args := m.Called(now, opts, subscriptionId)
-	return args.Get(0).([]DBMessage), args.Error(1)
-}
-
 // Mock methods for KafkaHandler
-func (k *MockKafkaHandler) PickMessage(topic string, partition int32, offset int64) (KafkaMessage, error) {
+func (k *MockKafkaHandler) PickMessage(topic string, partition int32, offset int64) (sarama.ConsumerMessage, error) {
 	args := k.Called(topic, partition, offset)
-	return args.Get(0).(KafkaMessage), args.Error(1)
+	return args.Get(0).(sarama.ConsumerMessage), args.Error(1)
 }
 
-func (k *MockKafkaHandler) RepublishMessage(message KafkaMessage) error {
+func (k *MockKafkaHandler) RepublishMessage(message sarama.ConsumerMessage) error {
 	args := k.Called(message)
 	return args.Error(0)
 }
@@ -110,34 +104,37 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 
 func TestRepublishWaitingEvents(t *testing.T) {
 	// Initialize mocks
-	mockMongo := new(MockMongoHandler)
-	mockKafka := new(MockKafkaHandler)
+	mockMongo := new(test.MockMongoHandler)
+	mockKafka := new(test.MockKafkaHandler)
 
 	// Replace real handlers with mocks
-	mongoHandler = mockMongo
-	kafkaHandler = mockKafka
+	mongo.CurrentConnection = mockMongo
+	kafka.CurrentHandler = mockKafka
 
 	// Set configurations for the test
 	config.Current.Republishing.BatchSize = 10
 
+	// Mock data
 	subscriptionId := "test-subscription"
 
-	// Mock data
-	dbMessages := []DBMessage{
-		{Topic: "test-topic", Coordinates: &Coordinates{Partition: 1, Offset: 100}},
-		{Topic: "test-topic", Coordinates: &Coordinates{Partition: 1, Offset: 101}},
+	partitionValue1 := int32(1)
+	offsetValue1 := int64(100)
+	partitionValue2 := int32(1)
+	offsetValue2 := int64(101)
+	dbMessages := []message.StatusMessage{
+		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue1, Offset: &offsetValue1}},
+		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue2, Offset: &offsetValue2}},
 	}
 
-	kafkaMessage := KafkaMessage{Content: "test-content"}
+	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
 
 	// Expectations for the batch
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
-	mockKafka.On("PickMessage", "test-topic", int32(1), int64(100)).Return(kafkaMessage, nil).Once()
-	//mockKafka.On("RepublishMessage", kafkaMessage).Return(nil).Once()
-	mockKafka.On("PickMessage", "test-topic", int32(1), int64(101)).Return(kafkaMessage, nil).Once()
-	mockKafka.On("RepublishMessage", kafkaMessage).Return(nil).Twice()
+	mockKafka.On("PickMessage", "test-topic", &partitionValue1, &offsetValue1).Return(&kafkaMessage, nil).Once()
+	mockKafka.On("PickMessage", "test-topic", &partitionValue2, &offsetValue2).Return(&kafkaMessage, nil).Once()
+	mockKafka.On("RepublishMessage", &kafkaMessage).Return(nil).Twice()
 
-	// Call the function
+	// Call the function under test
 	republishWaitingEvents(subscriptionId)
 
 	// Assertions

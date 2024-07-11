@@ -13,11 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golaris/internal/cache"
 	"golaris/internal/config"
+	"golaris/internal/kafka"
+	"golaris/internal/mongo"
 	"time"
 )
-
-var mongoHandler MongoHandler
-var kafkaHandler KafkaHandler
 
 var republishWaitingEventsFunc = republishWaitingEvents
 
@@ -90,7 +89,7 @@ func republishWaitingEvents(subscriptionId string) {
 			SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 		//Get Waiting events from database pageable!
-		dbMessages, err := mongoHandler.FindWaitingMessages(time.Now(), opts, subscriptionId)
+		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscriptionId %s from db", subscriptionId)
 		}
@@ -111,12 +110,12 @@ func republishWaitingEvents(subscriptionId string) {
 				continue
 			}
 
-			kafkaMessage, err := kafkaHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
+			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
 			if err != nil {
 				log.Warn().Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
-			err = kafkaHandler.RepublishMessage(kafkaMessage)
+			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
 			}
