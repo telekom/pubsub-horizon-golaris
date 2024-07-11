@@ -113,14 +113,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, repulis
 				return
 			}
 
-			// TODo: Delete callbackUrl
 			var newDeliveryType string
 			if subscription.Spec.Subscription.DeliveryType != dbMessage.DeliveryType {
 				newDeliveryType = string(subscription.Spec.Subscription.DeliveryType)
 			}
 
 			var newCallbackUrl string
-			if subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"] {
+			if subscription.Spec.Subscription.Callback != "" && subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"] {
 				newCallbackUrl = subscription.Spec.Subscription.Callback
 			}
 

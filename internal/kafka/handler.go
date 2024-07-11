@@ -123,6 +123,10 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		metadataValue["additionalFields"].(map[string]any)["callback-url"] = newCallbackUrl
 	}
 
+	if newDeliveryType == "SERVER_SENT_EVENT" {
+		delete(metadataValue["additionalFields"].(map[string]any), "callback-url")
+	}
+
 	newMessageType := "METADATA"
 	newHeaders := []sarama.RecordHeader{
 		{Key: []byte("type"), Value: []byte(newMessageType)},
