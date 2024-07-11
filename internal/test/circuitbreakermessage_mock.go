@@ -41,7 +41,7 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 		if counter == numberMessages && numberMessages != 0 {
 			break
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(60 * time.Second)
 
 	}
 	return messages
