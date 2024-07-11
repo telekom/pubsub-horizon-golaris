@@ -14,7 +14,7 @@ import (
 )
 
 func (connection Connection) findMessagesByQuery(query bson.M, pageable options.FindOptions) ([]message.StatusMessage, error) {
-	collection := connection.client.Database(connection.config.Database).Collection(connection.config.Collection)
+	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
 	cursor, err := collection.Find(context.Background(), query, &pageable)
 	if err != nil {

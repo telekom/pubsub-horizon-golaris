@@ -10,6 +10,6 @@ import (
 )
 
 type Connection struct {
-	client *mongo.Client
-	config *config.Mongo
+	Client *mongo.Client
+	Config *config.Mongo
 }

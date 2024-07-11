@@ -17,8 +17,8 @@ func TestConnection_FindWaitingMessages(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		connection := Connection{
-			client: mt.Client,
-			config: &config.Mongo{
+			Client: mt.Client,
+			Config: &config.Mongo{
 				Database:   "testdb",
 				Collection: "testcollection",
 			},
@@ -46,8 +46,8 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 
 	mt.Run("success", func(mt *mtest.T) {
 		connection := Connection{
-			client: mt.Client,
-			config: &config.Mongo{
+			Client: mt.Client,
+			Config: &config.Mongo{
 				Database:   "testdb",
 				Collection: "testcollection",
 			},

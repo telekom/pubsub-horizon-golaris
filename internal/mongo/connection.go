@@ -36,8 +36,8 @@ func newMongoConnection(config *config.Mongo) (*Connection, error) {
 	}
 
 	return &Connection{
-		client: connection,
-		config: config,
+		Client: connection,
+		Config: config,
 	}, nil
 }
 

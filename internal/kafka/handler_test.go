@@ -33,8 +33,8 @@ func GetMockHandler(t *testing.T, shouldFail bool) *Handler {
 	})
 
 	mockHandler = &Handler{
-		consumer: mockConsumer,
-		producer: mockProducer,
+		Consumer: mockConsumer,
+		Producer: mockProducer,
 	}
 
 	return mockHandler

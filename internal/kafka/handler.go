@@ -42,15 +42,15 @@ func newKafkaHandler() (*Handler, error) {
 	}
 
 	return &Handler{
-		consumer: consumer,
-		producer: producer,
+		Consumer: consumer,
+		Producer: producer,
 	}, nil
 }
 
 func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *int64) (*sarama.ConsumerMessage, error) {
 	log.Debug().Msgf("Picking message at partition %d with offset %d", *partition, *offset)
 
-	consumer, err := kafkaHandler.consumer.ConsumePartition(topic, *partition, *offset)
+	consumer, err := kafkaHandler.Consumer.ConsumePartition(topic, *partition, *offset)
 	if err != nil {
 		log.Debug().Msgf("KafkaPick for  partition %d and topic %s and offset %d failed: %v", *partition, topic, *offset, err)
 		return nil, err
@@ -81,7 +81,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 		Value:   sarama.ByteEncoder(modifiedValue),
 	}
 
-	_, _, err = kafkaHandler.producer.SendMessage(msg)
+	_, _, err = kafkaHandler.Producer.SendMessage(msg)
 
 	if err != nil {
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", msg.Key)
@@ -110,9 +110,10 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 	var metadataValue = map[string]any{
 		"uuid": messageValue["uuid"],
 		"event": map[string]any{
-			"id": messageValue["event"].(map[string]any)["id"],
+			"id": messageValue["event"].(map[string]interface{})["id"],
 		},
-		"status": enum.StatusProcessed,
+		"status":           enum.StatusProcessed,
+		"additionalFields": map[string]interface{}{},
 	}
 
 	if newDeliveryType != "" {
@@ -120,11 +121,11 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 	}
 
 	if newCallbackUrl != "" {
-		metadataValue["additionalFields"].(map[string]any)["callback-url"] = newCallbackUrl
+		metadataValue["additionalFields"].(map[string]interface{})["callback-url"] = newCallbackUrl
 	}
 
 	if newDeliveryType == "SERVER_SENT_EVENT" {
-		delete(metadataValue["additionalFields"].(map[string]any), "callback-url")
+		delete(metadataValue["additionalFields"].(map[string]interface{}), "callback-url")
 	}
 
 	newMessageType := "METADATA"
