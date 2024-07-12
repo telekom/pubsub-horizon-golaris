@@ -118,6 +118,7 @@ func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
 		log.Error().Err(err).Msgf("Error: %v while closing CircuitBreaker for subscription %s", err, cbMessage.SubscriptionId)
 		return
 	}
+	log.Info().Msgf("Successfully closed circuit breaker for subscription %s with status %s", cbMessage.SubscriptionId, cbMessage.Status)
 }
 
 // IncreaseRepublishingCount increments the republishing count for a given subscription by 1.

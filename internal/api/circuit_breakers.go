@@ -6,8 +6,10 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
-	"golaris/internal/cache"
-	"golaris/internal/config"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/circuitbreaker"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/republish"
 )
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
@@ -52,6 +54,38 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
 	}
 
+	// Send the circuit breaker message as the response
+	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
+}
+
+func closeCircuitBreakerById(ctx *fiber.Ctx) error {
+	// Get the subscriptionId from the request parameters
+	subscriptionId := ctx.Params("subscriptionId")
+
+	// Read from the circuit breaker cache
+	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
+		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
+	}
+
+	// Set the Content-Type header to application/json
+	ctx.Set("Content-Type", "application/json")
+
+	//add if cbMessage is nil, then return not found status code
+	if cbMessage == nil {
+		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
+	}
+
+	// Set new republishing entry to pick the last waiting
+	err = cache.RepublishingCache.Set(ctx.Context(), subscriptionId, republish.RepublishingCache{SubscriptionId: subscriptionId})
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while setting Republishing Cache entry for subscription %s", subscriptionId)
+		return ctx.Status(fiber.StatusInternalServerError).SendString("Error to set the republishing cache entry")
+	}
+
+	circuitbreaker.CloseCircuitBreaker(*cbMessage)
+	log.Info().Msgf("Successfully closed circuit breaker for subscription with status %s", cbMessage.Status)
 	// Send the circuit breaker message as the response
 	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
 }

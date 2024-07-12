@@ -6,6 +6,7 @@ package api
 
 import (
 	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/rs/zerolog/log"
@@ -29,6 +30,7 @@ func init() {
 	v1 := app.Group("/api/v1")
 	v1.Get("/circuit-breakers/:subscriptionId", getCircuitBreakerMessageById)
 	v1.Get("/circuit-breakers", getAllCircuitBreakerMessages)
+	v1.Put("/circuit-breakers/close/:subscriptionId", closeCircuitBreakerById)
 }
 
 func Listen(port int) {
