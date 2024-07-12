@@ -4,17 +4,18 @@ go 1.22.3
 
 require (
 	github.com/IBM/sarama v1.43.2
+	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/contrib/otelfiber/v2 v2.1.0
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/hazelcast/hazelcast-go-client v1.4.1
+	github.com/jarcoal/httpmock v1.3.1
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/rs/zerolog v1.33.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	github.com/telekom/pubsub-horizon-go v0.0.0-20240712085328-903e7c8124fb
 	go.mongodb.org/mongo-driver v1.15.0
 	go.opentelemetry.io/contrib/propagators/b3 v1.27.0
 	go.opentelemetry.io/otel v1.27.0
@@ -32,7 +33,6 @@ require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/continuity v0.4.3 // indirect
@@ -60,7 +60,6 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jarcoal/httpmock v1.3.1 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.7.6 // indirect
@@ -100,6 +99,7 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
+	github.com/telekom/pubsub-horizon-go v0.0.0-20240712092525-37c35967af11 // indirect
 	github.com/tklauser/go-sysconf v0.3.4 // indirect
 	github.com/tklauser/numcpus v0.2.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
