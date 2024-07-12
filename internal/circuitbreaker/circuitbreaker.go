@@ -31,12 +31,12 @@ var (
 func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
 	hcData, err := healthcheck.PrepareHealthCheck(subscription)
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to create new health check entry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
+		log.Error().Err(err).Msgf("Failed to create new HealthCheck cache entry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
 		return
 	}
 
 	if hcData.IsAcquired == false {
-		log.Debug().Msgf("Could not acquire lock for HealthCheck cache entry with key %s, skipping entry", hcData.HealthCheckKey)
+		log.Debug().Msgf("Could not acquire lock for HealthCheck cache entry, skipping entry for subscriptionId %s", hcData.HealthCheckKey)
 		return
 	}
 
@@ -52,7 +52,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 	cbMessage, err = deleteRepubEntryAndIncreaseRepubCount(cbMessage, hcData)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while deleting republishing entry and increasing republishing count for subscriptionId %s", cbMessage.SubscriptionId)
+		log.Error().Err(err).Msgf("Error while deleting Republishing cache entry and increasing republishing count for subscriptionId %s", cbMessage.SubscriptionId)
 		return
 	}
 
@@ -61,11 +61,11 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		// Perform health check and update health check data
 		err := healthCheckFunc(hcData, subscription)
 		if err != nil {
-			log.Debug().Msgf("Error while checking consumer health for key %s", hcData.HealthCheckKey)
+			log.Debug().Msgf("HealthCheck failed for key %s", hcData.HealthCheckKey)
 			return
 		}
 	} else {
-		log.Debug().Msgf("HealthCheck for key %s is in cool down", hcData.HealthCheckKey)
+		log.Debug().Msgf("HealthCheck is in cooldown for key %s", hcData.HealthCheckKey)
 	}
 
 	// Create republishing cache entry if last health check was successful
@@ -73,14 +73,14 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while creating republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
+			log.Error().Err(err).Msgf("Error while creating RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 			return
 		}
-		log.Debug().Msgf("Successfully created republishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
+		log.Debug().Msgf("Successfully created RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 		CloseCircuitBreaker(cbMessage)
 	}
 
-	log.Debug().Msgf("Successfully processed open circuit breaker entry for subscriptionId %s", cbMessage.SubscriptionId)
+	log.Debug().Msgf("Successfully processed open CircuitBreaker entry for subscriptionId %s", cbMessage.SubscriptionId)
 	return
 }
 
@@ -89,7 +89,7 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 	// Attempt to get an republishingCache entry for the subscriptionId
 	republishingEntry, err := cache.RepublishingCache.Get(hcData.Ctx, cbMessage.SubscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error getting entry from RepublishingCache for subscriptionId %s", cbMessage.SubscriptionId)
+		log.Error().Err(err).Msgf("Error getting RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 	}
 
 	// If there is an entry, force delete and increase republishingCount
@@ -114,7 +114,7 @@ func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
 	cbMessage.Status = enum.CircuitBreakerStatusClosed
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error: %v while closing circuit breaker for subscription %s", err, cbMessage.SubscriptionId)
+		log.Error().Err(err).Msgf("Error: %v while closing CircuitBreaker for subscription %s", err, cbMessage.SubscriptionId)
 		return
 	}
 }

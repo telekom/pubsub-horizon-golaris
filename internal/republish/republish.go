@@ -34,17 +34,17 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	subscriptionId := subscription.Spec.Subscription.SubscriptionId
 	republishingEntry, err := cache.RepublishingCache.Get(ctx, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving republishing cache entry for subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error retrieving RepublishingCache entry for subscriptionId %s", subscriptionId)
 	}
 
 	if republishingEntry == nil {
-		log.Debug().Msgf("No republishing entry found for subscriptionId %s", subscriptionId)
+		log.Debug().Msgf("No RepublishingCache entry found for subscriptionId %s", subscriptionId)
 		return
 	}
 
 	// Attempt to acquire a lock on the republishing entry
 	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
-		log.Debug().Msgf("Could not acquire lock for republishing entry with subscriptionId %s in time, skipping entry", subscriptionId)
+		log.Debug().Msgf("Could not acquire lock for RepublishingCache entry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
 
@@ -64,11 +64,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	// Delete the republishing entry after processing
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error deleting republishing entry with subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry with subscriptionId %s", subscriptionId)
 		return
 	}
 
-	log.Debug().Msgf("Successfully proccessed republishing entry with subscriptionId %s", subscriptionId)
+	log.Debug().Msgf("Successfully proccessed RepublishingCache entry with subscriptionId %s", subscriptionId)
 }
 
 // republishWaitingEvents handles the republishing of pending events for a given subscription.
@@ -91,7 +91,7 @@ func republishWaitingEvents(subscriptionId string) {
 		//Get Waiting events from database pageable!
 		dbMessages, err := mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching messages for subscriptionId %s from db", subscriptionId)
+			log.Error().Err(err).Msgf("Error while fetching messages from db for subscriptionId %s", subscriptionId)
 		}
 
 		log.Debug().Msgf("Found %d messages in MongoDb", len(dbMessages))

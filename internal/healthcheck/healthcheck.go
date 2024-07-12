@@ -38,7 +38,7 @@ func updateHealthCheckEntry(ctx context.Context, healthCheckKey string, healthCh
 	healthCheckData.LastChecked = time.Now()
 
 	if err := cache.HealthCheckCache.Set(ctx, healthCheckKey, healthCheckData); err != nil {
-		log.Error().Err(err).Msgf("Failed to update health check for key %s", healthCheckKey)
+		log.Error().Err(err).Msgf("Failed to update HealthCheck for key %s", healthCheckKey)
 	}
 }
 
@@ -116,7 +116,7 @@ func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedH
 	// Get the health check entry for the healthCacheKey
 	healthCheckEntry, err := cache.HealthCheckCache.Get(ctx, healthCheckKey)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving health check entry for key %s", healthCheckKey)
+		log.Error().Err(err).Msgf("Error retrieving HealthCheck entry for key %s", healthCheckKey)
 	}
 
 	// If no entry exists, create a new one
@@ -127,7 +127,7 @@ func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedH
 			return &PreparedHealthCheckData{}, err
 		}
 
-		log.Debug().Msgf("Creating new health check entry for key %s", healthCheckKey)
+		log.Debug().Msgf("Creating new HealthCheck entry for key %s", healthCheckKey)
 	}
 
 	// Attempt to acquire a lock for the health check key
