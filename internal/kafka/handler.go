@@ -71,18 +71,19 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 
 func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) error {
 
-	modifiedValue, err := updateMessage(message)
+	modifiedValue, headers, err := updateMessage(message)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:   sarama.StringEncoder(message.Key),
-		Topic: message.Topic,
-		Value: sarama.ByteEncoder(modifiedValue),
+		Key:     sarama.StringEncoder(message.Key),
+		Topic:   message.Topic,
+		Value:   sarama.ByteEncoder(modifiedValue),
+		Headers: headers,
 	}
-
+	
 	_, _, err = kafkaHandler.producer.SendMessage(msg)
 
 	if err != nil {
@@ -94,27 +95,31 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	return nil
 }
 
-func updateMessage(message *sarama.ConsumerMessage) ([]byte, error) {
-	var messageValue map[string]any
+func updateMessage(message *sarama.ConsumerMessage) ([]byte, []sarama.RecordHeader, error) {
+	var messageValue map[string]interface{}
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
-		return nil, err
+		return nil, nil, err
 	}
 
-	// ToDo: If there are changes, we have to adjust the data here so that the current data is written to the kafka
-	// --> DeliveryType
-	// --> CallbackUrl
-	// --> circuitBreakerOptOut?
-	// --> HttpMethod?
+	var metadataValue = map[string]any{
+		"uuid": messageValue["uuid"],
+		"event": map[string]any{
+			"id": messageValue["event"].(map[string]interface{})["id"],
+		},
+		"status": enum.StatusProcessed,
+	}
 
-	messageValue["uuid"] = message.Key
-	messageValue["status"] = enum.StatusProcessed
+	newMessageType := "METADATA"
+	newHeaders := []sarama.RecordHeader{
+		{Key: []byte("type"), Value: []byte(newMessageType)},
+	}
 
-	modifiedValue, err := json.Marshal(messageValue)
+	modifiedValue, err := json.Marshal(metadataValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not marshal modified message value")
-		return nil, err
+		return nil, nil, err
 	}
 
-	return modifiedValue, nil
+	return modifiedValue, newHeaders, nil
 }

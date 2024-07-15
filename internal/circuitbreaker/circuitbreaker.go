@@ -127,6 +127,7 @@ func IncreaseRepublishingCount(subscriptionId string) (*message.CircuitBreakerMe
 		return nil, err
 	}
 
+	cbMessage.LastRepublished = time.Now()
 	cbMessage.RepublishingCount++
 	if err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *cbMessage); err != nil {
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker message for subscription %s", subscriptionId)

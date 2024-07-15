@@ -99,7 +99,7 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/syndtr/goleveldb v1.0.0 // indirect
-	github.com/telekom/pubsub-horizon-go v0.0.0-20240712122605-368c2be9f8b3 // indirect
+	github.com/telekom/pubsub-horizon-go v0.0.0-20240715064812-f3705c8a7ee4 // indirect
 	github.com/tklauser/go-sysconf v0.3.4 // indirect
 	github.com/tklauser/numcpus v0.2.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
