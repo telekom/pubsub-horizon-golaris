@@ -26,10 +26,10 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 
 		circuitBreakerMessage := message.CircuitBreakerMessage{
 			SubscriptionId:    subscriptionId,
-			LastModified:      types.Timestamp(time.Now().In(time.UTC).Add(-48 * time.Hour)),
+			LastModified:      types.NewTimestamp(time.Now().UTC().Add(-48 * time.Hour)),
 			OriginMessageId:   "originMessageId",
 			Status:            enum.CircuitBreakerStatusOpen,
-			LastRepublished:   types.Timestamp(time.Now()),
+			LastRepublished:   types.NewTimestamp(time.Now().UTC()),
 			RepublishingCount: 0,
 		}
 

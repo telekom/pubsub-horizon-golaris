@@ -16,8 +16,8 @@ func NewTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
 		SubscriptionId:    testSubscriptionId,
 		Status:            enum.CircuitBreakerStatusOpen,
 		RepublishingCount: 0,
-		LastRepublished:   types.Timestamp(time.Now()),
-		LastModified:      types.Timestamp(time.Now()),
+		LastRepublished:   types.NewTimestamp(time.Now().UTC()),
+		LastModified:      types.NewTimestamp(time.Now().UTC()),
 	}
 	return testCircuitBreakerMessage
 }

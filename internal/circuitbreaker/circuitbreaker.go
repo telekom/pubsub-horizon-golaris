@@ -111,7 +111,7 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
 func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
-	cbMessage.LastModified = types.Timestamp(time.Now())
+	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
 	cbMessage.Status = enum.CircuitBreakerStatusClosed
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
 	if err != nil {
@@ -128,7 +128,7 @@ func IncreaseRepublishingCount(subscriptionId string) (*message.CircuitBreakerMe
 		return nil, err
 	}
 
-	cbMessage.LastRepublished = types.Timestamp(time.Now())
+	cbMessage.LastRepublished = types.NewTimestamp(time.Now().UTC())
 	cbMessage.RepublishingCount++
 	if err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *cbMessage); err != nil {
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker message for subscription %s", subscriptionId)
