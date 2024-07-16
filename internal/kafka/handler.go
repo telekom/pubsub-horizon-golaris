@@ -36,8 +36,9 @@ func newKafkaHandler() (*Handler, error) {
 	}
 
 	// Initialize the Kafka Producer to send the updated messages back to Kafka (resetMessage)
-	kafkaConfig.Producer.Return.Successes = true
 	kafkaConfig.Producer.Partitioner = kafkautil.NewJVMCompatiblePartitioner
+	kafkaConfig.Producer.RequiredAcks = sarama.RequiredAcks(1)
+	kafkaConfig.Producer.Return.Successes = true
 	producer, err := sarama.NewSyncProducer(config.Current.Kafka.Brokers, kafkaConfig)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not create Kafka producer")
@@ -87,10 +88,10 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	_, _, err = kafkaHandler.producer.SendMessage(msg)
 
 	if err != nil {
-		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", msg.Key)
+		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
 		return err
 	}
-	log.Debug().Msgf("Message with id %v sent to kafka", msg.Key)
+	log.Debug().Msgf("Message with id %v sent to kafka", string(message.Key))
 
 	return nil
 }
