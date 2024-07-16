@@ -267,6 +267,8 @@ github.com/telekom/pubsub-horizon-go v0.0.0-20240716141058-78cfd2cd7802 h1:ttoo2
 github.com/telekom/pubsub-horizon-go v0.0.0-20240716141058-78cfd2cd7802/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
 github.com/telekom/pubsub-horizon-go v0.0.0-20240716141940-a49071d0e123 h1:vigatmiNjKUvojcZndWmJ6uPbB/iwLJ5M6Dygp4avOk=
 github.com/telekom/pubsub-horizon-go v0.0.0-20240716141940-a49071d0e123/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240716145929-a8ec0351891d h1:VJeaWtiF/X6VhdijBk90WARs0udgmbo9hp94e00ItN8=
+github.com/telekom/pubsub-horizon-go v0.0.0-20240716145929-a8ec0351891d/go.mod h1:RZCkjUkzPCp3lgDFrrpgQOHJSJc5JBg5eWfY0P3q8q4=
 github.com/tklauser/go-sysconf v0.3.4 h1:HT8SVixZd3IzLdfs/xlpq0jeSfTX57g1v6wB1EuzV7M=
 github.com/tklauser/go-sysconf v0.3.4/go.mod h1:Cl2c8ZRWfHD5IrfHo9VN+FX9kCFjIOyVklgXycLB6ek=
 github.com/tklauser/numcpus v0.2.1 h1:ct88eFm+Q7m2ZfXJdan1xYoXKlmwsfP+k88q05KvlZc=
