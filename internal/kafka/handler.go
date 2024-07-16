@@ -78,12 +78,12 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:     sarama.StringEncoder(message.Key),
+		Key:     sarama.ByteEncoder(message.Key),
 		Topic:   message.Topic,
-		Value:   sarama.ByteEncoder(modifiedValue),
 		Headers: headers,
+		Value:   sarama.ByteEncoder(modifiedValue),
 	}
-	
+
 	_, _, err = kafkaHandler.producer.SendMessage(msg)
 
 	if err != nil {
@@ -96,7 +96,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage) er
 }
 
 func updateMessage(message *sarama.ConsumerMessage) ([]byte, []sarama.RecordHeader, error) {
-	var messageValue map[string]interface{}
+	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
 		return nil, nil, err
@@ -105,7 +105,7 @@ func updateMessage(message *sarama.ConsumerMessage) ([]byte, []sarama.RecordHead
 	var metadataValue = map[string]any{
 		"uuid": messageValue["uuid"],
 		"event": map[string]any{
-			"id": messageValue["event"].(map[string]interface{})["id"],
+			"id": messageValue["event"].(map[string]any)["id"],
 		},
 		"status": enum.StatusProcessed,
 	}
