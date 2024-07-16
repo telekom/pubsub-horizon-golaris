@@ -6,6 +6,7 @@ import (
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/types"
 	"golaris/internal/config"
 	"time"
 )
@@ -15,8 +16,8 @@ func NewTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
 		SubscriptionId:    testSubscriptionId,
 		Status:            enum.CircuitBreakerStatusOpen,
 		RepublishingCount: 0,
-		LastRepublished:   time.Now(),
-		LastModified:      time.Now(),
+		LastRepublished:   types.Timestamp(time.Now()),
+		LastModified:      types.Timestamp(time.Now()),
 	}
 	return testCircuitBreakerMessage
 }

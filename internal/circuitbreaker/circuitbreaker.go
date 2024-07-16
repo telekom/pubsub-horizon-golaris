@@ -9,6 +9,7 @@ import (
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/types"
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"golaris/internal/healthcheck"
@@ -110,7 +111,7 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
 func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
-	cbMessage.LastModified = time.Now()
+	cbMessage.LastModified = types.Timestamp(time.Now())
 	cbMessage.Status = enum.CircuitBreakerStatusClosed
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
 	if err != nil {
@@ -127,7 +128,7 @@ func IncreaseRepublishingCount(subscriptionId string) (*message.CircuitBreakerMe
 		return nil, err
 	}
 
-	cbMessage.LastRepublished = time.Now()
+	cbMessage.LastRepublished = types.Timestamp(time.Now())
 	cbMessage.RepublishingCount++
 	if err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *cbMessage); err != nil {
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker message for subscription %s", subscriptionId)

@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/types"
 	"golaris/internal/cache"
 	"golaris/internal/config"
 	"time"
@@ -25,10 +26,10 @@ func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBre
 
 		circuitBreakerMessage := message.CircuitBreakerMessage{
 			SubscriptionId:    subscriptionId,
-			LastModified:      time.Now().Add(-48 * time.Hour),
+			LastModified:      types.Timestamp(time.Now().In(time.UTC).Add(-48 * time.Hour)),
 			OriginMessageId:   "originMessageId",
 			Status:            enum.CircuitBreakerStatusOpen,
-			LastRepublished:   time.Now(),
+			LastRepublished:   types.Timestamp(time.Now()),
 			RepublishingCount: 0,
 		}
 
