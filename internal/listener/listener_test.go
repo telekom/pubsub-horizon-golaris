@@ -89,8 +89,8 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 		// Close the channel when the goroutine is finished
 		defer close(done)
 		// Simulate a long-running goroutine ( for example, publishing events)
-		for i := 1; i <= 50; i++ {
-			time.Sleep(1 * time.Nanosecond)
+		for i := 1; i <= 10000; i++ {
+			time.Sleep(1 * time.Millisecond)
 
 			cache.CancelMapMutex.Lock()
 			if cache.SubscriptionCancelMap[subscriptionId] {
@@ -112,7 +112,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	case <-done:
 		t.Logf("Number of iterations completed: %d", iterations)
 		assert.NotEqual(t, 0, iterations)
-		assert.NotEqual(t, 50, iterations)
+		assert.NotEqual(t, 10000, iterations)
 	case <-time.After(1 * time.Second):
 		assert.Fail(t, "Goroutine did not exit within expected time")
 	}
