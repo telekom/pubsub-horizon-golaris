@@ -5,7 +5,7 @@
 package main
 
 import (
-	"golaris/cmd"
+	"pubsub-horizon-golaris/cmd"
 )
 
 func main() {
