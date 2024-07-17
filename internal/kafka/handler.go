@@ -9,7 +9,6 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/enum"
 	"pubsub-horizon-golaris/internal/config"
 )
 
@@ -70,8 +69,7 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 }
 
 func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
-
-	modifiedValue, newHeaders, err := updateMessage(message, newDeliveryType, newCallbackUrl)
+	modifiedValue, err := updateMessage(message, newDeliveryType, newCallbackUrl)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
@@ -80,63 +78,68 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 	msg := &sarama.ProducerMessage{
 		Key:     sarama.ByteEncoder(message.Key),
 		Topic:   message.Topic,
-		Headers: newHeaders,
+		Headers: copyHeaders(message.Headers),
 		Value:   sarama.ByteEncoder(modifiedValue),
 	}
 
-	_, _, err = kafkaHandler.Producer.SendMessage(msg)
-
+	partition, offset, err := kafkaHandler.Producer.SendMessage(msg)
 	if err != nil {
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
 		return err
 	}
-	log.Debug().Msgf("Message with id %v sent to kafka", string(message.Key))
+
+	log.Debug().Msgf("Message with id %s sent to kafka: partition %v offset %v", string(message.Key), partition, offset)
 
 	return nil
 }
 
-func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) ([]byte, []sarama.RecordHeader, error) {
+func copyHeaders(headers []*sarama.RecordHeader) []sarama.RecordHeader {
+	var newHeaders []sarama.RecordHeader
+	for _, header := range headers {
+		if string(header.Key) != "clientId" {
+			newHeaders = append(newHeaders, *header)
+		}
+	}
+	newHeaders = append(newHeaders, sarama.RecordHeader{Key: []byte("clientId"), Value: []byte("golaris")})
+	return newHeaders
+}
+
+func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) ([]byte, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Map newDeliveryType to the appropriate value
 	switch newDeliveryType {
-	case "callback":
-		newDeliveryType = "CALLBACK"
-	case "server_sent_event", "sse":
-		newDeliveryType = "SERVER_SENT_EVENT"
+	case "callback", "server_sent_event", "sse":
+		messageValue["deliveryType"] = newDeliveryType
 	}
 
-	var metadataValue = map[string]any{
-		"uuid": messageValue["uuid"],
-		"event": map[string]any{
-			"id": messageValue["event"].(map[string]interface{})["id"],
-		},
-		"status":           enum.StatusProcessed,
-		"additionalFields": map[string]interface{}{},
-	}
-
+	// Update callbackUrl if there is a new one
 	if newCallbackUrl != "" {
-		metadataValue["additionalFields"].(map[string]interface{})["callback-url"] = newCallbackUrl
+		additionalFields, ok := messageValue["additionalFields"].(map[string]any)
+		if !ok {
+			additionalFields = make(map[string]any)
+			messageValue["additionalFields"] = additionalFields
+		}
+		additionalFields["callback-url"] = newCallbackUrl
 	}
 
-	if newDeliveryType == "SERVER_SENT_EVENT" {
-		delete(metadataValue["additionalFields"].(map[string]interface{}), "callback-url")
+	// delete callbackUrl if newDeliveryType is sse or server_sent_event
+	if newDeliveryType == "server_sent_event" || newDeliveryType == "sse" {
+		additionalFields, ok := messageValue["additionalFields"].(map[string]interface{})
+		if ok {
+			delete(additionalFields, "callback-url")
+		}
 	}
 
-	newMessageType := "METADATA"
-	newHeaders := []sarama.RecordHeader{
-		{Key: []byte("type"), Value: []byte(newMessageType)},
-	}
-
-	modifiedValue, err := json.Marshal(metadataValue)
+	modifiedValue, err := json.Marshal(messageValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not marshal modified message value")
-		return nil, nil, err
+		return nil, err
 	}
 
-	return modifiedValue, newHeaders, nil
+	return modifiedValue, nil
 }

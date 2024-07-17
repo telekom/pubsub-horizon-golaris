@@ -36,6 +36,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	republishingEntry, err := cache.RepublishingCache.Get(ctx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error retrieving RepublishingCache entry for subscriptionId %s", subscriptionId)
+		return
 	}
 
 	if republishingEntry == nil {
@@ -51,7 +52,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
-		if acquired == true {
+		if acquired {
 			err := Unlock(ctx, subscriptionId)
 			if err != nil {
 				log.Debug().Msgf("Failed to unlock RepublishingCache entry with subscriptionId %s and error %v", subscriptionId, err)
@@ -59,13 +60,14 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 			log.Debug().Msgf("Successfully unlocked RepublishingCache entry with subscriptionId %s", subscriptionId)
 		}
 	}()
+
 	republishCache, ok := republishingEntry.(RepublishingCache)
 	if !ok {
 		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
 		return
 	}
 
-	RepublishPendingEvents(subscription, republishCache)
+	republishPendingEventsFunc(subscription, republishCache)
 
 	// Delete the republishing entry after processing
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
@@ -74,7 +76,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
-	log.Debug().Msgf("Successfully proccessed RepublishingCache entry with subscriptionId %s", subscriptionId)
+	log.Debug().Msgf("Successfully processed RepublishingCache entry with subscriptionId %s", subscriptionId)
 }
 
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.

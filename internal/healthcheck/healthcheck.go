@@ -62,17 +62,36 @@ func IsHealthCheckInCoolDown(healthCheckData HealthCheck) bool {
 	return false
 }
 
+// getCredentialsForEnvironment resolves the credentials for the given environment.
+func getCredentialsForEnvironment(environment string) (string, string, string, error) {
+	var issuerUrl = strings.ReplaceAll(config.Current.Security.Url, "<realm>", environment)
+
+	var secrets = make(map[string]string)
+	for _, secret := range config.Current.Security.ClientSecret {
+		var splittedSecret = strings.SplitN(secret, "=", 2)
+		if len(splittedSecret) < 2 {
+			return "", "", "", fmt.Errorf("could not resolve secret '%s' for environment '%s'", secret, environment)
+		}
+
+		var clientEnvironment, clientSecret = splittedSecret[0], splittedSecret[1]
+		secrets[clientEnvironment] = clientSecret
+	}
+
+	return issuerUrl, config.Current.Security.ClientId, secrets[environment], nil
+}
+
 // CheckConsumerHealth retrieves the consumer token and calls the
 // executeHealthRequestWithToken function to perform the health check before calling the updateHealthCheckEntry.
 func CheckConsumerHealth(hcData *PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
 	log.Debug().Msg("Checking consumer health")
 
-	//Todo Take several virtual environments into account
-	clientSecret := strings.Split(config.Current.Security.ClientSecret, "=")
-	issuerUrl := strings.ReplaceAll(config.Current.Security.Url, "<realm>", clientSecret[0])
+	var issuerUrl, clientId, clientSecret, err = getCredentialsForEnvironment(subscription.Spec.Environment)
+	if err != nil {
+		return err
+	}
 
 	// Todo caching for token?
-	token, err := auth.RetrieveToken(issuerUrl, config.Current.Security.ClientId, clientSecret[1])
+	token, err := auth.RetrieveToken(issuerUrl, clientId, clientSecret)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve OAuth2 token")
 		return err

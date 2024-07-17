@@ -7,23 +7,17 @@ package config
 import "time"
 
 type Configuration struct {
-	LogLevel string `mapstructure:"logLevel"`
-	Port     int    `mapstructure:"port"`
-
+	LogLevel       string         `mapstructure:"logLevel"`
+	Port           int            `mapstructure:"port"`
 	CircuitBreaker CircuitBreaker `mapstructure:"circuitBreaker"`
 	HealthCheck    HealthCheck    `mapstructure:"healthCheck"`
 	Republishing   Republishing   `mapstructure:"republishing"`
-
-	Hazelcast Hazelcast `mapstructure:"hazelcast"`
-	Kafka     Kafka     `mapstructure:"kafka"`
-	Mongo     Mongo     `mapstructure:"mongo"`
-
-	Security Security `mapstructure:"security"`
-	Tracing  Tracing  `mapstructure:"tracing"`
-
-	Kubernetes Kubernetes `mapstructure:"kubernetes"`
-
-	MockCbSubscriptionId string `mapstructure:"mockCbSubscriptionId"`
+	Hazelcast      Hazelcast      `mapstructure:"hazelcast"`
+	Kafka          Kafka          `mapstructure:"kafka"`
+	Mongo          Mongo          `mapstructure:"mongo"`
+	Security       Security       `mapstructure:"security"`
+	Tracing        Tracing        `mapstructure:"tracing"`
+	Kubernetes     Kubernetes     `mapstructure:"kubernetes"`
 }
 
 type CircuitBreaker struct {
@@ -67,10 +61,10 @@ type Mongo struct {
 }
 
 type Security struct {
-	Enabled      bool   `mapstructure:"enabled"`
-	Url          string `mapstructure:"url"`
-	ClientId     string `mapstructure:"clientId"`
-	ClientSecret string `mapstructure:"clientSecret"`
+	Enabled      bool     `mapstructure:"enabled"`
+	Url          string   `mapstructure:"url"`
+	ClientId     string   `mapstructure:"clientId"`
+	ClientSecret []string `mapstructure:"clientSecret"`
 }
 
 type Tracing struct {

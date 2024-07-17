@@ -46,9 +46,13 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
 	ctx := context.Background()
+	republishingCacheEntry := RepublishingCache{
+		SubscriptionId:   testSubscriptionId,
+		RepublishingUpTo: time.Now(),
+	}
 
-	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
-	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+	err := cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+	assertions.NoError(err, "error setting up republishing cache entry")
 
 	// Call the function under test
 	HandleRepublishingEntry(testSubscriptionResource)
@@ -86,7 +90,7 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer cache.RepublishingCache.Unlock(ctx, testSubscriptionId)
 }
 
-func TestRepublishWaitingEvents(t *testing.T) {
+func TestRepublishEvents(t *testing.T) {
 	// Initialize mocks
 	mockMongo := new(test.MockMongoHandler)
 	mockKafka := new(test.MockKafkaHandler)
@@ -99,7 +103,7 @@ func TestRepublishWaitingEvents(t *testing.T) {
 	config.Current.Republishing.BatchSize = 10
 
 	// Mock data
-	subscriptionId := "test-subscription"
+	subscriptionId := "sub123"
 
 	partitionValue1 := int32(1)
 	offsetValue1 := int64(100)
@@ -116,7 +120,7 @@ func TestRepublishWaitingEvents(t *testing.T) {
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
 	mockKafka.On("PickMessage", "test-topic", &partitionValue1, &offsetValue1).Return(&kafkaMessage, nil).Once()
 	mockKafka.On("PickMessage", "test-topic", &partitionValue2, &offsetValue2).Return(&kafkaMessage, nil).Once()
-	mockKafka.On("RepublishMessage", &kafkaMessage).Return(nil).Twice()
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "callback", "http://new-callbackUrl/callback").Return(nil).Twice()
 
 	// Call the function under test
 	subscription := &resource.SubscriptionResource{
@@ -126,7 +130,7 @@ func TestRepublishWaitingEvents(t *testing.T) {
 		}{
 			Subscription: resource.Subscription{
 				SubscriptionId: "sub123",
-				DeliveryType:   enum.DeliveryTypeSse,
+				DeliveryType:   enum.DeliveryTypeCallback,
 				Callback:       "http://new-callbackUrl/callback",
 			},
 		},

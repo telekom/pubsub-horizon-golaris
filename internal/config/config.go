@@ -74,7 +74,7 @@ func setDefaults() {
 	viper.SetDefault("security.enabled", true)
 	viper.SetDefault("security.url", "iris")
 	viper.SetDefault("security.clientId", "clientId")
-	viper.SetDefault("security.clientSecret", "clientSecret")
+	viper.SetDefault("security.clientSecret", []string{"realm=clientSecret"})
 
 	// Tracing
 	viper.SetDefault("tracing.enabled", true)

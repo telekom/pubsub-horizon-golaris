@@ -80,7 +80,7 @@ func BuildTestConfig() config.Configuration {
 			Enabled:      true,
 			Url:          "https://security.local",
 			ClientId:     "my-client-id",
-			ClientSecret: "default=my-client-secret",
+			ClientSecret: []string{"default=my-client-secret"},
 		},
 		Tracing: config.Tracing{
 			CollectorEndpoint: "http://tracing.local/collect",
@@ -91,6 +91,5 @@ func BuildTestConfig() config.Configuration {
 		Kubernetes: config.Kubernetes{
 			Namespace: "default",
 		},
-		MockCbSubscriptionId: "mock-sub-id-123",
 	}
 }

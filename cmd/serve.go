@@ -14,7 +14,6 @@ import (
 	"pubsub-horizon-golaris/internal/log"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/scheduler"
-	"pubsub-horizon-golaris/internal/test"
 )
 
 var serveCmd = &cobra.Command{
@@ -32,9 +31,6 @@ func initialize() {
 	mongo.Initialize()
 	kafka.Initialize()
 	listener.Initialize()
-
-	// TODO Mock cb-messages for local development until comet is adapted
-	go test.CreateMockedCircuitBreakerMessages(10)
 }
 
 func startGolarisService(cmd *cobra.Command, args []string) {
