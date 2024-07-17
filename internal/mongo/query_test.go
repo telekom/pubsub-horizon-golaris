@@ -1,3 +1,7 @@
+// Copyright 2024 Deutsche Telekom IT GmbH
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package mongo
 
 import (
@@ -7,7 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"golaris/internal/config"
+	"pubsub-horizon-golaris/internal/config"
 	"testing"
 	"time"
 )
@@ -66,7 +70,7 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 		}))
 
 		opts := *options.Find()
-		messages, err := connection.FindDeliveringMessagesByDeliveryType(string(enum.StatusDelivering), time.Now(), opts, enum.DeliveryTypeCallback)
+		messages, err := connection.FindDeliveringMessagesByDeliveryType(string(enum.StatusDelivering), time.Now(), opts, string(enum.DeliveryTypeCallback))
 
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)

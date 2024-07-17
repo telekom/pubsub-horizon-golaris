@@ -7,10 +7,10 @@ import (
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
-	"golaris/internal/cache"
-	"golaris/internal/config"
-	"golaris/internal/republish"
-	"golaris/internal/test"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/republish"
+	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
 )
@@ -36,10 +36,10 @@ func setupMocks() (*test.RepublishingMockMap, *test.HealthCheckMockMap, *test.Ci
 	cache.RepublishingCache = republishMockMap
 
 	healthMockMap := new(test.HealthCheckMockMap)
-	cache.HealthChecks = healthMockMap
+	cache.HealthCheckCache = healthMockMap
 
 	circuitBreakerCache := new(test.CircuitBreakerMockCache)
-	cache.CircuitBreakers = circuitBreakerCache
+	cache.CircuitBreakerCache = circuitBreakerCache
 	config.Current.Hazelcast.Caches.CircuitBreakerCache = "test-circuit-breaker-cache"
 
 	return republishMockMap, healthMockMap, circuitBreakerCache
@@ -50,7 +50,7 @@ func Test_InitializeListener(t *testing.T) {
 	listener := &SubscriptionListener{}
 
 	mockSubscriptionCache := new(test.SubscriptionMockCache)
-	cache.Subscriptions = mockSubscriptionCache
+	cache.SubscriptionCache = mockSubscriptionCache
 	config.Current.Hazelcast.Caches.SubscriptionCache = "test-subscription-cache"
 
 	mockSubscriptionCache.On("AddListener", "test-subscription-cache", listener).Return(nil)

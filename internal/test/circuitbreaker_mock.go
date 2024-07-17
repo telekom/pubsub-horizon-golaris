@@ -1,8 +1,15 @@
+// Copyright 2024 Deutsche Telekom IT GmbH
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package test
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/hazelcast/hazelcast-go-client/serialization"
 	"github.com/stretchr/testify/mock"
 	c "github.com/telekom/pubsub-horizon-go/cache"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -45,4 +52,12 @@ func (m *CircuitBreakerMockCache) Delete(cacheName string, key string) error {
 func (m *CircuitBreakerMockCache) AddListener(mapName string, listener c.Listener[message.CircuitBreakerMessage]) error {
 	args := m.Called(mapName, listener)
 	return args.Error(0)
+}
+
+func (m *CircuitBreakerMockCache) unmarshalHazelcastJson(key any, value any, obj any) error {
+	hzJsonValue, ok := value.(serialization.JSON)
+	if !ok {
+		return fmt.Errorf("value of cached object with key '%s' is not a HazelcastJsonValue", key)
+	}
+	return json.Unmarshal(hzJsonValue, obj)
 }

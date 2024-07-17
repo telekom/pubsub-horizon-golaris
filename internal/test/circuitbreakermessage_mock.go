@@ -8,34 +8,41 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
-	"golaris/internal/cache"
-	"golaris/internal/config"
+	"github.com/telekom/pubsub-horizon-go/types"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
 	"time"
 )
 
+// TODO remove after initial development is done
 func CreateMockedCircuitBreakerMessages(numberMessages int) []message.CircuitBreakerMessage {
 	messages := make([]message.CircuitBreakerMessage, 0, numberMessages)
 
-	for i := 1; i <= numberMessages; i++ {
-		log.Info().Msgf("Creating mocked circuit breaker message %d", i)
+	counter := 0
+	for {
+		log.Info().Msgf("Creating mocked circuit breaker message %d", counter)
 
 		subscriptionId := config.Current.MockCbSubscriptionId
 
 		circuitBreakerMessage := message.CircuitBreakerMessage{
 			SubscriptionId:    subscriptionId,
-			LastModified:      time.Now().Add(-48 * time.Hour),
+			LastModified:      types.NewTimestamp(time.Now().UTC().Add(-48 * time.Hour)),
 			OriginMessageId:   "originMessageId",
 			Status:            enum.CircuitBreakerStatusOpen,
-			LastRepublished:   time.Now(),
+			LastRepublished:   types.NewTimestamp(time.Now().UTC()),
 			RepublishingCount: 0,
 		}
 
-		err := cache.CircuitBreakers.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, circuitBreakerMessage)
+		err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, circuitBreakerMessage)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not create mocked circuit breaker messages")
 		}
 
-		time.Sleep(60 * time.Second)
+		counter++
+		if counter == numberMessages && numberMessages != 0 {
+			break
+		}
+		time.Sleep(1 * time.Second)
 
 	}
 	return messages

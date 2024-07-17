@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
+	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/rs/zerolog/log"
-	"golaris/internal/metrics"
-	"golaris/internal/tracing"
+	"pubsub-horizon-golaris/internal/metrics"
+	"pubsub-horizon-golaris/internal/tracing"
 )
 
 var (
@@ -22,6 +23,7 @@ func init() {
 
 	app.Use(tracing.Middleware())
 	app.Use(healthcheck.New())
+	app.Use(pprof.New())
 
 	app.Get("/metrics", metrics.NewPrometheusMiddleware())
 

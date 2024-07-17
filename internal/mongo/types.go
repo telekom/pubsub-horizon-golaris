@@ -6,7 +6,7 @@ package mongo
 
 import (
 	"go.mongodb.org/mongo-driver/mongo"
-	"golaris/internal/config"
+	"pubsub-horizon-golaris/internal/config"
 )
 
 type Connection struct {

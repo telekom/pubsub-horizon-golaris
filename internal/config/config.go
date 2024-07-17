@@ -43,7 +43,7 @@ func setDefaults() {
 	viper.SetDefault("port", 8080)
 
 	// Processes
-	viper.SetDefault("circuitBreaker.openCbCheckInterval", 10)
+	viper.SetDefault("circuitBreaker.openCbCheckInterval", "30s")
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
 	viper.SetDefault("republishing.checkInterval", "30s")
@@ -52,7 +52,7 @@ func setDefaults() {
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
 	viper.SetDefault("hazelcast.caches.circuitBreakerCache", "circuit-breakers")
-	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-checks")
+	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-check-cache")
 	viper.SetDefault("hazelcast.caches.republishingCache", "republishing-cache")
 
 	// Hazelcast
@@ -86,8 +86,7 @@ func setDefaults() {
 	viper.SetDefault("kubernetes.namespace", "default")
 
 	// Mocks
-	viper.SetDefault("mockCbSubscriptionId", "mockCbSubscriptionId")
-
+	viper.SetDefault("mockCbSubscriptionId", "6484c635dc100e32bf976c7b17a2fde9605899fa")
 }
 
 func readConfiguration() *Configuration {

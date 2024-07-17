@@ -46,12 +46,27 @@ func (r *RepublishingMockMap) IsLocked(ctx context.Context, key interface{}) (bo
 	return args.Bool(0), args.Error(1)
 }
 
-func (r *RepublishingMockMap) Unlock(ctx context.Context, key interface{}) error {
-	//TODO implement me
-	panic("implement me")
+func (r *RepublishingMockMap) ForceUnlock(ctx context.Context, key interface{}) error {
+	args := r.Called(ctx, key)
+	return args.Error(0)
 }
 
-func (r *RepublishingMockMap) ForceUnlock(ctx context.Context, key interface{}) error {
+func (r *RepublishingMockMap) Unlock(ctx context.Context, key interface{}) error {
+	args := r.Called(ctx, key)
+	return args.Error(0)
+}
+
+func (r *RepublishingMockMap) ContainsKey(ctx context.Context, key interface{}) (bool, error) {
+	args := r.Called(ctx, key)
+	return args.Bool(0), args.Error(1)
+}
+
+func (r *RepublishingMockMap) Clear(ctx context.Context) error {
+	args := r.Called(ctx)
+	return args.Error(0)
+}
+
+func (r *RepublishingMockMap) Lock(ctx context.Context, key interface{}) error {
 	args := r.Called(ctx, key)
 	return args.Error(0)
 }

@@ -5,18 +5,18 @@ import (
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/resource"
-	"golaris/internal/cache"
-	"golaris/internal/circuit_breaker"
-	"golaris/internal/config"
-	"golaris/internal/health_check"
-	"golaris/internal/republish"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/circuitbreaker"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/healthcheck"
+	"pubsub-horizon-golaris/internal/republish"
 )
 
 type SubscriptionListener struct{}
 
 func Initialize() {
 	subscriptionListener := &SubscriptionListener{}
-	err := cache.Subscriptions.AddListener(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionListener)
+	err := cache.SubscriptionCache.AddListener(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionListener)
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +48,7 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 	}
 
 	if optionalEntry != nil {
-		republish.ForceDelete(key, context.Background())
+		republish.ForceDelete(context.Background(), key)
 
 		cache.CancelMapMutex.Lock()
 		cache.SubscriptionCancelMap[key] = true
@@ -80,23 +80,23 @@ func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource
 		}
 
 		if optionalEntry != nil {
-			republish.ForceDelete(obj.Spec.Subscription.SubscriptionId, context.Background())
+			republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 			cache.CancelMapMutex.Lock()
 			cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
 			cache.CancelMapMutex.Unlock()
 		}
 
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-		health_check.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
+		healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 
-		cbMessage, err := cache.CircuitBreakers.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
+		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
 			log.Error().Msgf("failed with err: %v to get circuit breaker", err)
 			return
 		}
 
 		if cbMessage != nil {
-			circuit_breaker.CloseCircuitBreaker(*cbMessage)
+			circuitbreaker.CloseCircuitBreaker(*cbMessage)
 		}
 	}
 }
@@ -112,7 +112,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 		}
 
 		if optionalEntry != nil {
-			republish.ForceDelete(obj.Spec.Subscription.SubscriptionId, context.Background())
+			republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 			cache.CancelMapMutex.Lock()
 			cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
 			cache.CancelMapMutex.Unlock()
@@ -128,18 +128,18 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 // add new entry in the republishingCache and deletes health checks.
 func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	if oldObj.Spec.Subscription.CircuitBreakerOptOut != true && obj.Spec.Subscription.CircuitBreakerOptOut == true {
-		cbMessage, err := cache.CircuitBreakers.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
+		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
 			log.Error().Msgf("failed with err: %v to get circuit breaker", err)
 			return
 		}
 
 		if cbMessage != nil {
-			circuit_breaker.CloseCircuitBreaker(*cbMessage)
+			circuitbreaker.CloseCircuitBreaker(*cbMessage)
 		}
 
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-		health_check.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
+		healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 	}
 }
 

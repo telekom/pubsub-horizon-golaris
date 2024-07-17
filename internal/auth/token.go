@@ -10,9 +10,10 @@ import (
 	"fmt"
 	"github.com/rs/zerolog/log"
 	"net/http"
+	"time"
 )
 
-var Client = &http.Client{}
+var Client = &http.Client{Timeout: 30 * time.Second}
 
 func RetrieveToken(url string, clientId string, clientSecret string) (string, error) {
 	requestBody := bytes.NewBuffer([]byte("grant_type=client_credentials"))
@@ -32,7 +33,7 @@ func RetrieveToken(url string, clientId string, clientSecret string) (string, er
 	}
 	defer response.Body.Close()
 
-	log.Info().Msgf("StatusCode is: %d", response.StatusCode)
+	log.Debug().Msgf("RetrieveToken statusCode is: %d", response.StatusCode)
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d", response.StatusCode)
 	}

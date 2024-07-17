@@ -6,15 +6,15 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	"golaris/internal/api"
-	"golaris/internal/cache"
-	"golaris/internal/config"
-	"golaris/internal/kafka"
-	"golaris/internal/listener"
-	"golaris/internal/log"
-	"golaris/internal/mongo"
-	"golaris/internal/scheduler"
-	"golaris/internal/test"
+	"pubsub-horizon-golaris/internal/api"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/kafka"
+	"pubsub-horizon-golaris/internal/listener"
+	"pubsub-horizon-golaris/internal/log"
+	"pubsub-horizon-golaris/internal/mongo"
+	"pubsub-horizon-golaris/internal/scheduler"
+	"pubsub-horizon-golaris/internal/test"
 )
 
 var serveCmd = &cobra.Command{

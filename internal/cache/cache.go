@@ -14,7 +14,7 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/util"
-	"golaris/internal/config"
+	"pubsub-horizon-golaris/internal/config"
 	"sync"
 	"time"
 )
@@ -29,11 +29,14 @@ type HazelcastMapInterface interface {
 	Unlock(ctx context.Context, key interface{}) error
 	IsLocked(ctx context.Context, key interface{}) (bool, error)
 	ForceUnlock(ctx context.Context, key interface{}) error
+	ContainsKey(ctx context.Context, key interface{}) (bool, error)
+	Clear(ctx context.Context) error
+	Lock(ctx context.Context, key interface{}) error
 }
 
-var Subscriptions c.HazelcastBasedCache[resource.SubscriptionResource]
-var CircuitBreakers c.HazelcastBasedCache[message.CircuitBreakerMessage]
-var HealthChecks HazelcastMapInterface
+var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
+var CircuitBreakerCache c.HazelcastBasedCache[message.CircuitBreakerMessage]
+var HealthCheckCache HazelcastMapInterface
 var RepublishingCache HazelcastMapInterface
 var hazelcastClient *hazelcast.Client
 
@@ -61,25 +64,21 @@ func createNewHazelcastConfig() hazelcast.Config {
 	return cacheConfig
 }
 
+// initializeCaches sets up the Hazelcast caches used in the application.
+// It takes a Hazelcast configuration object as a parameter.
+// The function initializes the SubscriptionCache, CircuitBreakerCache, HealthCheckCache, and RepublishingCache.
 func initializeCaches(hzConfig hazelcast.Config) error {
 	var err error
-
-	Subscriptions, err = c.NewHazelcastCache[resource.SubscriptionResource](hzConfig)
-	if err != nil {
-		return fmt.Errorf("error initializing Hazelcast subscription health cache: %v", err)
-	}
-
-	CircuitBreakers, err = c.NewHazelcastCache[message.CircuitBreakerMessage](hzConfig)
-	if err != nil {
-		return fmt.Errorf("error initializing CircuitBreakerCache: %v", err)
-	}
 
 	hazelcastClient, err = hazelcast.StartNewClientWithConfig(context.Background(), hzConfig)
 	if err != nil {
 		return fmt.Errorf("error initializing Hazelcast client: %v", err)
 	}
 
-	HealthChecks, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HealthCheckCache)
+	SubscriptionCache = c.NewHazelcastCacheWithClient[resource.SubscriptionResource](hazelcastClient)
+	CircuitBreakerCache = c.NewHazelcastCacheWithClient[message.CircuitBreakerMessage](hazelcastClient)
+
+	HealthCheckCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HealthCheckCache)
 	if err != nil {
 		return fmt.Errorf("error initializing HealthCheckCache: %v", err)
 	}

@@ -7,20 +7,22 @@ package kafka
 import (
 	"encoding/json"
 	"github.com/IBM/sarama"
+	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
-	"golaris/internal/config"
+	"pubsub-horizon-golaris/internal/config"
 )
 
-var CurrentHandler *Handler
+var CurrentHandler HandlerInterface
 
 func Initialize() {
 	var err error
 
-	CurrentHandler, err = newKafkaHandler()
+	conn, err := newKafkaHandler()
 	if err != nil {
 		log.Panic().Err(err).Msg("error while initializing Kafka picker")
 	}
+	CurrentHandler = conn
 }
 
 func newKafkaHandler() (*Handler, error) {
@@ -34,6 +36,7 @@ func newKafkaHandler() (*Handler, error) {
 	}
 
 	// Initialize the Kafka Producer to send the updated messages back to Kafka (resetMessage)
+	kafkaConfig.Producer.Partitioner = kafkautil.NewJVMCompatiblePartitioner
 	kafkaConfig.Producer.Return.Successes = true
 	producer, err := sarama.NewSyncProducer(config.Current.Kafka.Brokers, kafkaConfig)
 	if err != nil {
@@ -52,7 +55,7 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 
 	consumer, err := kafkaHandler.Consumer.ConsumePartition(topic, *partition, *offset)
 	if err != nil {
-		log.Debug().Msgf("KafkaPick for  partition %d and topic %s and offset %d failed: %v", *partition, topic, *offset, err)
+		log.Debug().Msgf("KafkaPick for partition %d and topic %s and offset %d failed: %v", *partition, topic, *offset, err)
 		return nil, err
 	}
 	defer func() {
@@ -75,7 +78,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:     sarama.StringEncoder(message.Key),
+		Key:     sarama.ByteEncoder(message.Key),
 		Topic:   message.Topic,
 		Headers: newHeaders,
 		Value:   sarama.ByteEncoder(modifiedValue),
@@ -84,10 +87,10 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 	_, _, err = kafkaHandler.Producer.SendMessage(msg)
 
 	if err != nil {
-		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", msg.Key)
+		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
 		return err
 	}
-	log.Debug().Msgf("Message with id %v sent to kafka", msg.Key)
+	log.Debug().Msgf("Message with id %v sent to kafka", string(message.Key))
 
 	return nil
 }
@@ -114,10 +117,6 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		},
 		"status":           enum.StatusProcessed,
 		"additionalFields": map[string]interface{}{},
-	}
-
-	if newDeliveryType != "" {
-		metadataValue["deliveryType"] = newDeliveryType
 	}
 
 	if newCallbackUrl != "" {

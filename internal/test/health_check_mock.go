@@ -16,14 +16,9 @@ func (h *HealthCheckMockMap) Get(ctx context.Context, key interface{}) (interfac
 	return args.Get(0), args.Error(1)
 }
 
-func (h *HealthCheckMockMap) Set(ctx context.Context, key interface{}, value interface{}) error {
-	args := h.Called(ctx, key, value)
+func (h *HealthCheckMockMap) Delete(ctx context.Context, key interface{}) error {
+	args := h.Called(ctx, key)
 	return args.Error(0)
-}
-
-func (h *HealthCheckMockMap) TryLockWithTimeout(ctx context.Context, key interface{}, timeout time.Duration) (bool, error) {
-	//TODO implement me
-	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) GetEntrySet(ctx context.Context) ([]types.Entry, error) {
@@ -34,11 +29,6 @@ func (h *HealthCheckMockMap) GetEntrySet(ctx context.Context) ([]types.Entry, er
 func (h *HealthCheckMockMap) NewLockContext(ctx context.Context) context.Context {
 	//TODO implement me
 	panic("implement me")
-}
-
-func (h *HealthCheckMockMap) Delete(ctx context.Context, key interface{}) error {
-	args := h.Called(ctx, key)
-	return args.Error(0)
 }
 
 func (h *HealthCheckMockMap) Unlock(ctx context.Context, key interface{}) error {
@@ -52,6 +42,31 @@ func (h *HealthCheckMockMap) IsLocked(ctx context.Context, key interface{}) (boo
 }
 
 func (h *HealthCheckMockMap) ForceUnlock(ctx context.Context, key interface{}) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HealthCheckMockMap) Set(ctx context.Context, key interface{}, value interface{}) error {
+	args := h.Called(ctx, key, value)
+	return args.Error(0)
+}
+
+func (h *HealthCheckMockMap) ContainsKey(ctx context.Context, key interface{}) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HealthCheckMockMap) Clear(ctx context.Context) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HealthCheckMockMap) Lock(ctx context.Context, key interface{}) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HealthCheckMockMap) TryLockWithTimeout(ctx context.Context, key interface{}, timeout time.Duration) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }

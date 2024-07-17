@@ -1,108 +1,212 @@
 package republish
 
 import (
+	"context"
 	"github.com/IBM/sarama"
-	"github.com/IBM/sarama/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
-	"golaris/internal/config"
-	"golaris/internal/kafka"
-	"golaris/internal/mongo"
+	"os"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/kafka"
+	"pubsub-horizon-golaris/internal/mongo"
+	"pubsub-horizon-golaris/internal/test"
 	"testing"
+	"time"
 )
 
-var mockHandler *kafka.Handler
-
-func TestRepublishPendingEvents(t *testing.T) {
-	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
-
-	mt.Run("test republish pending events", func(mt *mtest.T) {
-		mongo.CurrentConnection = &mongo.Connection{
-			Client: mt.Client,
-			Config: &config.Mongo{
-				Database:   "testdb",
-				Collection: "testcollection",
-			},
-		}
-
-		config.Current.Republishing.BatchSize = 2
-
-		subscription := &resource.SubscriptionResource{
-			Spec: struct {
-				Subscription resource.Subscription `json:"subscription"`
-				Environment  string                `json:"environment"`
-			}{
-				Subscription: resource.Subscription{
-					SubscriptionId: "sub123",
-					DeliveryType:   enum.DeliveryTypeSse,
-					Callback:       "http://new-callbackUrl/callback",
-				},
-			},
-		}
-
-		republishEntry := RepublishingCache{
-			OldDeliveryType: "callback",
-		}
-
-		messages := []bson.D{
-			{
-				{"status", enum.StatusWaiting},
-				{"subscriptionId", "sub123"},
-				{"deliveryType", "sse"},
-				{"topic", "test-topic"},
-				{"coordinates", bson.D{
-					{"partition", int32(0)},
-					{"offset", int64(100)},
-				}},
-			},
-			{
-				{"status", enum.StatusWaiting},
-				{"subscriptionId", "sub123"},
-				{"deliveryType", "sse"},
-				{"topic", "test-topic"},
-				{"coordinates", bson.D{
-					{"partition", int32(0)},
-					{"offset", int64(101)},
-				}},
-			},
-		}
-
-		mt.AddMockResponses(
-			mtest.CreateCursorResponse(1, "testdb.testcollection", mtest.FirstBatch, messages...),
-			mtest.CreateCursorResponse(0, "testdb.testcollection", mtest.NextBatch),
-		)
-
-		mockConfig := mocks.NewTestConfig()
-		mockConfig.Net.MaxOpenRequests = 1
-		mockConfig.Version = sarama.V0_11_0_0
-
-		mockProducer := mocks.NewSyncProducer(t, mockConfig)
-		mockProducer.ExpectSendMessageAndSucceed()
-
-		mockConsumer := mocks.NewConsumer(t, mockConfig)
-		mockConsumer.ExpectConsumePartition("test-topic", 0, 100).YieldMessage(&sarama.ConsumerMessage{
-			Topic:     "test-topic",
-			Partition: 0,
-			Offset:    100,
-			Key:       []byte("test-key"),
-			Value:     []byte(`{"uuid": "123456", "event": {"id": "789"}}`),
-		})
-
-		mockHandler = &kafka.Handler{
-			Consumer: mockConsumer,
-			Producer: mockProducer,
-		}
-		kafka.CurrentHandler = mockHandler
-
-		RepublishPendingEvents(subscription, republishEntry)
-
-		for _, msg := range messages {
-			assert.NotNil(t, msg)
-		}
-
-		assert.Equal(t, 2, len(messages))
+func TestMain(m *testing.M) {
+	test.SetupDocker(&test.Options{
+		MongoDb:   false,
+		Hazelcast: true,
 	})
+	config.Current = test.BuildTestConfig()
+	cache.Initialize()
+	code := m.Run()
+
+	test.TeardownDocker()
+	os.Exit(code)
+}
+
+func TestHandleRepublishingEntry_Acquired(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Mock republishPendingEventsFunc
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {}
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	ctx := context.Background()
+
+	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+
+	// Call the function under test
+	HandleRepublishingEntry(testSubscriptionResource)
+
+	// Assertions
+	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
+}
+
+func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {}
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	ctx := context.Background()
+
+	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
+
+	// Call the function under test
+	HandleRepublishingEntry(testSubscriptionResource)
+
+	// Assertions
+	assertions.True(cache.RepublishingCache.IsLocked(ctx, testSubscriptionId))
+
+	// Unlock the cache entry
+	defer cache.RepublishingCache.Unlock(ctx, testSubscriptionId)
+}
+
+func TestRepublishWaitingEvents(t *testing.T) {
+	// Initialize mocks
+	mockMongo := new(test.MockMongoHandler)
+	mockKafka := new(test.MockKafkaHandler)
+
+	// Replace real handlers with mocks
+	mongo.CurrentConnection = mockMongo
+	kafka.CurrentHandler = mockKafka
+
+	// Set configurations for the test
+	config.Current.Republishing.BatchSize = 10
+
+	// Mock data
+	subscriptionId := "test-subscription"
+
+	partitionValue1 := int32(1)
+	offsetValue1 := int64(100)
+	partitionValue2 := int32(1)
+	offsetValue2 := int64(101)
+	dbMessages := []message.StatusMessage{
+		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue1, Offset: &offsetValue1}},
+		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue2, Offset: &offsetValue2}},
+	}
+
+	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
+
+	// Expectations for the batch
+	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
+	mockKafka.On("PickMessage", "test-topic", &partitionValue1, &offsetValue1).Return(&kafkaMessage, nil).Once()
+	mockKafka.On("PickMessage", "test-topic", &partitionValue2, &offsetValue2).Return(&kafkaMessage, nil).Once()
+	mockKafka.On("RepublishMessage", &kafkaMessage).Return(nil).Twice()
+
+	// Call the function under test
+	subscription := &resource.SubscriptionResource{
+		Spec: struct {
+			Subscription resource.Subscription `json:"subscription"`
+			Environment  string                `json:"environment"`
+		}{
+			Subscription: resource.Subscription{
+				SubscriptionId: "sub123",
+				DeliveryType:   enum.DeliveryTypeSse,
+				Callback:       "http://new-callbackUrl/callback",
+			},
+		},
+	}
+
+	RepublishPendingEvents(subscription, RepublishingCache{SubscriptionId: subscriptionId})
+
+	// Assertions
+	mockMongo.AssertExpectations(t)
+	mockKafka.AssertExpectations(t)
+}
+
+func Test_Unlock_RepublishingEntryLocked(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	ctx := context.Background()
+	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
+
+	// call the function under test
+	err := Unlock(ctx, testSubscriptionId)
+
+	// Assertions
+	assertions.Nil(err)
+	assertions.False(cache.RepublishingCache.IsLocked(ctx, testSubscriptionId))
+}
+
+func Test_Unlock_RepublishingEntryUnlocked(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	ctx := context.Background()
+	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+
+	// call the function under test
+	err := Unlock(ctx, testSubscriptionId)
+
+	// Assertions
+	assertions.Nil(err)
+	assertions.False(cache.RepublishingCache.IsLocked(ctx, testSubscriptionId))
+}
+
+func Test_ForceDelete_RepublishingEntryLocked(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	ctx := context.Background()
+	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
+
+	// call the function under test
+	ForceDelete(ctx, testSubscriptionId)
+
+	// Assertions
+	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
+}
+
+func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	ctx := context.Background()
+	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+
+	// call the function under test
+	ForceDelete(ctx, testSubscriptionId)
+
+	// Assertions
+	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
 }
