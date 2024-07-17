@@ -30,7 +30,7 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	handleDeliveryTypeChange(obj, oldObj)
+	handleDeliveryTypeChange(event, obj, oldObj)
 	handleCallbackUrlChange(obj, oldObj)
 	handleCircuitBreakerOptOutChange(obj, oldObj)
 }
@@ -68,14 +68,18 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // When republishing, the old deliveryType is used to check whether old SSE events that are set to PROCESSED still need to be republished.
 // If delivery type changes from callback to sse, deletes existing entry in RepublishingCache if present and sets a new entry without storing the old delivery type.
 // Delete the HealthCheck entry and close the circuitBreaker, because it is no longer needed for sse.
-func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
+func handleDeliveryTypeChange(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("Old Delivery Type: %s, New Delivery Type: %s for subscription %s",
+		oldObj.Spec.Subscription.DeliveryType, obj.Spec.Subscription.DeliveryType, obj.Spec.Subscription.SubscriptionId)
+
+	log.Info().Msgf("Value of event: %v", event.Value)
+	log.Info().Msgf("OldValue of event: %v", event.OldValue)
+
 	if oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event" && obj.Spec.Subscription.DeliveryType == "callback" {
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
 	}
 
 	if oldObj.Spec.Subscription.DeliveryType == "callback" && obj.Spec.Subscription.DeliveryType == "sse" || obj.Spec.Subscription.DeliveryType == "server_sent_event" {
-		log.Debug().Msgf("Delivery type changed from callback to sse for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
 			log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
