@@ -111,6 +111,8 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		return nil, err
 	}
 
+	log.Debug().Msgf("New deliveryType is: %s", newDeliveryType)
+
 	// Map newDeliveryType to the appropriate value
 	switch newDeliveryType {
 	case "callback", "server_sent_event", "sse":
@@ -129,7 +131,7 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 
 	// delete callbackUrl if newDeliveryType is sse or server_sent_event
 	if newDeliveryType == "server_sent_event" || newDeliveryType == "sse" {
-		additionalFields, ok := messageValue["additionalFields"].(map[string]interface{})
+		additionalFields, ok := messageValue["additionalFields"].(map[string]any)
 		if ok {
 			delete(additionalFields, "callback-url")
 		}

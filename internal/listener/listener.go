@@ -69,11 +69,13 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // If delivery type changes from callback to sse, deletes existing entry in RepublishingCache if present and sets a new entry without storing the old delivery type.
 // Delete the HealthCheck entry and close the circuitBreaker, because it is no longer needed for sse.
 func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
 	if oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event" && obj.Spec.Subscription.DeliveryType == "callback" {
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
 	}
 
 	if oldObj.Spec.Subscription.DeliveryType == "callback" && obj.Spec.Subscription.DeliveryType == "sse" || obj.Spec.Subscription.DeliveryType == "server_sent_event" {
+		log.Debug().Msgf("Delivery type changed from callback to sse for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
 			log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
@@ -87,7 +89,7 @@ func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource
 			cache.CancelMapMutex.Unlock()
 		}
 
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
 		healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 
 		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
