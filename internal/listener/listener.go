@@ -20,6 +20,8 @@ func Initialize() {
 	if err != nil {
 		panic(err)
 	}
+
+	log.Debug().Msgf("SubscriptionLister initialized")
 }
 
 // OnAdd is not implemented for OnAdd event handling.

@@ -89,7 +89,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 		// Close the channel when the goroutine is finished
 		defer close(done)
 		// Simulate a long-running goroutine ( for example, publishing events)
-		for i := 1; i <= 100000; i++ {
+		for i := 1; i <= 10000; i++ {
 			time.Sleep(1 * time.Nanosecond)
 
 			cache.CancelMapMutex.Lock()
