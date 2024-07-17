@@ -107,6 +107,7 @@ func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource
 // handleCallbackUrlChange reacts to changes for the callback URL of subscriptions.
 // If callback URL changes and an entry exists in RepublishingCache, deletes the existing entry and sets a new one.
 func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("Callback URL changed from %s to %s for subscription %s", oldObj.Spec.Subscription.Callback, obj.Spec.Subscription.Callback, obj.Spec.Subscription.SubscriptionId)
 	if oldObj.Spec.Subscription.Callback != obj.Spec.Subscription.Callback {
 		optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
@@ -130,6 +131,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 // If the flag is set to true and an entry exists in RepublishingCache, close circuitBreaker,
 // add new entry in the republishingCache and deletes health checks.
 func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("CircuitBreakerOptOut changed from %v to %v for subscription %s", oldObj.Spec.Subscription.CircuitBreakerOptOut, obj.Spec.Subscription.CircuitBreakerOptOut, obj.Spec.Subscription.SubscriptionId)
 	if oldObj.Spec.Subscription.CircuitBreakerOptOut != true && obj.Spec.Subscription.CircuitBreakerOptOut == true {
 		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
