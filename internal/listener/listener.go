@@ -21,7 +21,7 @@ func Initialize() {
 		panic(err)
 	}
 
-	log.Debug().Msgf("SubscriptionLister initialized")
+	log.Info().Msgf("SubscriptionLister initialized")
 }
 
 // OnAdd is not implemented for OnAdd event handling.
@@ -69,12 +69,11 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // If delivery type changes from callback to sse, deletes existing entry in RepublishingCache if present and sets a new entry without storing the old delivery type.
 // Delete the HealthCheck entry and close the circuitBreaker, because it is no longer needed for sse.
 func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	if oldObj.Spec.Subscription.DeliveryType == "sse" && obj.Spec.Subscription.DeliveryType == "callback" {
+	if oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event" && obj.Spec.Subscription.DeliveryType == "callback" {
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
-
 	}
 
-	if oldObj.Spec.Subscription.DeliveryType == "callback" && obj.Spec.Subscription.DeliveryType == "sse" {
+	if oldObj.Spec.Subscription.DeliveryType == "callback" && obj.Spec.Subscription.DeliveryType == "sse" || obj.Spec.Subscription.DeliveryType == "server_sent_event" {
 		optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		if err != nil {
 			log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
