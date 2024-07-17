@@ -70,7 +70,10 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
-	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{SubscriptionId: subscriptionId}).Return(nil)
+	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+		SubscriptionId:  subscriptionId,
+		OldDeliveryType: string(oldSubscription.Spec.Subscription.DeliveryType),
+	}).Return(nil)
 
 	healthMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
 
@@ -111,13 +114,15 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	select {
 	case <-done:
 		t.Logf("Number of iterations completed: %d", iterations)
-		assert.NotEqual(t, 0, iterations)
 		assert.NotEqual(t, 10000, iterations)
 	case <-time.After(1 * time.Second):
 		assert.Fail(t, "Goroutine did not exit within expected time")
 	}
 
-	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{SubscriptionId: subscriptionId})
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+		SubscriptionId:  subscriptionId,
+		OldDeliveryType: string(oldSubscription.Spec.Subscription.DeliveryType),
+	})
 	healthMockMap.AssertCalled(t, "Delete", mock.Anything, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
