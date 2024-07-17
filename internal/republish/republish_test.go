@@ -3,6 +3,7 @@ package republish
 import (
 	"github.com/IBM/sarama"
 	"github.com/IBM/sarama/mocks"
+	"github.com/stretchr/testify/assert"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"go.mongodb.org/mongo-driver/bson"
@@ -36,8 +37,8 @@ func TestRepublishPendingEvents(t *testing.T) {
 			}{
 				Subscription: resource.Subscription{
 					SubscriptionId: "sub123",
-					DeliveryType:   enum.DeliveryTypeCallback,
-					Callback:       "http://newcallback.com",
+					DeliveryType:   enum.DeliveryTypeSse,
+					Callback:       "http://new-callbackUrl/callback",
 				},
 			},
 		}
@@ -50,7 +51,7 @@ func TestRepublishPendingEvents(t *testing.T) {
 			{
 				{"status", enum.StatusWaiting},
 				{"subscriptionId", "sub123"},
-				{"deliveryType", "callback"},
+				{"deliveryType", "sse"},
 				{"topic", "test-topic"},
 				{"coordinates", bson.D{
 					{"partition", int32(0)},
@@ -60,7 +61,7 @@ func TestRepublishPendingEvents(t *testing.T) {
 			{
 				{"status", enum.StatusWaiting},
 				{"subscriptionId", "sub123"},
-				{"deliveryType", "callback"},
+				{"deliveryType", "sse"},
 				{"topic", "test-topic"},
 				{"coordinates", bson.D{
 					{"partition", int32(0)},
@@ -98,5 +99,10 @@ func TestRepublishPendingEvents(t *testing.T) {
 
 		RepublishPendingEvents(subscription, republishEntry)
 
+		for _, msg := range messages {
+			assert.NotNil(t, msg)
+		}
+
+		assert.Equal(t, 2, len(messages))
 	})
 }

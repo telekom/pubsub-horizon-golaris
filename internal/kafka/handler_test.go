@@ -62,7 +62,7 @@ func TestHandler_RepublishMessage_NoError(t *testing.T) {
 		Partition: 0,
 		Offset:    0,
 		Key:       []byte("test-key"),
-		Value:     []byte(`{"example": "value"}`),
+		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
 	err := mockHandler.RepublishMessage(message, "", "")
@@ -77,7 +77,7 @@ func TestHandler_RepublishMessage_Error(t *testing.T) {
 		Partition: 0,
 		Offset:    0,
 		Key:       []byte("test-key"),
-		Value:     []byte(`{"example": "value"}`),
+		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
 	err := mockHandler.RepublishMessage(message, "", "")
