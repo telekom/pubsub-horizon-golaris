@@ -10,6 +10,7 @@ import (
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/healthcheck"
 	"pubsub-horizon-golaris/internal/republish"
+	"reflect"
 )
 
 type SubscriptionListener struct{}
@@ -30,6 +31,10 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	if reflect.DeepEqual(obj, oldObj) {
+		return
+	}
+
 	handleDeliveryTypeChange(obj, oldObj)
 	handleCallbackUrlChange(obj, oldObj)
 	handleCircuitBreakerOptOutChange(obj, oldObj)
