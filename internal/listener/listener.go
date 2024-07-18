@@ -43,8 +43,10 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 		handleDeliveryTypeChangeFromCallbackToSSE(obj, oldObj)
 	}
 
-	if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
-		handleCallbackUrlChange(obj, oldObj)
+	if obj.Spec.Subscription.Callback != "" && oldObj.Spec.Subscription.Callback != "" {
+		if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
+			handleCallbackUrlChange(obj, oldObj)
+		}
 	}
 
 	if obj.Spec.Subscription.CircuitBreakerOptOut == true && oldObj.Spec.Subscription.CircuitBreakerOptOut != true {

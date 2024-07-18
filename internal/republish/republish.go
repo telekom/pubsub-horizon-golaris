@@ -116,15 +116,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
+			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
 		} else {
 			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
 			}
+			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
-
-		log.Debug().Msgf("Found %d messages in MongoDb", len(dbMessages))
-		log.Debug().Msgf("dbMessages: %v", dbMessages)
 
 		if len(dbMessages) == 0 {
 			break
