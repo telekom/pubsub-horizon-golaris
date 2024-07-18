@@ -12,6 +12,12 @@ import (
 	"pubsub-horizon-golaris/internal/republish"
 )
 
+type CircuitBreakerResponse struct {
+	message.CircuitBreakerMessage
+	SubscriberId string `json:"subscriberId"`
+	PublisherId  string `json:"publisherId"`
+}
+
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
 	// Create a query to select all entries
 	query := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
@@ -23,9 +29,14 @@ func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error retrieving circuit breaker messages"})
 	}
 
+	// Build body with items wrapper
 	var body = struct {
-		Items []message.CircuitBreakerMessage `json:"items"`
-	}{cbMessages}
+		Items []CircuitBreakerResponse `json:"items"`
+	}{make([]CircuitBreakerResponse, 0)}
+
+	for _, cbMessage := range cbMessages {
+		body.Items = append(body.Items, makeResponse(&cbMessage))
+	}
 
 	// Send the circuit breaker messages as the response
 	return ctx.Status(fiber.StatusOK).JSON(body)
@@ -48,7 +59,7 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 	}
 
 	// Send the circuit breaker message as the response
-	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
+	return ctx.Status(fiber.StatusOK).JSON(makeResponse(cbMessage))
 }
 
 func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
@@ -78,4 +89,23 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 	log.Info().Msgf("Successfully closed circuit breaker for subscription with status %s", cbMessage.Status)
 	// Send the circuit breaker message as the response
 	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
+}
+
+func makeResponse(cbMsg *message.CircuitBreakerMessage) CircuitBreakerResponse {
+	var resp = CircuitBreakerResponse{CircuitBreakerMessage: *cbMsg}
+	populateCircuitBreakerResponses(resp)
+	return resp
+}
+
+func populateCircuitBreakerResponses(res CircuitBreakerResponse) {
+	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, res.SubscriptionId)
+	if err != nil {
+		log.Warn().Fields(map[string]any{
+			"subscriptionId": res.SubscriptionId,
+		}).Msg("could not populate circuit-breaker response")
+		return
+	}
+
+	res.SubscriberId = subscription.Spec.Subscription.SubscriberId
+	res.PublisherId = subscription.Spec.Subscription.PublisherId
 }
