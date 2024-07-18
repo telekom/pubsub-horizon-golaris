@@ -30,7 +30,7 @@ func init() {
 	v1 := app.Group("/api/v1")
 	v1.Get("/circuit-breakers/:subscriptionId", getCircuitBreakerMessageById)
 	v1.Get("/circuit-breakers", getAllCircuitBreakerMessages)
-	v1.Put("/circuit-breakers/close/:subscriptionId", closeCircuitBreakerById)
+	v1.Put("/circuit-breakers/close/:subscriptionId", putCloseCircuitBreakerById)
 }
 
 func Listen(port int) {

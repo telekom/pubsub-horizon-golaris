@@ -51,7 +51,7 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
 }
 
-func closeCircuitBreakerById(ctx *fiber.Ctx) error {
+func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 	// Get the subscriptionId from the request parameters
 	subscriptionId := ctx.Params("subscriptionId")
 
