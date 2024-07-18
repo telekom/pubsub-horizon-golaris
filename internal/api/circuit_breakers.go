@@ -13,15 +13,11 @@ import (
 )
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
-	// Create a predicate to select all entries
-	//pred := predicate.True()
-	pred := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
-
-	// Set the Content-Type header to application/json
-	ctx.Set("Content-Type", "application/json")
+	// Create a query to select all entries
+	query := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 
 	// Get all circuit breaker messages
-	cbMessages, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, pred)
+	cbMessages, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, query)
 	if err != nil {
 		log.Error().Err(err).Msg("Error while getting all CircuitBreaker messages")
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Error retrieving circuit breaker messages"})
@@ -46,9 +42,6 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
 	}
 
-	// Set the Content-Type header to application/json
-	ctx.Set("Content-Type", "application/json")
-
 	//add if cbMessage is nil, then return not found status code
 	if cbMessage == nil {
 		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
@@ -68,9 +61,6 @@ func closeCircuitBreakerById(ctx *fiber.Ctx) error {
 		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
 	}
-
-	// Set the Content-Type header to application/json
-	ctx.Set("Content-Type", "application/json")
 
 	//add if cbMessage is nil, then return not found status code
 	if cbMessage == nil {
