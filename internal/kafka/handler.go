@@ -135,7 +135,6 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		if ok {
 			if _, exists := additionalFields["callback-url"]; exists {
 				log.Debug().Msgf("Deleting callback-url from message")
-				delete(messageValue, "callback-url")
 				delete(additionalFields, "callback-url")
 			}
 		}

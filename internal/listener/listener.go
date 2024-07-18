@@ -136,10 +136,9 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 		cache.CancelMapMutex.Lock()
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
 		cache.CancelMapMutex.Unlock()
-
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-
 	}
+
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
 }
 
 // handleCircuitBreakerOptOutChange reacts to changes for CircuitBreakerOptOut flag of subscriptions.
