@@ -117,7 +117,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 	}
 
 	if cbMessage != nil {
-		circuitbreaker.CloseCircuitBreaker(*cbMessage)
+		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
 }
 
@@ -153,7 +153,7 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 	}
 
 	if cbMessage != nil {
-		circuitbreaker.CloseCircuitBreaker(*cbMessage)
+		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")

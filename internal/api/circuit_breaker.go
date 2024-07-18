@@ -85,10 +85,10 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error to set the republishing cache entry")
 	}
 
-	circuitbreaker.CloseCircuitBreaker(*cbMessage)
+	circuitbreaker.CloseCircuitBreaker(cbMessage)
 	log.Info().Msgf("Successfully closed circuit breaker for subscription with status %s", cbMessage.Status)
 	// Send the circuit breaker message as the response
-	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
+	return ctx.Status(fiber.StatusOK).JSON(makeResponse(cbMessage))
 }
 
 func makeResponse(cbMsg *message.CircuitBreakerMessage) CircuitBreakerResponse {
