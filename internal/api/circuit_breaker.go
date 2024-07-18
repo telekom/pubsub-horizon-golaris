@@ -93,11 +93,11 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 
 func makeResponse(cbMsg *message.CircuitBreakerMessage) CircuitBreakerResponse {
 	var resp = CircuitBreakerResponse{CircuitBreakerMessage: *cbMsg}
-	populateCircuitBreakerResponses(resp)
+	populateCircuitBreakerResponse(&resp)
 	return resp
 }
 
-func populateCircuitBreakerResponses(res CircuitBreakerResponse) {
+func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, res.SubscriptionId)
 	if err != nil {
 		log.Warn().Fields(map[string]any{
