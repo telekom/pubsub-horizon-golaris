@@ -115,7 +115,7 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 
 	// Map newDeliveryType to the appropriate value
 	switch newDeliveryType {
-	case "callback", "server_sent_event", "sse":
+	case "CALLBACK", "SERVER_SENT_EVENT", "SSE":
 		messageValue["deliveryType"] = newDeliveryType
 	}
 
@@ -130,10 +130,13 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 	}
 
 	// delete callbackUrl if newDeliveryType is sse or server_sent_event
-	if newDeliveryType == "server_sent_event" || newDeliveryType == "sse" {
+	if newDeliveryType == "SERVER_SENT_EVENT" || newDeliveryType == "SSE" {
 		additionalFields, ok := messageValue["additionalFields"].(map[string]any)
 		if ok {
-			delete(additionalFields, "callback-url")
+			if _, exists := additionalFields["callback-url"]; exists {
+				log.Debug().Msgf("Deleting callback-url from message")
+				delete(additionalFields, "callback-url")
+			}
 		}
 	}
 

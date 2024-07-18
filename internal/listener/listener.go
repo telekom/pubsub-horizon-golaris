@@ -35,9 +35,21 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 		return
 	}
 
-	handleDeliveryTypeChange(obj, oldObj)
-	handleCallbackUrlChange(obj, oldObj)
-	handleCircuitBreakerOptOutChange(obj, oldObj)
+	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
+		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
+	}
+
+	if (obj.Spec.Subscription.DeliveryType == "sse" || obj.Spec.Subscription.DeliveryType == "server_sent_event") && oldObj.Spec.Subscription.DeliveryType == "callback" {
+		handleDeliveryTypeChangeFromCallbackToSSE(obj, oldObj)
+	}
+
+	if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
+		handleCallbackUrlChange(obj, oldObj)
+	}
+
+	if obj.Spec.Subscription.CircuitBreakerOptOut == true && oldObj.Spec.Subscription.CircuitBreakerOptOut != true {
+		handleCircuitBreakerOptOutChange(obj, oldObj)
+	}
 }
 
 // OnDelete handles the deletion of a subscription if a RepublishingCacheEntry exists for the subscription.
@@ -73,39 +85,37 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // When republishing, the old deliveryType is used to check whether old SSE events that are set to PROCESSED still need to be republished.
 // If delivery type changes from callback to sse, deletes existing entry in RepublishingCache if present and sets a new entry without storing the old delivery type.
 // Delete the HealthCheck entry and close the circuitBreaker, because it is no longer needed for sse.
-func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	if (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") && obj.Spec.Subscription.DeliveryType == "callback" {
-		log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+func handleDeliveryTypeChangeFromSSEToCallback(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+}
+
+func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("Delivery type changed from callback to sse for subscription %s", obj.Spec.Subscription.SubscriptionId)
+	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
+		return
 	}
 
-	if oldObj.Spec.Subscription.DeliveryType == "callback" && (obj.Spec.Subscription.DeliveryType == "sse" || obj.Spec.Subscription.DeliveryType == "server_sent_event") {
-		log.Debug().Msgf("Delivery type changed from callback to sse for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
-		if err != nil {
-			log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
-			return
-		}
+	if optionalEntry != nil {
+		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
+		cache.CancelMapMutex.Lock()
+		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
+		cache.CancelMapMutex.Unlock()
+	}
 
-		if optionalEntry != nil {
-			republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
-			cache.CancelMapMutex.Lock()
-			cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
-			cache.CancelMapMutex.Unlock()
-		}
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+	healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
-		healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
+	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("failed with err: %v to get circuit breaker", err)
+		return
+	}
 
-		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
-		if err != nil {
-			log.Error().Msgf("failed with err: %v to get circuit breaker", err)
-			return
-		}
-
-		if cbMessage != nil {
-			circuitbreaker.CloseCircuitBreaker(*cbMessage)
-		}
+	if cbMessage != nil {
+		circuitbreaker.CloseCircuitBreaker(*cbMessage)
 	}
 }
 
@@ -113,22 +123,20 @@ func handleDeliveryTypeChange(obj resource.SubscriptionResource, oldObj resource
 // If callback URL changes and an entry exists in RepublishingCache, deletes the existing entry and sets a new one.
 func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("Callback URL changed from %s to %s for subscription %s", oldObj.Spec.Subscription.Callback, obj.Spec.Subscription.Callback, obj.Spec.Subscription.SubscriptionId)
-	if oldObj.Spec.Subscription.Callback != obj.Spec.Subscription.Callback {
-		optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
-		if err != nil {
-			log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
-			return
-		}
+	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
+		return
+	}
 
-		if optionalEntry != nil {
-			republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
-			cache.CancelMapMutex.Lock()
-			cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
-			cache.CancelMapMutex.Unlock()
+	if optionalEntry != nil {
+		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
+		cache.CancelMapMutex.Lock()
+		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
+		cache.CancelMapMutex.Unlock()
 
-			setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
 
-		}
 	}
 }
 
@@ -137,20 +145,18 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 // add new entry in the republishingCache and deletes health checks.
 func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("CircuitBreakerOptOut changed from %v to %v for subscription %s", oldObj.Spec.Subscription.CircuitBreakerOptOut, obj.Spec.Subscription.CircuitBreakerOptOut, obj.Spec.Subscription.SubscriptionId)
-	if oldObj.Spec.Subscription.CircuitBreakerOptOut != true && obj.Spec.Subscription.CircuitBreakerOptOut == true {
-		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
-		if err != nil {
-			log.Error().Msgf("failed with err: %v to get circuit breaker", err)
-			return
-		}
-
-		if cbMessage != nil {
-			circuitbreaker.CloseCircuitBreaker(*cbMessage)
-		}
-
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-		healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
+	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("failed with err: %v to get circuit breaker", err)
+		return
 	}
+
+	if cbMessage != nil {
+		circuitbreaker.CloseCircuitBreaker(*cbMessage)
+	}
+
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+	healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 }
 
 func setNewEntryToRepublishingCache(subscriptionID string, oldDeliveryType string) {

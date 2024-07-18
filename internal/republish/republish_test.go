@@ -120,7 +120,7 @@ func TestRepublishEvents(t *testing.T) {
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
 	mockKafka.On("PickMessage", "test-topic", &partitionValue1, &offsetValue1).Return(&kafkaMessage, nil).Once()
 	mockKafka.On("PickMessage", "test-topic", &partitionValue2, &offsetValue2).Return(&kafkaMessage, nil).Once()
-	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "callback", "http://new-callbackUrl/callback").Return(nil).Twice()
+	mockKafka.On("RepublishMessage", mock.Anything, "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()
 
 	// Call the function under test
 	subscription := &resource.SubscriptionResource{

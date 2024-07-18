@@ -16,6 +16,7 @@ import (
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
+	"strings"
 	"time"
 )
 
@@ -138,12 +139,12 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 
 			var newDeliveryType string
-			if subscription.Spec.Subscription.DeliveryType != dbMessage.DeliveryType {
-				newDeliveryType = string(subscription.Spec.Subscription.DeliveryType)
+			if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
+				newDeliveryType = strings.ToUpper(string(subscription.Spec.Subscription.DeliveryType))
 			}
 
 			var newCallbackUrl string
-			if subscription.Spec.Subscription.Callback != "" && subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"] {
+			if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
 				newCallbackUrl = subscription.Spec.Subscription.Callback
 			}
 
@@ -159,6 +160,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				log.Warn().Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
+
 			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
