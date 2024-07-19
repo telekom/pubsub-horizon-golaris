@@ -42,14 +42,6 @@ func updateHealthCheckEntry(ctx context.Context, healthCheckKey string, healthCh
 	}
 }
 
-// DeleteHealthCheck deletes a entry from the healthCheck
-func DeleteHealthCheck(subscriptionID string) {
-	err := cache.HealthCheckCache.Delete(context.Background(), subscriptionID)
-	if err != nil {
-		log.Error().Msgf("Failed to delete health check for subscription %s: %v", subscriptionID, err)
-	}
-}
-
 // IsHealthCheckInCoolDown compares the HealthCheck entry's LastChecked time with the configured cool down time.
 func IsHealthCheckInCoolDown(healthCheckData HealthCheck) bool {
 	lastCheckedTime := healthCheckData.LastChecked

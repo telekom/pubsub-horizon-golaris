@@ -8,7 +8,6 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/healthcheck"
 	"pubsub-horizon-golaris/internal/republish"
 	"reflect"
 )
@@ -108,7 +107,6 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
-	healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 	if err != nil {
@@ -157,7 +155,6 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-	healthcheck.DeleteHealthCheck(obj.Spec.Subscription.SubscriptionId)
 }
 
 func setNewEntryToRepublishingCache(subscriptionID string, oldDeliveryType string) {
