@@ -9,6 +9,7 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/healthcheck"
+	"pubsub-horizon-golaris/internal/utils"
 )
 
 type HealthCheckResponse struct {
@@ -43,7 +44,7 @@ func makeResponse(healthCheck *healthcheck.HealthCheck) HealthCheckResponse {
 }
 
 func populateHealthCheckResponse(res *HealthCheckResponse) {
-	query := predicate.Equal("spec.subscription.callback", res.CallbackUrl)
+	query := predicate.And(predicate.Equal("spec.subscription.callback", res.CallbackUrl))
 	subscriptions, err := cache.SubscriptionCache.GetQuery(config.Current.Hazelcast.Caches.SubscriptionCache, query)
 	if err != nil {
 		log.Warn().Fields(map[string]any{
@@ -53,6 +54,9 @@ func populateHealthCheckResponse(res *HealthCheckResponse) {
 	}
 
 	for _, subscription := range subscriptions {
-		res.SubscriptionIds = append(res.SubscriptionIds, subscription.Spec.Subscription.SubscriptionId)
+		var enforceGetRequest = utils.IfThenElse(res.Method == fiber.MethodGet, true, false)
+		if enforceGetRequest == subscription.Spec.Subscription.EnforceGetHealthCheck {
+			res.SubscriptionIds = append(res.SubscriptionIds, subscription.Spec.Subscription.SubscriptionId)
+		}
 	}
 }
