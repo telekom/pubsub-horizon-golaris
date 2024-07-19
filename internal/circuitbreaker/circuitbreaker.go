@@ -78,7 +78,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			return
 		}
 		log.Debug().Msgf("Successfully created RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
-		CloseCircuitBreaker(cbMessage)
+		CloseCircuitBreaker(&cbMessage)
 	}
 
 	log.Debug().Msgf("Successfully processed open CircuitBreaker entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -110,14 +110,15 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 }
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
-func CloseCircuitBreaker(cbMessage message.CircuitBreakerMessage) {
+func CloseCircuitBreaker(cbMessage *message.CircuitBreakerMessage) {
 	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
 	cbMessage.Status = enum.CircuitBreakerStatusClosed
-	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, cbMessage)
+	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error: %v while closing CircuitBreaker for subscription %s", err, cbMessage.SubscriptionId)
 		return
 	}
+	log.Info().Msgf("Successfully closed circuit breaker for subscription %s with status %s", cbMessage.SubscriptionId, cbMessage.Status)
 }
 
 // IncreaseRepublishingCount increments the republishing count for a given subscription by 1.

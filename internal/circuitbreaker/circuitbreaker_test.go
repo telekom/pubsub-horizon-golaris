@@ -315,7 +315,7 @@ func TestCloseCircuitBreaker(t *testing.T) {
 	testCbMessage := test.NewTestCbMessage(testSubscriptionId)
 
 	// call the function under test
-	CloseCircuitBreaker(testCbMessage)
+	CloseCircuitBreaker(&testCbMessage)
 
 	// assert the result
 	cbMessage, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
