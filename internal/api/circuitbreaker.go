@@ -19,9 +19,9 @@ import (
 
 type CircuitBreakerResponse struct {
 	message.CircuitBreakerMessage
-	HealthCheck  healthcheck.HealthCheck `json:"healthCheck"`
-	SubscriberId string                  `json:"subscriberId"`
-	PublisherId  string                  `json:"publisherId"`
+	HealthCheck  healthcheck.HealthCheck `json:"healthCheck,omitempty"`
+	SubscriberId string                  `json:"subscriberId,omitempty"`
+	PublisherId  string                  `json:"publisherId,omitempty"`
 }
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
@@ -110,8 +110,10 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 			"subscriptionId": res.SubscriptionId,
 		}).Msg("could not populate circuit-breaker response with subscription data")
 	} else {
-		res.SubscriberId = subscription.Spec.Subscription.SubscriberId
-		res.PublisherId = subscription.Spec.Subscription.PublisherId
+		if subscription != nil {
+			res.SubscriberId = subscription.Spec.Subscription.SubscriberId
+			res.PublisherId = subscription.Spec.Subscription.PublisherId
+		}
 	}
 
 	var healthCheckCache = cache.HealthCheckCache.(*hazelcast.Map)
@@ -125,6 +127,8 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 		}).Err(err).Msg("could not populate circuit-breaker response with healthcheck data")
 		return
 	} else {
-		res.HealthCheck = healthCheck.(healthcheck.HealthCheck)
+		if healthCheck != nil {
+			res.HealthCheck = healthCheck.(healthcheck.HealthCheck)
+		}
 	}
 }
