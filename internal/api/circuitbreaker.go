@@ -1,7 +1,10 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"github.com/gofiber/fiber/v2"
+	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
@@ -9,13 +12,16 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/healthcheck"
 	"pubsub-horizon-golaris/internal/republish"
+	"pubsub-horizon-golaris/internal/utils"
 )
 
 type CircuitBreakerResponse struct {
 	message.CircuitBreakerMessage
-	SubscriberId string `json:"subscriberId"`
-	PublisherId  string `json:"publisherId"`
+	HealthCheck  healthcheck.HealthCheck `json:"healthCheck"`
+	SubscriberId string                  `json:"subscriberId"`
+	PublisherId  string                  `json:"publisherId"`
 }
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
@@ -102,10 +108,23 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 	if err != nil {
 		log.Warn().Fields(map[string]any{
 			"subscriptionId": res.SubscriptionId,
-		}).Msg("could not populate circuit-breaker response")
-		return
+		}).Msg("could not populate circuit-breaker response with subscription data")
+	} else {
+		res.SubscriberId = subscription.Spec.Subscription.SubscriberId
+		res.PublisherId = subscription.Spec.Subscription.PublisherId
 	}
 
-	res.SubscriberId = subscription.Spec.Subscription.SubscriberId
-	res.PublisherId = subscription.Spec.Subscription.PublisherId
+	var healthCheckCache = cache.HealthCheckCache.(*hazelcast.Map)
+	var healthCheckMethod = utils.IfThenElse(subscription.Spec.Subscription.EnforceGetHealthCheck, fiber.MethodGet, fiber.MethodHead)
+	var healthCheckKey = fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, healthCheckMethod, subscription.Spec.Subscription.Callback)
+
+	healthCheck, err := healthCheckCache.Get(context.Background(), healthCheckKey)
+	if err != nil {
+		log.Warn().Fields(map[string]any{
+			"subscriptionId": res.SubscriptionId,
+		}).Err(err).Msg("could not populate circuit-breaker response with healthcheck data")
+		return
+	} else {
+		res.HealthCheck = healthCheck.(healthcheck.HealthCheck)
+	}
 }
