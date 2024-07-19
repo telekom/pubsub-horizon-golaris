@@ -28,6 +28,7 @@ func init() {
 	app.Get("/metrics", metrics.NewPrometheusMiddleware())
 	// setup routes
 	v1 := app.Group("/api/v1")
+	v1.Get("/health-checks", getAllHealthChecks)
 	v1.Get("/circuit-breakers/:subscriptionId", getCircuitBreakerMessageById)
 	v1.Get("/circuit-breakers", getAllCircuitBreakerMessages)
 	v1.Put("/circuit-breakers/close/:subscriptionId", putCloseCircuitBreakerById)

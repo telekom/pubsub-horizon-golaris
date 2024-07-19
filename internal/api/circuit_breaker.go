@@ -35,7 +35,7 @@ func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
 	}{make([]CircuitBreakerResponse, 0)}
 
 	for _, cbMessage := range cbMessages {
-		body.Items = append(body.Items, makeResponse(&cbMessage))
+		body.Items = append(body.Items, makeCircuitBreakerResponse(&cbMessage))
 	}
 
 	// Send the circuit breaker messages as the response
@@ -59,7 +59,7 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 	}
 
 	// Send the circuit breaker message as the response
-	return ctx.Status(fiber.StatusOK).JSON(makeResponse(cbMessage))
+	return ctx.Status(fiber.StatusOK).JSON(makeCircuitBreakerResponse(cbMessage))
 }
 
 func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
@@ -88,10 +88,10 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 	circuitbreaker.CloseCircuitBreaker(cbMessage)
 	log.Info().Msgf("Successfully closed circuit breaker for subscription with status %s", cbMessage.Status)
 	// Send the circuit breaker message as the response
-	return ctx.Status(fiber.StatusOK).JSON(makeResponse(cbMessage))
+	return ctx.Status(fiber.StatusOK).JSON(makeCircuitBreakerResponse(cbMessage))
 }
 
-func makeResponse(cbMsg *message.CircuitBreakerMessage) CircuitBreakerResponse {
+func makeCircuitBreakerResponse(cbMsg *message.CircuitBreakerMessage) CircuitBreakerResponse {
 	var resp = CircuitBreakerResponse{CircuitBreakerMessage: *cbMsg}
 	populateCircuitBreakerResponse(&resp)
 	return resp
