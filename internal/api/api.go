@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/rs/zerolog/log"
+	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/metrics"
 	"pubsub-horizon-golaris/internal/tracing"
 )
@@ -25,7 +26,11 @@ func init() {
 	app.Use(healthcheck.New())
 	app.Use(pprof.New())
 
-	app.Get("/metrics", metrics.NewPrometheusMiddleware())
+	if config.Current.Metrics.Enabled {
+		app.Get("/metrics", metrics.NewPrometheusMiddleware())
+		metrics.ListenForChanges()
+	}
+
 	// setup routes
 	v1 := app.Group("/api/v1")
 	v1.Get("/health-checks", getAllHealthChecks)
