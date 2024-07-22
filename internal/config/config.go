@@ -66,7 +66,6 @@ func setDefaults() {
 
 	// Metrics
 	viper.SetDefault("metrics.enabled", true)
-	viper.SetDefault("metrics.port", 8081)
 
 	// Mongo
 	viper.SetDefault("mongo.url", "mongodb://localhost:27017")

@@ -56,7 +56,6 @@ type Kafka struct {
 
 type Metrics struct {
 	Enabled bool `mapstructure:"enabled"`
-	Port    int  `mapstructure:"port"`
 }
 
 type Mongo struct {
