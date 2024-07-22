@@ -5,8 +5,10 @@
 package metrics
 
 import (
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/utils"
@@ -37,6 +39,19 @@ func recordCircuitBreaker(subscriptionId string, open bool) {
 		openCircuitBreakers.With(map[string]string{
 			"subscriptionId": subscriptionId,
 		}).Set(value)
+	}
+}
+
+func PopulateFromCache() {
+	var cbc = cache.CircuitBreakerCache
+	circuitBreakers, err := cbc.GetQuery("circuit-breakers", predicate.True())
+	if err != nil {
+		log.Warn().Err(err).Msg("could initialize metrics from circuit-breakers map")
+	}
+
+	for _, circuitBreaker := range circuitBreakers {
+		var open = circuitBreaker.Status == enum.CircuitBreakerStatusOpen
+		recordCircuitBreaker(circuitBreaker.SubscriptionId, open)
 	}
 }
 
