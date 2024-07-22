@@ -50,6 +50,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCache entry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
+	log.Debug().Msgf("Successfully locked RepublishingCache entry with subscriptionId %s", subscriptionId)
 
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
@@ -131,7 +132,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		// Iterate over each message to republish
 		for _, dbMessage := range dbMessages {
-			log.Debug().Msgf("Republishing message for subscriptionId %s: %v", subscriptionId, dbMessage)
+			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
 			if cache.SubscriptionCancelMap[subscriptionId] {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 				return
@@ -146,8 +147,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
 				newCallbackUrl = subscription.Spec.Subscription.Callback
 			}
-
-			log.Debug().Msgf("Republishing message for subscription %s: %v", subscriptionId, dbMessage)
 
 			if dbMessage.Coordinates == nil {
 				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)

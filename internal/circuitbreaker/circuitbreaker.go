@@ -40,6 +40,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		log.Debug().Msgf("Could not acquire lock for HealthCheck cache entry, skipping entry for subscriptionId %s", hcData.HealthCheckKey)
 		return
 	}
+	log.Debug().Msgf("Successfully locked HealthCheck cache entry with key %s", hcData.HealthCheckKey)
 
 	// Ensure that the lock is released when the function is ended
 	defer func() {

@@ -27,17 +27,15 @@ var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
 func StartScheduler() {
 	scheduler = gocron.NewScheduler(time.UTC)
 
-	nextFullMinute := time.Now().Add(time.Minute).Truncate(time.Minute)
-
 	// Schedule the task for checking open circuit breakers
-	if _, err := scheduler.Every(1).Minute().StartAt(nextFullMinute).Do(func() {
+	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
 		checkOpenCircuitBreakers()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
 	}
 
 	// Schedule the task for checking republishing entries
-	if _, err := scheduler.Every(1).Minute().StartAt(nextFullMinute).Do(func() {
+	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
 		checkRepublishingEntries()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling for republishing entries: %v", err)

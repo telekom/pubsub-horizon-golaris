@@ -87,8 +87,7 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
 		return err
 	}
-
-	log.Debug().Msgf("Message with id %s sent to kafka: partition %v offset %v", string(message.Key), partition, offset)
+	log.Debug().Msgf("Message with id %s sent to kafka: partition %v offset %v newDeliveryType %s newCallBackUrl %s", string(message.Key), partition, offset, newDeliveryType, newCallbackUrl)
 
 	return nil
 }
@@ -110,8 +109,6 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		log.Error().Err(err).Msg("Could not unmarshal message value")
 		return nil, err
 	}
-
-	log.Debug().Msgf("New deliveryType is: %s", newDeliveryType)
 
 	// Map newDeliveryType to the appropriate value
 	switch newDeliveryType {
