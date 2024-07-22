@@ -27,6 +27,7 @@ func init() {
 	app.Use(pprof.New())
 
 	if config.Current.Metrics.Enabled {
+		log.Debug().Msg("Metrics enabled")
 		app.Get("/metrics", metrics.NewPrometheusMiddleware())
 		metrics.ListenForChanges()
 	}
