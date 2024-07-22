@@ -26,12 +26,6 @@ func init() {
 	app.Use(healthcheck.New())
 	app.Use(pprof.New())
 
-	if config.Current.Metrics.Enabled {
-		log.Debug().Msg("Metrics enabled")
-		app.Get("/metrics", metrics.NewPrometheusMiddleware())
-		metrics.ListenForChanges()
-	}
-
 	// setup routes
 	v1 := app.Group("/api/v1")
 	v1.Get("/health-checks", getAllHealthChecks)
@@ -42,6 +36,13 @@ func init() {
 
 func Listen(port int) {
 	log.Info().Msgf("Listening on port %d", port)
+
+	if config.Current.Metrics.Enabled {
+		log.Debug().Msg("Metrics enabled")
+		app.Get("/metrics", metrics.NewPrometheusMiddleware())
+		metrics.ListenForChanges()
+	}
+
 	err := app.Listen(fmt.Sprintf(":%d", port))
 	if err != nil {
 		panic(err)
