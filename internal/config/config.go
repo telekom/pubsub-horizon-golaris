@@ -44,6 +44,7 @@ func setDefaults() {
 
 	// Processes
 	viper.SetDefault("circuitBreaker.openCbCheckInterval", "30s")
+	viper.SetDefault("circuitBreaker.openCbLoopDetectionPeriod", "300s")
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
 	viper.SetDefault("republishing.checkInterval", "30s")

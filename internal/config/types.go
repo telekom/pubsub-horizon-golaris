@@ -21,7 +21,8 @@ type Configuration struct {
 }
 
 type CircuitBreaker struct {
-	OpenCbCheckInterval time.Duration `mapstructure:"openCbCheckInterval"`
+	OpenCbCheckInterval       time.Duration `mapstructure:"openCbCheckInterval"`
+	OpenCbLoopDetectionPeriod time.Duration `mapstructure:"openCbLoopDetectionPeriod"`
 }
 
 type HealthCheck struct {

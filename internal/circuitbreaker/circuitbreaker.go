@@ -52,6 +52,8 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		}
 	}()
 
+	detectCircuitBreakerLoops(&cbMessage)
+
 	cbMessage, err = deleteRepubEntryAndIncreaseRepubCount(cbMessage, hcData)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while deleting Republishing cache entry and increasing republishing count for subscriptionId %s", cbMessage.SubscriptionId)
@@ -84,6 +86,33 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 	log.Debug().Msgf("Successfully processed open CircuitBreaker entry for subscriptionId %s", cbMessage.SubscriptionId)
 	return
+}
+
+func detectCircuitBreakerLoops(cbMessage *message.CircuitBreakerMessage) {
+	loopDetectionPeriod := config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod
+	log.Debug().Msgf("Loop detection period is set to %s", loopDetectionPeriod)
+
+	//Todo rename LastRepublished to circuitBreakerLastOpened
+	//Todo rename RepublishingCount to circuitBreakerCount
+	//Todo Check if LastRepublished is set in comet is kept when opening a circuit breaker again
+
+	// Check if circuit breaker last opened timestamp is in loop detection period
+	if cbMessage.LastRepublished != nil && time.Since(cbMessage.LastRepublished.ToTime()).Seconds() < loopDetectionPeriod.Seconds() {
+		log.Debug().Msgf("Detected circuit breaker loop. Increasing circuit breaker counter for subscription %s: %d", cbMessage.SubscriptionId, cbMessage.RepublishingCount+1)
+		cbMessage.RepublishingCount++
+		cbMessage.LastRepublished = types.NewTimestamp(time.Now().UTC())
+	} else {
+		// Reset circuit breaker counter if loop detection period has passed
+		log.Debug().Msgf("No circuit breaker loop. Resetting circuit breaker counter for subscription %s", cbMessage.SubscriptionId)
+		cbMessage.RepublishingCount = 0
+		cbMessage.LastRepublished = types.NewTimestamp(time.Now().UTC())
+	}
+
+	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s with loop detection information: %v", cbMessage.SubscriptionId, err)
+		return
+	}
 }
 
 // deleteRepubEntryAndIncreaseRepubCount deletes a republishing cache entry and increases the republishing count for a given subscription.
