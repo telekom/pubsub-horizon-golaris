@@ -31,8 +31,10 @@ func init() {
 
 func createThrottler(redeliveriesPerSecond int) gohalt.Throttler {
 	if redeliveriesPerSecond > 0 {
-		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), time.Minute, 1)
+		log.Info().Msgf("Creating throttler with %d redeliveries per second", redeliveriesPerSecond)
+		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), time.Minute, time.Minute)
 	} else {
+		log.Info().Msgf("Creating throttler with no redeliveries per second limit")
 		return gohalt.NewThrottlerEcho(nil)
 	}
 }
@@ -153,7 +155,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 
 			runnable := func(ctx context.Context) error {
+				// Try to get a token from the throttler
 				if err = throttler.Acquire(ctx); err != nil {
+					log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
 					return err
 				}
 				defer throttler.Release(ctx)
@@ -194,6 +198,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			})
 
 			if err := runner.Result(); err != nil {
+				log.Error().Err(err).Msgf("Runner result: %v", runner.Result())
 				log.Error().Err(err).Msgf("Error while processing message for subscriptionId %s", subscriptionId)
 			}
 		}
