@@ -36,24 +36,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestIncreaseLoopCounter_Success(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-
-	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
-
-	// set mocked  circuit breaker message in the cache
-	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
-
-	result, err := IncreaseLoopCounter(testSubscriptionId)
-
-	assertions.NoError(err)
-	assertions.Equal(1, result.LoopCounter)
-}
-
 func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
@@ -257,7 +239,7 @@ func TestHandleOpenCircuitBreaker_CoolDownWithRepublishing(t *testing.T) {
 	assertions.False(healthCheckCacheLocked)
 }
 
-func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
+func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -268,19 +250,16 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
 
 	testCbMessage := test.NewTestCbMessage(testSubscriptionId)
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-
-	// call the function under test
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	cbMessageAfterDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+	// call the function under test
+	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result
 	assertions.NoError(err)
-	assertions.NotNil(cbMessageAfterDeletion)
-	assertions.Equal(0, cbMessageAfterDeletion.LoopCounter)
 }
 
-func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
+func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -300,13 +279,11 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
-	cbMessageAfterRepubEntryDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result
 	assertions.NoError(err)
 	assertions.Nil(cache.RepublishingCache.Get(context.Background(), testSubscriptionId))
-	assertions.Equal(1, cbMessageAfterRepubEntryDeletion.LoopCounter)
-	assertions.NotNil(cbMessageAfterRepubEntryDeletion)
 }
 
 func TestCloseCircuitBreaker(t *testing.T) {
@@ -337,9 +314,10 @@ func TestCheckAndHandleCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T
 	testCbMessage.LoopCounter = 0
 
 	// call the function under test
-	checkAndHandleCircuitBreakerLoop(&testCbMessage)
+	err := checkAndHandleCircuitBreakerLoop(&testCbMessage)
 
 	// assert the result
+	assert.NoError(t, err)
 	assert.Equal(t, 1, testCbMessage.LoopCounter, "Loop counter should be incremented")
 	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
 }
@@ -355,9 +333,10 @@ func TestCheckAndHandleCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.
 	testCbMessage.LoopCounter = 0
 
 	// call the function under test
-	checkAndHandleCircuitBreakerLoop(&testCbMessage)
+	err := checkAndHandleCircuitBreakerLoop(&testCbMessage)
 
 	// assert the result
+	assert.NoError(t, err)
 	assert.Equal(t, 0, testCbMessage.LoopCounter, "Loop counter should be reset to 0")
 	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
 }
@@ -381,22 +360,22 @@ func TestCalculateExponentialBackoff(t *testing.T) {
 			expectedBackoff: 0,
 		},
 		{
-			name:            "First retry, base backoff = 2^1*backoffBase",
+			name:            "First retry, base backoff = 2^1 * 1000ms",
 			cbLoopCounter:   2,
 			expectedBackoff: 2 * backoffBase,
 		},
 		{
-			name:            "Second retry, exponential backoff = 2^2*backoffBase",
+			name:            "Second retry, exponential backoff = 2^2 * 1000ms",
 			cbLoopCounter:   3,
 			expectedBackoff: 4 * backoffBase,
 		},
 		{
-			name:            "Third retry, exponential backoff = 2^3*backoffBase",
+			name:            "Third retry, exponential backoff = 2^3 * 1000ms",
 			cbLoopCounter:   4,
 			expectedBackoff: 8 * backoffBase,
 		},
 		{
-			name:            "Max backoff reached exponential backoff  = 2^12*backoffBase",
+			name:            "Max backoff reached exponential backoff  = 2^12 * 1000ms",
 			cbLoopCounter:   13,
 			expectedBackoff: backoffMax,
 		},
