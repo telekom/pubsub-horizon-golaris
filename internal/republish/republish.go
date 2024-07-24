@@ -32,7 +32,7 @@ func init() {
 func createThrottler(redeliveriesPerSecond int) gohalt.Throttler {
 	if redeliveriesPerSecond > 0 {
 		log.Info().Msgf("Creating throttler with %d redeliveries", redeliveriesPerSecond)
-		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), 5*time.Second, 1)
+		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), 10*time.Second, 0)
 	}
 	log.Info().Msgf("Creating throttler with no redeliveries")
 	return gohalt.NewThrottlerEcho(nil)
@@ -161,38 +161,36 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
 				break
 			}
+			defer throttler.Release(context.Background())
 
-			func(dbMessage message.StatusMessage) {
-				defer throttler.Release(context.Background())
+			var newDeliveryType string
+			if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
+				newDeliveryType = strings.ToUpper(string(subscription.Spec.Subscription.DeliveryType))
+			}
 
-				var newDeliveryType string
-				if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
-					newDeliveryType = strings.ToUpper(string(subscription.Spec.Subscription.DeliveryType))
-				}
+			var newCallbackUrl string
+			if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
+				newCallbackUrl = subscription.Spec.Subscription.Callback
+			}
 
-				var newCallbackUrl string
-				if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
-					newCallbackUrl = subscription.Spec.Subscription.Callback
-				}
+			if dbMessage.Coordinates == nil {
+				log.Printf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
+				return
+			}
 
-				if dbMessage.Coordinates == nil {
-					log.Printf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
-					return
-				}
+			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
+			if err != nil {
+				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
+				return
+			}
 
-				kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
-				if err != nil {
-					log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
-					return
-				}
+			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
+			if err != nil {
+				log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
+				return
+			}
+			log.Printf("Successfully republished message for subscriptionId %s", subscriptionId)
 
-				err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
-				if err != nil {
-					log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
-					return
-				}
-				log.Printf("Successfully republished message for subscriptionId %s", subscriptionId)
-			}(dbMessage)
 		}
 
 		// If the number of fetched messages is less than the batch size, exit the loop
