@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/types"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -321,4 +322,38 @@ func TestCloseCircuitBreaker(t *testing.T) {
 	cbMessage, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
 	assertions.NotNil(cbMessage)
 	assertions.Equal(enum.CircuitBreakerStatusClosed, cbMessage.Status)
+}
+
+func TestCheckAndHandleCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
+	// Prepare test data
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
+	initialLastOpened := time.Now().Add(-5 * time.Second) // Within loop detection period
+
+	testCbMessage := test.NewTestCbMessage("testSubscriptionId")
+	testCbMessage.LastRepublished = types.NewTimestamp(initialLastOpened)
+	testCbMessage.RepublishingCount = 0
+
+	// call the function under test
+	checkAndHandleCircuitBreakerLoop(&testCbMessage)
+
+	// assert the result
+	assert.Equal(t, 1, testCbMessage.RepublishingCount, "Republishing count should be incremented")
+	assert.True(t, testCbMessage.LastRepublished.ToTime().After(initialLastOpened), "Last opened time should be updated")
+}
+
+func TestCheckAndHandleCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
+	// Prepare test data
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
+	initialLastOpened := time.Now().Add(-15 * time.Second) // Outside loop detection period
+
+	testCbMessage := test.NewTestCbMessage("testSubscriptionId")
+	testCbMessage.LastRepublished = types.NewTimestamp(initialLastOpened)
+	testCbMessage.RepublishingCount = 0
+
+	// call the function under test
+	checkAndHandleCircuitBreakerLoop(&testCbMessage)
+
+	// assert the result
+	assert.Equal(t, 0, testCbMessage.RepublishingCount, "Republishing count should be reset to 0")
+	assert.True(t, testCbMessage.LastRepublished.ToTime().After(initialLastOpened), "Last opened time should be updated")
 }
