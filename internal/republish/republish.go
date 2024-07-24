@@ -32,7 +32,7 @@ func init() {
 func createThrottler(redeliveriesPerSecond int) gohalt.Throttler {
 	if redeliveriesPerSecond > 0 {
 		log.Info().Msgf("Creating throttler with %d redeliveries", redeliveriesPerSecond)
-		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), 10*time.Second, 0)
+		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), config.Current.Republishing.ThrottlingIntervalTime, 0)
 	}
 	log.Info().Msgf("Creating throttler with no redeliveries")
 	return gohalt.NewThrottlerEcho(nil)
@@ -97,7 +97,6 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // The function takes a subscriptionId as a parameter.
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
-	var redeliveriesPerSecond = subscription.Spec.Subscription.RedeliveriesPerSecond
 
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
@@ -109,7 +108,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	cache.SubscriptionCancelMap[subscriptionId] = false
 
-	throttler = createThrottler(redeliveriesPerSecond)
+	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond)
 
 	// Start a loop to paginate through the events
 	for {
@@ -154,7 +153,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			for {
 				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-					time.Sleep(10 * time.Second)
+					time.Sleep(config.Current.Republishing.ThrottlingIntervalTime)
 					continue
 				}
 				log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
