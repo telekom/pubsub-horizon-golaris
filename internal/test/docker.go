@@ -125,7 +125,7 @@ func pingMongoDb() error {
 
 func setupMongoDb() error {
 	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Name:         "quasar-mongodb",
+		Name:         "golaris-mongodb",
 		Repository:   mongoImage,
 		Tag:          mongoTag,
 		ExposedPorts: []string{"27017/tcp"},
@@ -139,7 +139,7 @@ func setupMongoDb() error {
 
 func setupHazelcast() error {
 	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
-		Name:         "quasar-hazelcast",
+		Name:         "golaris-hazelcast",
 		Repository:   hazelcastImage,
 		Tag:          hazelcastTag,
 		ExposedPorts: []string{"5701/tcp"},

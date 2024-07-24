@@ -69,6 +69,12 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
+	// Check if the republishing entry is postponed in the future
+	if (republishCache.PostponedUntil != time.Time{}) && time.Now().Before(republishCache.PostponedUntil) {
+		log.Debug().Msgf("Postponed republishing for subscription %s until %s", subscriptionId, republishCache.PostponedUntil)
+		return
+	}
+
 	republishPendingEventsFunc(subscription, republishCache)
 
 	// Delete the republishing entry after processing

@@ -7,8 +7,10 @@ package circuitbreaker
 import (
 	"context"
 	"fmt"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/types"
 	"os"
@@ -356,4 +358,56 @@ func TestCheckAndHandleCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.
 	// assert the result
 	assert.Equal(t, 0, testCbMessage.RepublishingCount, "Republishing count should be reset to 0")
 	assert.True(t, testCbMessage.LastRepublished.ToTime().After(initialLastOpened), "Last opened time should be updated")
+}
+
+func TestCalculateExponentialBackoff(t *testing.T) {
+	// Mock the configuration values for the test
+	config.Current.CircuitBreaker.ExponentialBackoffBase = 1000 * time.Millisecond
+	config.Current.CircuitBreaker.ExponentialBackoffMax = 60 * time.Minute
+
+	backoffBase := config.Current.CircuitBreaker.ExponentialBackoffBase
+	backoffMax := config.Current.CircuitBreaker.ExponentialBackoffMax
+
+	tests := []struct {
+		name            string
+		cbLoopCounter   int
+		expectedBackoff time.Duration
+	}{
+		{
+			name:            "First open, no backoff",
+			cbLoopCounter:   1,
+			expectedBackoff: 0,
+		},
+		{
+			name:            "First retry, base backoff = 2^1*backoffBase",
+			cbLoopCounter:   2,
+			expectedBackoff: 2 * backoffBase,
+		},
+		{
+			name:            "Second retry, exponential backoff = 2^2*backoffBase",
+			cbLoopCounter:   3,
+			expectedBackoff: 4 * backoffBase,
+		},
+		{
+			name:            "Third retry, exponential backoff = 2^3*backoffBase",
+			cbLoopCounter:   4,
+			expectedBackoff: 8 * backoffBase,
+		},
+		{
+			name:            "Max backoff reached exponential backoff  = 2^12*backoffBase",
+			cbLoopCounter:   13,
+			expectedBackoff: backoffMax,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cbMessage := message.CircuitBreakerMessage{
+				RepublishingCount: tc.cbLoopCounter,
+			}
+			backoff := calculateExponentialBackoff(cbMessage)
+			log.Debug().Msgf("Backoff: %d", backoff)
+			assert.True(t, tc.expectedBackoff == backoff)
+		})
+	}
 }
