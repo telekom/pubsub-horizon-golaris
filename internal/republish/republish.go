@@ -31,12 +31,11 @@ func init() {
 
 func createThrottler(redeliveriesPerSecond int) gohalt.Throttler {
 	if redeliveriesPerSecond > 0 {
-		log.Info().Msgf("Creating throttler with %d redeliveries per second", redeliveriesPerSecond)
+		log.Info().Msgf("Creating throttler with %d redeliveries", redeliveriesPerSecond)
 		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), time.Minute, time.Minute)
-	} else {
-		log.Info().Msgf("Creating throttler with no redeliveries per second limit")
-		return gohalt.NewThrottlerEcho(nil)
 	}
+	log.Info().Msgf("Creating throttler with no redeliveries")
+	return gohalt.NewThrottlerEcho(nil)
 }
 
 // HandleRepublishingEntry manages the republishing process for a given subscription.
@@ -111,7 +110,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	cache.SubscriptionCancelMap[subscriptionId] = false
 
 	throttler = createThrottler(redeliveriesPerSecond)
-	runner := gohalt.NewRunnerSync(context.Background(), throttler)
 
 	// Start a loop to paginate through the events
 	for {
@@ -154,13 +152,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				return
 			}
 
-			runnable := func(ctx context.Context) error {
-				// Try to get a token from the throttler
-				if err = throttler.Acquire(ctx); err != nil {
-					log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
-					return err
-				}
-				defer throttler.Release(ctx)
+			if err = throttler.Acquire(context.Background()); err != nil {
+				log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
+				time.Sleep(time.Second)
+				continue
+			}
+
+			func(dbMessage message.StatusMessage) {
+				defer throttler.Release(context.Background())
 
 				var newDeliveryType string
 				if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
@@ -173,34 +172,23 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				}
 
 				if dbMessage.Coordinates == nil {
-					log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
-					return nil
+					log.Printf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
+					return
 				}
 
 				kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
 				if err != nil {
-					log.Warn().Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
-					return err
+					log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
+					return
 				}
 
 				err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
 				if err != nil {
-					log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
-					return err
+					log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
+					return
 				}
-				log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
-				return nil
-			}
-
-			// Execute the runnable
-			runner.Run(func(ctx context.Context) error {
-				return runnable(ctx)
-			})
-
-			if err := runner.Result(); err != nil {
-				log.Error().Err(err).Msgf("Runner result: %v", runner.Result())
-				log.Error().Err(err).Msgf("Error while processing message for subscriptionId %s", subscriptionId)
-			}
+				log.Printf("Successfully republished message for subscriptionId %s", subscriptionId)
+			}(dbMessage)
 		}
 
 		// If the number of fetched messages is less than the batch size, exit the loop
