@@ -154,7 +154,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			if err = throttler.Acquire(context.Background()); err != nil {
 				log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
-				time.Sleep(time.Second)
+				time.Sleep(time.Minute)
 				continue
 			}
 
