@@ -55,6 +55,13 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 	if obj.Spec.Subscription.CircuitBreakerOptOut == true && oldObj.Spec.Subscription.CircuitBreakerOptOut != true {
 		handleCircuitBreakerOptOutChange(obj, oldObj)
 	}
+
+	if obj.Spec.Subscription.RedeliveriesPerSecond != 0 {
+		if obj.Spec.Subscription.RedeliveriesPerSecond != oldObj.Spec.Subscription.RedeliveriesPerSecond {
+			handleRedeliveriesPerSecondChange(obj, oldObj)
+		}
+
+	}
 }
 
 // OnDelete handles the deletion of a subscription if a RepublishingCacheEntry exists for the subscription.
@@ -156,6 +163,24 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 
 	if cbMessage != nil {
 		circuitbreaker.CloseCircuitBreaker(cbMessage)
+	}
+
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+}
+
+func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	log.Debug().Msgf("RedeliveriesPerSecond changed from %v to %v for subscription %s", oldObj.Spec.Subscription.RedeliveriesPerSecond, obj.Spec.Subscription.RedeliveriesPerSecond, obj.Spec.Subscription.SubscriptionId)
+	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
+		return
+	}
+
+	if optionalEntry != nil {
+		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
+		cache.CancelMapMutex.Lock()
+		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
+		cache.CancelMapMutex.Unlock()
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
