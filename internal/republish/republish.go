@@ -32,7 +32,7 @@ func init() {
 func createThrottler(redeliveriesPerSecond int) gohalt.Throttler {
 	if redeliveriesPerSecond > 0 {
 		log.Info().Msgf("Creating throttler with %d redeliveries", redeliveriesPerSecond)
-		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), time.Second, 1)
+		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), 5*time.Second, 1)
 	}
 	log.Info().Msgf("Creating throttler with no redeliveries")
 	return gohalt.NewThrottlerEcho(nil)
@@ -57,7 +57,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	}
 
 	// Attempt to acquire a lock on the republishing entry
-	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
+	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCache entry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
@@ -152,10 +152,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				return
 			}
 
-			if err = throttler.Acquire(context.Background()); err != nil {
-				log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
-				time.Sleep(time.Second)
-				continue
+			for {
+				if err = throttler.Acquire(context.Background()); err != nil {
+					log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
+					time.Sleep(10 * time.Second)
+					continue
+				}
+				log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
+				break
 			}
 
 			func(dbMessage message.StatusMessage) {
