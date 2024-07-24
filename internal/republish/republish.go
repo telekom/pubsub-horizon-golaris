@@ -32,7 +32,7 @@ func init() {
 func createThrottler(redeliveriesPerSecond int) gohalt.Throttler {
 	if redeliveriesPerSecond > 0 {
 		log.Info().Msgf("Creating throttler with %d redeliveries", redeliveriesPerSecond)
-		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), time.Minute, time.Minute)
+		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), time.Second, 1)
 	}
 	log.Info().Msgf("Creating throttler with no redeliveries")
 	return gohalt.NewThrottlerEcho(nil)
@@ -154,7 +154,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			if err = throttler.Acquire(context.Background()); err != nil {
 				log.Error().Msgf("Throttler Error for subscriptionId %s: %v", subscriptionId, err)
-				time.Sleep(time.Minute)
+				time.Sleep(time.Second)
 				continue
 			}
 
