@@ -77,9 +77,9 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	}).Return(nil)
 
 	openCBMessage := &message.CircuitBreakerMessage{
-		SubscriptionId:    subscriptionId,
-		Status:            enum.CircuitBreakerStatusOpen,
-		RepublishingCount: 0,
+		SubscriptionId: subscriptionId,
+		Status:         enum.CircuitBreakerStatusOpen,
+		LoopCounter:    0,
 	}
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything).Return(nil)
@@ -171,9 +171,9 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	republishMockMap, circuitBreakerCache := setupMocks()
 
 	openCBMessage := &message.CircuitBreakerMessage{
-		SubscriptionId:    subscriptionId,
-		Status:            enum.CircuitBreakerStatusOpen,
-		RepublishingCount: 0,
+		SubscriptionId: subscriptionId,
+		Status:         enum.CircuitBreakerStatusOpen,
+		LoopCounter:    0,
 	}
 	circuitBreakerCache.On("Get", "test-circuit-breaker-cache", subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", "test-circuit-breaker-cache", subscriptionId, mock.Anything).Return(nil)

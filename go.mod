@@ -16,7 +16,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	github.com/telekom/pubsub-horizon-go v0.0.0-20240717133923-c3aedf4a5039
+	github.com/telekom/pubsub-horizon-go v0.0.0-20240724150532-9ddbbf8d63d6
 	go.mongodb.org/mongo-driver v1.16.0
 	go.opentelemetry.io/contrib/propagators/b3 v1.28.0
 	go.opentelemetry.io/otel v1.28.0

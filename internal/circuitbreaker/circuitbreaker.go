@@ -100,24 +100,22 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 func checkAndHandleCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) {
 	loopDetectionPeriod := config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod
 
-	//Todo rename LastRepublished to circuitBreakerLastOpened
-	//Todo rename RepublishingCount to circuitBreakerCount
-	//Todo Check if LastRepublished is set in comet is kept when opening a circuit breaker again
+	//Todo Check if LoopCounter is kept in comet when opening a circuit breaker again
 
-	// If circuit breaker last opened timestamp is within loop detection period, increase circuit breaker counter
-	if cbMessage.LastRepublished != nil && time.Since(cbMessage.LastRepublished.ToTime()).Seconds() < loopDetectionPeriod.Seconds() {
-		log.Debug().Msgf("Detected circuit breaker loop. Increasing circuit breaker counter for subscription %s: %d", cbMessage.SubscriptionId, cbMessage.RepublishingCount+1)
-		cbMessage.RepublishingCount++
+	// If circuit breaker last opened timestamp is within loop detection period, increase loop counter
+	if cbMessage.LastOpened != nil && time.Since(cbMessage.LastOpened.ToTime()).Seconds() < loopDetectionPeriod.Seconds() {
+		log.Debug().Msgf("Detected circuit breaker loop. Increasing loop counter for subscription %s: %d", cbMessage.SubscriptionId, cbMessage.LoopCounter+1)
+		cbMessage.LoopCounter++
 	} else {
-		// If outside the loop detection period, reset circuit breaker counter
-		log.Debug().Msgf("No circuit breaker loop. Resetting circuit breaker counter for subscription %s", cbMessage.SubscriptionId)
-		cbMessage.RepublishingCount = 0
+		// If outside the loop detection period, reset loop  counter
+		log.Debug().Msgf("No circuit breaker loop. Resetting loop counter for subscription %s", cbMessage.SubscriptionId)
+		cbMessage.LoopCounter = 0
 	}
-	cbMessage.LastRepublished = types.NewTimestamp(time.Now().UTC())
+	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
 
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s with loop detection information: %v", cbMessage.SubscriptionId, err)
+		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s with loop detection result: %v", cbMessage.SubscriptionId, err)
 		return
 	}
 }
@@ -130,13 +128,13 @@ func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessa
 		log.Error().Err(err).Msgf("Error getting RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
 	}
 
-	// If there is an entry, force delete and increase republishingCount
+	// If there is an entry, force delete and increase LoopCounter
 	if republishingEntry != nil {
 		log.Debug().Msgf("RepublishingCache entry found for subscriptionId %s", cbMessage.SubscriptionId)
 		// ForceDelete eventual existing RepublishingCache entry for the subscriptionId
 		republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
 		// Increase the republishing count for the subscription by 1
-		updatedCbMessage, err := IncreaseRepublishingCount(cbMessage.SubscriptionId)
+		updatedCbMessage, err := IncreaseLoopCounter(cbMessage.SubscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while increasing republishing count for subscription %s", cbMessage.SubscriptionId)
 			return message.CircuitBreakerMessage{}, err
@@ -158,42 +156,41 @@ func CloseCircuitBreaker(cbMessage *message.CircuitBreakerMessage) {
 	log.Info().Msgf("Successfully closed circuit breaker for subscription %s with status %s", cbMessage.SubscriptionId, cbMessage.Status)
 }
 
-// IncreaseRepublishingCount increments the republishing count for a given subscription by 1.
-func IncreaseRepublishingCount(subscriptionId string) (*message.CircuitBreakerMessage, error) {
+// IncreaseLoopCounter increments the loop counter for a given subscription by 1.
+func IncreaseLoopCounter(subscriptionId string) (*message.CircuitBreakerMessage, error) {
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
 		return nil, err
 	}
 
-	cbMessage.LastRepublished = types.NewTimestamp(time.Now().UTC())
-	cbMessage.RepublishingCount++
+	cbMessage.LastOpened = types.NewTimestamp(time.Now().UTC())
+	cbMessage.LoopCounter++
 	if err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *cbMessage); err != nil {
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker message for subscription %s", subscriptionId)
 		return nil, err
 	}
 
-	log.Debug().Msgf("Successfully increased RepublishingCount to %d for subscription %s", cbMessage.RepublishingCount, subscriptionId)
+	log.Debug().Msgf("Successfully increased LoopCounter to %d for subscription %s", cbMessage.LoopCounter, subscriptionId)
 	return cbMessage, nil
 }
 
-// calculateExponentialBackoff calculates the exponential backoff duration based on the republishing count.
+// calculateExponentialBackoff calculates the exponential backoff duration based on the loop counter.
 func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.Duration {
 	exponentialBackoffBase := config.Current.CircuitBreaker.ExponentialBackoffBase
 	exponentialBackoffMax := config.Current.CircuitBreaker.ExponentialBackoffMax
 
 	// Return 0 for exponential backoff if circuit breaker is opened for the first time
-	if cbMessage.RepublishingCount <= 1 {
+	if cbMessage.LoopCounter <= 1 {
 		return 0
 	}
 
 	// Calculate the exponential backoff based on republishing count. If the circuit breaker counter is 2 it is the first retry
-	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.RepublishingCount-1)))
+	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.LoopCounter-1)))
 
 	// Limit the exponential backoff to the max backoff
 	if exponentialBackoff > exponentialBackoffMax {
 		exponentialBackoff = exponentialBackoffMax
 	}
-
 	return exponentialBackoff
 }

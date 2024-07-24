@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestIncreaseRepublishingCount_Success(t *testing.T) {
+func TestIncreaseLoopCounter_Success(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -48,10 +48,10 @@ func TestIncreaseRepublishingCount_Success(t *testing.T) {
 	// set mocked  circuit breaker message in the cache
 	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
 
-	result, err := IncreaseRepublishingCount(testSubscriptionId)
+	result, err := IncreaseLoopCounter(testSubscriptionId)
 
 	assertions.NoError(err)
-	assertions.Equal(1, result.RepublishingCount)
+	assertions.Equal(1, result.LoopCounter)
 }
 
 func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
@@ -277,7 +277,7 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
 	// assert the result
 	assertions.NoError(err)
 	assertions.NotNil(cbMessageAfterDeletion)
-	assertions.Equal(0, cbMessageAfterDeletion.RepublishingCount)
+	assertions.Equal(0, cbMessageAfterDeletion.LoopCounter)
 }
 
 func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
@@ -305,7 +305,7 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
 	// assert the result
 	assertions.NoError(err)
 	assertions.Nil(cache.RepublishingCache.Get(context.Background(), testSubscriptionId))
-	assertions.Equal(1, cbMessageAfterRepubEntryDeletion.RepublishingCount)
+	assertions.Equal(1, cbMessageAfterRepubEntryDeletion.LoopCounter)
 	assertions.NotNil(cbMessageAfterRepubEntryDeletion)
 }
 
@@ -330,34 +330,36 @@ func TestCheckAndHandleCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T
 	// Prepare test data
 	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
 	initialLastOpened := time.Now().Add(-5 * time.Second) // Within loop detection period
+	initialLastModified := initialLastOpened
 
 	testCbMessage := test.NewTestCbMessage("testSubscriptionId")
-	testCbMessage.LastRepublished = types.NewTimestamp(initialLastOpened)
-	testCbMessage.RepublishingCount = 0
+	testCbMessage.LastOpened = types.NewTimestamp(initialLastOpened)
+	testCbMessage.LoopCounter = 0
 
 	// call the function under test
 	checkAndHandleCircuitBreakerLoop(&testCbMessage)
 
 	// assert the result
-	assert.Equal(t, 1, testCbMessage.RepublishingCount, "Republishing count should be incremented")
-	assert.True(t, testCbMessage.LastRepublished.ToTime().After(initialLastOpened), "Last opened time should be updated")
+	assert.Equal(t, 1, testCbMessage.LoopCounter, "Loop counter should be incremented")
+	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
 }
 
 func TestCheckAndHandleCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
 	// Prepare test data
 	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
 	initialLastOpened := time.Now().Add(-15 * time.Second) // Outside loop detection period
+	initialLastModified := initialLastOpened
 
 	testCbMessage := test.NewTestCbMessage("testSubscriptionId")
-	testCbMessage.LastRepublished = types.NewTimestamp(initialLastOpened)
-	testCbMessage.RepublishingCount = 0
+	testCbMessage.LastOpened = types.NewTimestamp(initialLastOpened)
+	testCbMessage.LoopCounter = 0
 
 	// call the function under test
 	checkAndHandleCircuitBreakerLoop(&testCbMessage)
 
 	// assert the result
-	assert.Equal(t, 0, testCbMessage.RepublishingCount, "Republishing count should be reset to 0")
-	assert.True(t, testCbMessage.LastRepublished.ToTime().After(initialLastOpened), "Last opened time should be updated")
+	assert.Equal(t, 0, testCbMessage.LoopCounter, "Loop counter should be reset to 0")
+	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
 }
 
 func TestCalculateExponentialBackoff(t *testing.T) {
@@ -403,7 +405,7 @@ func TestCalculateExponentialBackoff(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cbMessage := message.CircuitBreakerMessage{
-				RepublishingCount: tc.cbLoopCounter,
+				LoopCounter: tc.cbLoopCounter,
 			}
 			backoff := calculateExponentialBackoff(cbMessage)
 			log.Debug().Msgf("Backoff: %d", backoff)
