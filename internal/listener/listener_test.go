@@ -191,8 +191,8 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 
 func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	subscriptionId := "test-subscription-id"
-	oldSubscription := createSubscriptionResource(subscriptionId, "callback", false, "", 0)
-	newSubscription := createSubscriptionResource(subscriptionId, "callback", false, "", 10)
+	oldSubscription := createSubscriptionResource(subscriptionId, "callback", false, "", 1)
+	newSubscription := createSubscriptionResource(subscriptionId, "callback", false, "", 0)
 
 	republishMockMap, _ := setupMocks()
 	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(oldSubscription, nil)

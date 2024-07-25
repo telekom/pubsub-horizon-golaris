@@ -56,11 +56,8 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 		handleCircuitBreakerOptOutChange(obj, oldObj)
 	}
 
-	if obj.Spec.Subscription.RedeliveriesPerSecond != 0 && oldObj.Spec.Subscription.RedeliveriesPerSecond != 0 {
-		if obj.Spec.Subscription.RedeliveriesPerSecond != oldObj.Spec.Subscription.RedeliveriesPerSecond {
-			handleRedeliveriesPerSecondChange(obj, oldObj)
-		}
-
+	if obj.Spec.Subscription.RedeliveriesPerSecond != oldObj.Spec.Subscription.RedeliveriesPerSecond {
+		handleRedeliveriesPerSecondChange(obj, oldObj)
 	}
 }
 
@@ -113,6 +110,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		cache.CancelMapMutex.Lock()
+		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
 		cache.CancelMapMutex.Unlock()
 	}
@@ -143,6 +141,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		cache.CancelMapMutex.Lock()
+		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
 		cache.CancelMapMutex.Unlock()
 	}
@@ -179,6 +178,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		cache.CancelMapMutex.Lock()
+		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
 		cache.CancelMapMutex.Unlock()
 	}
