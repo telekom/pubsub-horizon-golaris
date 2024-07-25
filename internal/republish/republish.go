@@ -122,12 +122,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
-		} else if republishEntry.OldDeliveryType == "callback" {
-			dbMessages, err = mongo.CurrentConnection.FindWaitingAndDeliveringMessages(time.Now(), opts, subscriptionId)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
-			}
-			log.Debug().Msgf("Found %d WAITING and DELIVERING messages in MongoDb", len(dbMessages))
 		} else {
 			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 			if err != nil {
@@ -150,16 +144,16 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			if throttlingEnabled {
 				for {
+					if cache.GetCancelStatus(subscriptionId) {
+						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+						return
+					}
+
 					if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
 						time.Sleep(config.Current.Republishing.ThrottlingIntervalTime)
 						continue
 					}
 					log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
-					if cache.GetCancelStatus(subscriptionId) {
-						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-						return
-					}
-					log.Debug().Msgf("Cancel status is 3: %v", cache.GetCancelStatus(subscriptionId))
 					break
 				}
 				defer throttler.Release(context.Background())
