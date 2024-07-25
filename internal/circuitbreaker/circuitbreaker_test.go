@@ -239,6 +239,190 @@ func TestHandleOpenCircuitBreaker_CoolDownWithRepublishing(t *testing.T) {
 	assertions.False(healthCheckCacheLocked)
 }
 
+func TestHandleOpenCircuitBreaker_IncreaseLoopCounterWithinLoopDetectionPeriod(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 300 * time.Second
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+	testLoopCounter := 0
+	testLastOpened := types.NewTimestamp(time.Now()) // Within loop detection period
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage.LoopCounter = testLoopCounter
+	testCircuitBreakerMessage.LastOpened = testLastOpened
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 200
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if loopCounter is incremented
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(testLoopCounter+1, circuitBreakerCacheEntry.LoopCounter)
+
+	// Check if there is no postponed republishing entry
+	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
+	assertions.True(republishingCacheEntry.(republish.RepublishingCache).PostponedUntil.Before(time.Now()))
+}
+
+func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 0 * time.Second
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+	testLoopCounter := 1
+	testLastOpened := types.NewTimestamp(time.Now().Add(-60 * time.Second)) // Outside loop detection period
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage.LoopCounter = testLoopCounter
+	testCircuitBreakerMessage.LastOpened = testLastOpened
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 200
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if loopCounter is reset
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(0, circuitBreakerCacheEntry.LoopCounter)
+}
+
+func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhileUnhealthy(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 600 * time.Second
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+	testLoopCounter := 1
+	testLastOpened := types.NewTimestamp(time.Now())
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage.LoopCounter = testLoopCounter
+	testCircuitBreakerMessage.LastOpened = testLastOpened
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 500 // Unhealthy
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if loopCounter is not changed
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(1, circuitBreakerCacheEntry.LoopCounter)
+}
+
+func TestHandleOpenCircuitBreaker_KeepRepublishingPostponedWhileHealthy(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 600 * time.Second
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+	testLoopCounter := 1
+	testLastOpened := types.NewTimestamp(time.Now())
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage.LoopCounter = testLoopCounter
+	testCircuitBreakerMessage.LastOpened = testLastOpened
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 500 // Unhealthy
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if loopCounter is not changed
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(1, circuitBreakerCacheEntry.LoopCounter)
+}
+
+func TestHandleOpenCircuitBreaker_RepublishingPostponed(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 600 * time.Second
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+	testLoopCounter := 13 // Should cause a  postponed republishing entry
+	testLastOpened := types.NewTimestamp(time.Now())
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+	testCircuitBreakerMessage.LoopCounter = testLoopCounter
+	testCircuitBreakerMessage.LastOpened = testLastOpened
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 200
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if there is a postponed republishing entry
+	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
+	assertions.True(republishingCacheEntry.(republish.RepublishingCache).PostponedUntil.After(time.Now()))
+}
+
 func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
@@ -303,7 +487,7 @@ func TestCloseCircuitBreaker(t *testing.T) {
 	assertions.Equal(enum.CircuitBreakerStatusClosed, cbMessage.Status)
 }
 
-func TestCheckAndHandleCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
+func TestCheckForCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
 	// Prepare test data
 	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
 	initialLastOpened := time.Now().Add(-5 * time.Second) // Within loop detection period
@@ -314,7 +498,7 @@ func TestCheckAndHandleCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T
 	testCbMessage.LoopCounter = 0
 
 	// call the function under test
-	err := checkAndHandleCircuitBreakerLoop(&testCbMessage)
+	err := checkForCircuitBreakerLoop(&testCbMessage)
 
 	// assert the result
 	assert.NoError(t, err)
@@ -322,7 +506,7 @@ func TestCheckAndHandleCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T
 	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
 }
 
-func TestCheckAndHandleCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
+func TestCheckForCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
 	// Prepare test data
 	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
 	initialLastOpened := time.Now().Add(-15 * time.Second) // Outside loop detection period
@@ -333,7 +517,7 @@ func TestCheckAndHandleCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.
 	testCbMessage.LoopCounter = 0
 
 	// call the function under test
-	err := checkAndHandleCircuitBreakerLoop(&testCbMessage)
+	err := checkForCircuitBreakerLoop(&testCbMessage)
 
 	// assert the result
 	assert.NoError(t, err)

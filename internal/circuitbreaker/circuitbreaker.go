@@ -71,17 +71,22 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		log.Debug().Msgf("HealthCheck is in cooldown for key %s", hcData.HealthCheckKey)
 	}
 
-	// Create republishing cache entry if last health check was successful
+	// Todo Check if LoopCounter is kept unchanged in comet when opening a circuit breaker again
+
+	// Initiate republishing if last health check was successful
 	if slices.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
-		// Check if circuit breaker is in a loop and update cb message
-		err = checkAndHandleCircuitBreakerLoop(&cbMessage)
+		// Check if circuit breaker is in a loop and update loop counter of cb message or reset it
+		err = checkForCircuitBreakerLoop(&cbMessage)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error handling circuit breaker loop for subscriptionId %s", cbMessage.SubscriptionId)
 		}
-		// Calculate exponential backoff for republishing based on circuit breaker loop counter
-		postponedUntil := time.Now().Add(+calculateExponentialBackoff(cbMessage))
-		log.Debug().Msgf("backoff: %v", calculateExponentialBackoff(cbMessage))
-		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: postponedUntil}
+
+		// Calculate exponential backoff for new republishing cache entry based on updated circuit breaker loop counter
+		exponentialBackoff := calculateExponentialBackoff(cbMessage)
+		log.Debug().Msgf("Calculated exponential backoff: %v", exponentialBackoff)
+
+		// Create republishing cache entry
+		republishingCacheEntry := republish.RepublishingCache{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now().Add(+exponentialBackoff)}
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while creating RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -95,22 +100,20 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	return
 }
 
-// checkAndHandleCircuitBreakerLoop evaluates the circuit breaker's last opened timestamp against the configured loop detection period.
+// checkForCircuitBreakerLoop evaluates the circuit breaker's last opened timestamp against the configured loop detection period.
 // If the circuit breaker was last opened within the loop detection period, it increments the circuit breaker counter to indicate
 // a potential loop scenario. If the last opened timestamp is outside the loop detection period, it resets the counter, assuming
 // normal operation. The function updates the circuit breaker's last opened timestamp and republishing count in the cache.
-func checkAndHandleCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error {
+func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error {
 	loopDetectionPeriod := config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod
-
-	//Todo Check if LoopCounter is kept in comet when opening a circuit breaker again
 
 	// If circuit breaker last opened timestamp is within loop detection period, increase loop counter
 	if cbMessage.LastOpened != nil && time.Since(cbMessage.LastOpened.ToTime()).Seconds() < loopDetectionPeriod.Seconds() {
-		log.Debug().Msgf("Detected circuit breaker loop. Increasing loop counter for subscription %s: %d", cbMessage.SubscriptionId, cbMessage.LoopCounter+1)
+		log.Debug().Msgf("Circuit breaker opened within loop detection period. Increasing loop counter for subscription %s: %d", cbMessage.SubscriptionId, cbMessage.LoopCounter+1)
 		cbMessage.LoopCounter++
 	} else {
 		// If outside the loop detection period, reset loop  counter
-		log.Debug().Msgf("No circuit breaker loop detected. Resetting loop counter for subscription %s", cbMessage.SubscriptionId)
+		log.Debug().Msgf("Circuit breaker opened outside loop detection period. Resetting loop counter for subscription %s", cbMessage.SubscriptionId)
 		cbMessage.LoopCounter = 0
 	}
 	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
@@ -157,12 +160,14 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 	exponentialBackoffBase := config.Current.CircuitBreaker.ExponentialBackoffBase
 	exponentialBackoffMax := config.Current.CircuitBreaker.ExponentialBackoffMax
 
-	// Return 0 for exponential backoff if circuit breaker is opened for the first time
+	// Return 0 for exponential backoff if circuit breaker is opened for the first time.
+	// If the circuit breaker counter is 1 it is newly opened, because the counter had  already been  incremented immediately before
 	if cbMessage.LoopCounter <= 1 {
 		return 0
 	}
 
-	// Calculate the exponential backoff based on republishing count. If the circuit breaker counter is 2 it is the first retry
+	// Calculate the exponential backoff based on republishing count.
+	// If the circuit breaker counter is 2 it is the first retry, because the counter had  already been  incremented immediately before
 	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.LoopCounter-1)))
 
 	// Limit the exponential backoff to the max backoff
