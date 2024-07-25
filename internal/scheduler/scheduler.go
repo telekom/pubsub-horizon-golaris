@@ -86,7 +86,7 @@ func checkRepublishingEntries() {
 
 	// Iterate over all republishing entries and handle them
 	for _, entry := range republishingEntries {
-		subscriptionId := entry.Value.(republish.RepublishingCache).SubscriptionId
+		subscriptionId := entry.Value.(republish.RepublishingCacheEntry).SubscriptionId
 		log.Debug().Msgf("Checking republishing entry for subscriptionId %s", subscriptionId)
 
 		subscription := getSubscription(subscriptionId)

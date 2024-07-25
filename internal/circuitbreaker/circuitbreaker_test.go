@@ -68,7 +68,7 @@ func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
 
 	// Check if there is a new republishing entry
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
-	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCache).SubscriptionId)
+	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCacheEntry).SubscriptionId)
 
 	// Check if health check cache entry is not locked
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
@@ -113,7 +113,7 @@ func TestHandleOpenCircuitBreaker_WithExistingHealthCheckEntry(t *testing.T) {
 
 	// Check if there is a new republishing entry
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
-	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCache).SubscriptionId)
+	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCacheEntry).SubscriptionId)
 
 	// Check if health check cache entry is not locked
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
@@ -232,7 +232,7 @@ func TestHandleOpenCircuitBreaker_CoolDownWithRepublishing(t *testing.T) {
 
 	// Check if there is a new republishing entry
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
-	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCache).SubscriptionId)
+	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCacheEntry).SubscriptionId)
 
 	// Check if health check cache entry is not locked
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
@@ -276,7 +276,7 @@ func TestHandleOpenCircuitBreaker_IncreaseLoopCounterWithinLoopDetectionPeriod(t
 
 	// Check if there is no postponed republishing entry
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
-	assertions.True(republishingCacheEntry.(republish.RepublishingCache).PostponedUntil.Before(time.Now()))
+	assertions.True(republishingCacheEntry.(republish.RepublishingCacheEntry).PostponedUntil.Before(time.Now()))
 }
 
 func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *testing.T) {
@@ -420,7 +420,7 @@ func TestHandleOpenCircuitBreaker_RepublishingPostponed(t *testing.T) {
 
 	// Check if there is a postponed republishing entry
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
-	assertions.True(republishingCacheEntry.(republish.RepublishingCache).PostponedUntil.After(time.Now()))
+	assertions.True(republishingCacheEntry.(republish.RepublishingCacheEntry).PostponedUntil.After(time.Now()))
 }
 
 func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
@@ -457,7 +457,7 @@ func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
-	republishingCacheEntry := republish.RepublishingCache{SubscriptionId: testCbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: testCbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
 	err := cache.RepublishingCache.Set(context.Background(), testCbMessage.SubscriptionId, republishingCacheEntry)
 
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)

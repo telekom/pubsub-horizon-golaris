@@ -89,7 +89,7 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // If delivery type changes from sse to callback, sets a new entry in RepublishingCache and store the old delivery type.
 // When republishing, the old deliveryType is used to check whether old SSE events that are set to PROCESSED still need to be republished.
 // If delivery type changes from callback to sse, deletes existing entry in RepublishingCache if present and sets a new entry without storing the old delivery type.
-// Delete the HealthCheck entry and close the circuitBreaker, because it is no longer needed for sse.
+// Delete the HealthCheckCacheEntry and close the circuitBreaker, because it is no longer needed for sse.
 func handleDeliveryTypeChangeFromSSEToCallback(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
@@ -162,7 +162,7 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 }
 
 func setNewEntryToRepublishingCache(subscriptionID string, oldDeliveryType string) {
-	err := cache.RepublishingCache.Set(context.Background(), subscriptionID, republish.RepublishingCache{
+	err := cache.RepublishingCache.Set(context.Background(), subscriptionID, republish.RepublishingCacheEntry{
 		SubscriptionId:  subscriptionID,
 		OldDeliveryType: oldDeliveryType,
 	})
