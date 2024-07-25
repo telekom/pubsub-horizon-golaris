@@ -56,7 +56,7 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 		handleCircuitBreakerOptOutChange(obj, oldObj)
 	}
 
-	if obj.Spec.Subscription.RedeliveriesPerSecond != 0 {
+	if obj.Spec.Subscription.RedeliveriesPerSecond != 0 && oldObj.Spec.Subscription.RedeliveriesPerSecond != 0 {
 		if obj.Spec.Subscription.RedeliveriesPerSecond != oldObj.Spec.Subscription.RedeliveriesPerSecond {
 			handleRedeliveriesPerSecondChange(obj, oldObj)
 		}
