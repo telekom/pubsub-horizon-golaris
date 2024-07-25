@@ -77,7 +77,6 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), key)
-
 		cache.SetCancelStatus(key, true)
 	}
 }
@@ -105,10 +104,8 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		return
 	}
 	if optionalEntry != nil {
-
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
-		log.Debug().Msgf("Value of cancel map for subscription: %v", cache.GetCancelStatus(obj.Spec.Subscription.SubscriptionId))
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
@@ -139,12 +136,15 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 	}
 
 	if optionalEntry != nil {
-		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
+
+		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+
+	cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 }
 
 // handleCircuitBreakerOptOutChange reacts to changes for CircuitBreakerOptOut flag of subscriptions.
@@ -174,12 +174,15 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	}
 
 	if optionalEntry != nil {
-		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
+
+		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+
+	cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 }
 
 func setNewEntryToRepublishingCache(subscriptionID string, oldDeliveryType string) {
