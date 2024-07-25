@@ -102,22 +102,16 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
-	cache.CancelMapMutex.Lock()
-	cache.SubscriptionCancelMap[subscriptionId] = false
-	cache.CancelMapMutex.Unlock()
+	cache.SetCancelStatus(subscriptionId, false)
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond)
 	throttlingEnabled := !(subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event")
 
 	for {
-		log.Info().Msgf("Value of SubscriptionCancelMap is: %v", cache.SubscriptionCancelMap[subscriptionId])
-		cache.CancelMapMutex.Lock()
-		if cache.SubscriptionCancelMap[subscriptionId] {
+		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-			cache.CancelMapMutex.Unlock()
 			return
 		}
-		cache.CancelMapMutex.Unlock()
 
 		opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 		var dbMessages []message.StatusMessage
@@ -149,14 +143,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		for _, dbMessage := range dbMessages {
 			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
-			log.Info().Msgf("Value of SubscriptionCancelMap is: %v", cache.SubscriptionCancelMap[subscriptionId])
-			cache.CancelMapMutex.Lock()
-			if cache.SubscriptionCancelMap[subscriptionId] {
+			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-				cache.CancelMapMutex.Unlock()
 				return
 			}
-			cache.CancelMapMutex.Unlock()
 
 			if throttlingEnabled {
 				for {
@@ -165,13 +155,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						continue
 					}
 					log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
-					cache.CancelMapMutex.Lock()
-					if cache.SubscriptionCancelMap[subscriptionId] {
+					if cache.GetCancelStatus(subscriptionId) {
 						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-						cache.CancelMapMutex.Unlock()
 						return
 					}
-					cache.CancelMapMutex.Unlock()
 					break
 				}
 				defer throttler.Release(context.Background())
