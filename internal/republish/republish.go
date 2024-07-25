@@ -112,6 +112,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 			return
 		}
+		log.Debug().Msgf("Cancel status is 1: %v", cache.GetCancelStatus(subscriptionId))
 
 		opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 		var dbMessages []message.StatusMessage
@@ -147,6 +148,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 				return
 			}
+			log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
 
 			if throttlingEnabled {
 				for {
@@ -159,6 +161,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 						return
 					}
+					log.Debug().Msgf("Cancel status is 3: %v", cache.GetCancelStatus(subscriptionId))
 					break
 				}
 				defer throttler.Release(context.Background())

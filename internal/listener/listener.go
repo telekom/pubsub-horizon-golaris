@@ -108,6 +108,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
+		log.Debug().Msgf("Value of cancel map for subscription: %v", cache.GetCancelStatus(obj.Spec.Subscription.SubscriptionId))
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
