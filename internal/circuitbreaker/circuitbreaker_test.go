@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
+func TestHandleOpenCircuitBreaker_SuccessWithoutHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -75,7 +75,7 @@ func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
 	assertions.False(healthCheckCacheLocked)
 }
 
-func TestHandleOpenCircuitBreaker_WithExistingHealthCheckEntry(t *testing.T) {
+func TestHandleOpenCircuitBreaker_SuccessWithExistingHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -114,6 +114,45 @@ func TestHandleOpenCircuitBreaker_WithExistingHealthCheckEntry(t *testing.T) {
 	// Check if there is a new republishing entry
 	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
 	assertions.Equal(testSubscriptionId, republishingCacheEntry.(republish.RepublishingCacheEntry).SubscriptionId)
+
+	// Check if health check cache entry is not locked
+	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
+	assertions.False(healthCheckCacheLocked)
+}
+
+func TestHandleOpenCircuitBreaker_WithConsumerUnhealthy(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	// Prepare test data
+	testSubscriptionId := "testSubscriptionId"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
+
+	// Mock health check function
+	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
+		hcData.HealthCheckEntry.LastCheckedStatus = 500
+		return nil
+	}
+
+	// Set mocked  circuit breaker message in the cache
+	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
+
+	// Call the function under test
+	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
+
+	// Check if cb entry is still open
+	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
+	assertions.Equal(enum.CircuitBreakerStatusOpen, circuitBreakerCacheEntry.Status)
+
+	// Check if there  was no republishing entry created
+	republishingCacheEntry, _ := cache.RepublishingCache.Get(context.Background(), testSubscriptionId)
+	assertions.Nil(republishingCacheEntry)
 
 	// Check if health check cache entry is not locked
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(context.Background(), testHealthCheckKey)
@@ -173,11 +212,11 @@ func TestHandleOpenCircuitBreaker_CoolDownWithoutRepublishing(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
 
-	// Create  health check entry that  provokes a cool down and no republishing because of lst http status
+	// Create  health check entry that  provokes a cool down and no republishing because of the last http status
 	hcData, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 	cache.HealthCheckCache.Unlock(hcData.Ctx, testHealthCheckKey)
-	hcData.HealthCheckEntry.LastChecked = time.Now()
-	hcData.HealthCheckEntry.LastCheckedStatus = 500
+	hcData.HealthCheckEntry.LastChecked = time.Now() // provokes cool down
+	hcData.HealthCheckEntry.LastCheckedStatus = 500  // last http status unhealthy, no republishing
 	cache.HealthCheckCache.Set(context.Background(), testHealthCheckKey, hcData.HealthCheckEntry)
 
 	// Set mocked  circuit breaker message in the cache
@@ -213,11 +252,11 @@ func TestHandleOpenCircuitBreaker_CoolDownWithRepublishing(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	testHealthCheckKey := fmt.Sprintf("%s:%s:%s", testEnvironment, healthcheck.GetHttpMethod(testSubscriptionResource), testCallbackUrl)
 
-	// Create  health check entry that  provokes a cool down and no republishing because of lst http status
+	// Create  health check entry that  provokes a cool down and a republishing because of  the last http status
 	hcData, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 	cache.HealthCheckCache.Unlock(hcData.Ctx, testHealthCheckKey)
-	hcData.HealthCheckEntry.LastChecked = time.Now()
-	hcData.HealthCheckEntry.LastCheckedStatus = 200
+	hcData.HealthCheckEntry.LastChecked = time.Now() // provokes cool down
+	hcData.HealthCheckEntry.LastCheckedStatus = 200  // last http status healthy, provokes republishing
 	cache.HealthCheckCache.Set(context.Background(), testHealthCheckKey, hcData.HealthCheckEntry)
 
 	// Set mocked  circuit breaker message in the cache
@@ -250,7 +289,7 @@ func TestHandleOpenCircuitBreaker_IncreaseLoopCounterWithinLoopDetectionPeriod(t
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
 	testLoopCounter := 0
-	testLastOpened := types.NewTimestamp(time.Now()) // Within loop detection period
+	testLastOpened := types.NewTimestamp(time.Now()) // Within loop detection period, provokes loop counter increment
 
 	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
 	testCircuitBreakerMessage.LoopCounter = testLoopCounter
@@ -290,7 +329,7 @@ func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
 	testLoopCounter := 1
-	testLastOpened := types.NewTimestamp(time.Now().Add(-60 * time.Second)) // Outside loop detection period
+	testLastOpened := types.NewTimestamp(time.Now().Add(-60 * time.Second)) // Outside loop detection period, provokes loop counter reset
 
 	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
 	testCircuitBreakerMessage.LoopCounter = testLoopCounter
@@ -315,7 +354,7 @@ func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *
 	assertions.Equal(0, circuitBreakerCacheEntry.LoopCounter)
 }
 
-func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhileUnhealthy(t *testing.T) {
+func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhenUnhealthy(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -336,7 +375,7 @@ func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhileUnhealthy(t *testing.
 
 	// Mock health check function
 	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
-		hcData.HealthCheckEntry.LastCheckedStatus = 500 // Unhealthy
+		hcData.HealthCheckEntry.LastCheckedStatus = 500 // Unhealthy, provokes unchanged loop counter
 		return nil
 	}
 
@@ -351,7 +390,7 @@ func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhileUnhealthy(t *testing.
 	assertions.Equal(1, circuitBreakerCacheEntry.LoopCounter)
 }
 
-func TestHandleOpenCircuitBreaker_KeepRepublishingPostponedWhileHealthy(t *testing.T) {
+func TestHandleOpenCircuitBreaker_RepublishingPostponedDueToBackoff(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
@@ -361,43 +400,7 @@ func TestHandleOpenCircuitBreaker_KeepRepublishingPostponedWhileHealthy(t *testi
 	testSubscriptionId := "testSubscriptionId"
 	testEnvironment := "test"
 	testCallbackUrl := "http://test.com"
-	testLoopCounter := 1
-	testLastOpened := types.NewTimestamp(time.Now())
-
-	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
-	testCircuitBreakerMessage.LoopCounter = testLoopCounter
-	testCircuitBreakerMessage.LastOpened = testLastOpened
-
-	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-
-	// Mock health check function
-	healthCheckFunc = func(hcData *healthcheck.PreparedHealthCheckData, subscription *resource.SubscriptionResource) error {
-		hcData.HealthCheckEntry.LastCheckedStatus = 500 // Unhealthy
-		return nil
-	}
-
-	// Set mocked  circuit breaker message in the cache
-	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
-
-	// Call the function under test
-	HandleOpenCircuitBreaker(testCircuitBreakerMessage, testSubscriptionResource)
-
-	// Check if loopCounter is not changed
-	circuitBreakerCacheEntry, _ := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId)
-	assertions.Equal(1, circuitBreakerCacheEntry.LoopCounter)
-}
-
-func TestHandleOpenCircuitBreaker_RepublishingPostponed(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 600 * time.Second
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-	testEnvironment := "test"
-	testCallbackUrl := "http://test.com"
-	testLoopCounter := 13 // Should cause a  postponed republishing entry
+	testLoopCounter := 13 // Provokes a postponed republishing entry
 	testLastOpened := types.NewTimestamp(time.Now())
 
 	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
