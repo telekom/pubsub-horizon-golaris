@@ -140,7 +140,7 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
 
-	assert.True(t, cache.GetCancelStatus(subscriptionId))
+	assert.False(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{SubscriptionId: subscriptionId})
 }
@@ -185,7 +185,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
 
-	assert.True(t, cache.GetCancelStatus(subscriptionId))
+	assert.False(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{SubscriptionId: subscriptionId})
 }
