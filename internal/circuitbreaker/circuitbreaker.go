@@ -53,12 +53,6 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		}
 	}()
 
-	// Check if circuit breaker is in a loop and update cb message
-	err = checkAndHandleCircuitBreakerLoop(&cbMessage)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error handling circuit breaker loop for subscriptionId %s", cbMessage.SubscriptionId)
-	}
-
 	err = forceDeleteRepublishingEntry(cbMessage, hcData)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while deleting Republishing cache entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -79,6 +73,11 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 	// Create republishing cache entry if last health check was successful
 	if slices.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
+		// Check if circuit breaker is in a loop and update cb message
+		err = checkAndHandleCircuitBreakerLoop(&cbMessage)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error handling circuit breaker loop for subscriptionId %s", cbMessage.SubscriptionId)
+		}
 		// Calculate exponential backoff for republishing based on circuit breaker loop counter
 		postponedUntil := time.Now().Add(+calculateExponentialBackoff(cbMessage))
 		log.Debug().Msgf("backoff: %v", calculateExponentialBackoff(cbMessage))

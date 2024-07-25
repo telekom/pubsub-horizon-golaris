@@ -32,8 +32,9 @@ func init() {
 func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	var acquired = false
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())
-
 	subscriptionId := subscription.Spec.Subscription.SubscriptionId
+
+	// Get the republishing entry from the cache
 	republishingEntry, err := cache.RepublishingCache.Get(ctx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error retrieving RepublishingCache entry for subscriptionId %s", subscriptionId)
@@ -42,6 +43,18 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 
 	if republishingEntry == nil {
 		log.Debug().Msgf("No RepublishingCache entry found for subscriptionId %s", subscriptionId)
+		return
+	}
+
+	castedRepublishCacheEntry, ok := republishingEntry.(RepublishingCache)
+	if !ok {
+		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
+		return
+	}
+
+	// If republishing entry is postponed in the future skip entry
+	if (castedRepublishCacheEntry.PostponedUntil != time.Time{}) && time.Now().Before(castedRepublishCacheEntry.PostponedUntil) {
+		log.Debug().Msgf("Postponed republishing for subscription %s until %s", subscriptionId, castedRepublishCacheEntry.PostponedUntil)
 		return
 	}
 
@@ -63,19 +76,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		}
 	}()
 
-	republishCache, ok := republishingEntry.(RepublishingCache)
-	if !ok {
-		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
-		return
-	}
-
-	// Check if the republishing entry is postponed in the future
-	if (republishCache.PostponedUntil != time.Time{}) && time.Now().Before(republishCache.PostponedUntil) {
-		log.Debug().Msgf("Postponed republishing for subscription %s until %s", subscriptionId, republishCache.PostponedUntil)
-		return
-	}
-
-	republishPendingEventsFunc(subscription, republishCache)
+	republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
 
 	// Delete the republishing entry after processing
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
