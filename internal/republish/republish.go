@@ -103,12 +103,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
-	cache.CancelMapMutex.Lock()
-	defer cache.CancelMapMutex.Unlock()
-
 	cache.SubscriptionCancelMap[subscriptionId] = false
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond)
+	throttlingEnabled := !(subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event")
 
 	// Start a loop to paginate through the events
 	for {
@@ -151,15 +149,23 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				return
 			}
 
-			for {
-				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-					time.Sleep(config.Current.Republishing.ThrottlingIntervalTime)
-					continue
+			if throttlingEnabled {
+				for {
+					if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
+						time.Sleep(config.Current.Republishing.ThrottlingIntervalTime)
+						continue
+					}
+					log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
+
+					if cache.SubscriptionCancelMap[subscriptionId] {
+						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+						return
+					}
+
+					break
 				}
-				log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
-				break
+				defer throttler.Release(context.Background())
 			}
-			defer throttler.Release(context.Background())
 
 			var newDeliveryType string
 			if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {

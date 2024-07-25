@@ -78,9 +78,7 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), key)
 
-		cache.CancelMapMutex.Lock()
 		cache.SubscriptionCancelMap[key] = true
-		defer cache.CancelMapMutex.Unlock()
 	}
 }
 
@@ -109,10 +107,8 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
-		cache.CancelMapMutex.Lock()
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
-		cache.CancelMapMutex.Unlock()
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
@@ -140,10 +136,8 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
-		cache.CancelMapMutex.Lock()
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
-		cache.CancelMapMutex.Unlock()
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
@@ -177,10 +171,8 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
-		cache.CancelMapMutex.Lock()
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId] = true
-		cache.CancelMapMutex.Unlock()
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
