@@ -43,6 +43,18 @@ func (connection Connection) FindWaitingMessages(timestamp time.Time, pageable *
 	return connection.findMessagesByQuery(query, *pageable)
 }
 
+func (connection Connection) FindWaitingAndDeliveringMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
+	query := bson.M{
+		"status":         bson.M{"$in": []string{"WAITING", "DELIVERING"}},
+		"subscriptionId": subscriptionId,
+		"modified": bson.M{
+			"$lte": timestamp,
+		},
+	}
+
+	return connection.findMessagesByQuery(query, *pageable)
+}
+
 func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
 	query := bson.M{
 		"status":         "PROCESSED",

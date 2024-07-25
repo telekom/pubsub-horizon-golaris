@@ -66,7 +66,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
 		if acquired {
-			err := Unlock(ctx, subscriptionId)
+			err = Unlock(ctx, subscriptionId)
 			if err != nil {
 				log.Debug().Msgf("Failed to unlock RepublishingCache entry with subscriptionId %s and error %v", subscriptionId, err)
 			}
@@ -129,6 +129,12 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
+		} else if republishEntry.OldDeliveryType == "callback" {
+			dbMessages, err = mongo.CurrentConnection.FindWaitingAndDeliveringMessages(time.Now(), opts, subscriptionId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
+			}
+			log.Debug().Msgf("Found %d WAITING and DELIVERING messages in MongoDb", len(dbMessages))
 		} else {
 			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
 			if err != nil {
@@ -241,7 +247,7 @@ func Unlock(ctx context.Context, subscriptionId string) error {
 		return err
 	}
 	if isLocked {
-		if err := cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
+		if err = cache.RepublishingCache.Unlock(ctx, subscriptionId); err != nil {
 			return err
 		}
 	}
