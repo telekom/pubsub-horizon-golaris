@@ -110,10 +110,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	// Start a loop to paginate through the events
 	for {
+		log.Info().Msgf("Value of SubscriptionCancelMap is: %v", cache.SubscriptionCancelMap[subscriptionId])
+		cache.CancelMapMutex.Lock()
 		if cache.SubscriptionCancelMap[subscriptionId] {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+			cache.CancelMapMutex.Unlock()
 			return
 		}
+		cache.CancelMapMutex.Unlock()
 
 		opts := options.Find().
 			SetLimit(batchSize).
@@ -150,10 +154,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		// Iterate over each message to republish
 		for _, dbMessage := range dbMessages {
 			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
+			log.Info().Msgf("Value of SubscriptionCancelMap is: %v", cache.SubscriptionCancelMap[subscriptionId])
+			cache.CancelMapMutex.Lock()
 			if cache.SubscriptionCancelMap[subscriptionId] {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+				cache.CancelMapMutex.Unlock()
 				return
 			}
+			cache.CancelMapMutex.Unlock()
 
 			if throttlingEnabled {
 				for {
@@ -163,10 +171,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					}
 					log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
 
+					cache.CancelMapMutex.Lock()
 					if cache.SubscriptionCancelMap[subscriptionId] {
 						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+						cache.CancelMapMutex.Unlock()
 						return
 					}
+					cache.CancelMapMutex.Unlock()
 
 					break
 				}
