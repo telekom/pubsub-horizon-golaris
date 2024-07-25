@@ -102,7 +102,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
-	cache.SetCancelStatus(subscriptionId, false)
+	// SetCancelStatus(subscriptionId, false)
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond)
 	throttlingEnabled := !(subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event")
