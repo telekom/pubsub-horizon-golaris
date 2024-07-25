@@ -123,6 +123,8 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		if cbMessage != nil {
 			circuitbreaker.CloseCircuitBreaker(cbMessage)
 		}
+
+		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 }
 
