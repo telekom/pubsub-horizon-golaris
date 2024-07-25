@@ -104,7 +104,6 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
 		return
 	}
-
 	if optionalEntry != nil {
 		cache.CancelMapMutex.Lock()
 		defer cache.CancelMapMutex.Unlock()
@@ -114,18 +113,18 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		log.Debug().Msgf("Value of cancel map for subscription: %v", cache.SubscriptionCancelMap[obj.Spec.Subscription.SubscriptionId])
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
-	}
 
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
 
-	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
-	if err != nil {
-		log.Error().Msgf("failed with err: %v to get circuit breaker", err)
-		return
-	}
+		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
+		if err != nil {
+			log.Error().Msgf("failed with err: %v to get circuit breaker", err)
+			return
+		}
 
-	if cbMessage != nil {
-		circuitbreaker.CloseCircuitBreaker(cbMessage)
+		if cbMessage != nil {
+			circuitbreaker.CloseCircuitBreaker(cbMessage)
+		}
 	}
 }
 

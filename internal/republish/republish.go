@@ -97,18 +97,18 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // The function takes a subscriptionId as a parameter.
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
-
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
+	cache.CancelMapMutex.Lock()
 	cache.SubscriptionCancelMap[subscriptionId] = false
+	cache.CancelMapMutex.Unlock()
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond)
 	throttlingEnabled := !(subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event")
 
-	// Start a loop to paginate through the events
 	for {
 		log.Info().Msgf("Value of SubscriptionCancelMap is: %v", cache.SubscriptionCancelMap[subscriptionId])
 		cache.CancelMapMutex.Lock()
@@ -119,14 +119,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 		cache.CancelMapMutex.Unlock()
 
-		opts := options.Find().
-			SetLimit(batchSize).
-			// Skip the number of events already processed
-			SetSkip(page * batchSize).
-			SetSort(bson.D{{Key: "timestamp", Value: 1}})
-
+		opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 		var dbMessages []message.StatusMessage
 		var err error
+
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
 			dbMessages, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), opts, subscriptionId)
 			if err != nil {
@@ -151,7 +147,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			break
 		}
 
-		// Iterate over each message to republish
 		for _, dbMessage := range dbMessages {
 			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
 			log.Info().Msgf("Value of SubscriptionCancelMap is: %v", cache.SubscriptionCancelMap[subscriptionId])
@@ -170,7 +165,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						continue
 					}
 					log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
-
 					cache.CancelMapMutex.Lock()
 					if cache.SubscriptionCancelMap[subscriptionId] {
 						log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
@@ -178,7 +172,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						return
 					}
 					cache.CancelMapMutex.Unlock()
-
 					break
 				}
 				defer throttler.Release(context.Background())
@@ -211,11 +204,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				return
 			}
 			log.Printf("Successfully republished message for subscriptionId %s", subscriptionId)
-
 		}
 
-		// If the number of fetched messages is less than the batch size, exit the loop
-		// as there are no more messages to fetch
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
