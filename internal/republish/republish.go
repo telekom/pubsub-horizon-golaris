@@ -143,28 +143,22 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
 
 			if throttlingEnabled {
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-
-				go func() {
-					for {
-						if cache.GetCancelStatus(subscriptionId) {
-							log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-							cancel()
-							return
-						}
-						time.Sleep(time.Millisecond * 100)
-					}
-				}()
-
-				select {
-				case <-ctx.Done():
-					log.Info().Msgf("Aborting processing for subscriptionId %s", subscriptionId)
-					return
-				case <-time.After(config.Current.Republishing.ThrottlingIntervalTime):
+				for {
 					if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-						defer throttler.Release(context.Background())
+						sleepInterval := time.Millisecond * 100
+						totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
+						for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
+							if cache.GetCancelStatus(subscriptionId) {
+								log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+								return
+							}
+							time.Sleep(sleepInterval)
+						}
+						continue
 					}
+					log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
+					defer throttler.Release(context.Background())
+					break
 				}
 			}
 
