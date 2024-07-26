@@ -153,31 +153,17 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 							cancel()
 							return
 						}
+						time.Sleep(time.Millisecond * 100)
 					}
 				}()
 
-				for {
-					select {
-					case <-ctx.Done():
-						log.Info().Msgf("Aborting processing for subscriptionId %s", subscriptionId)
-						return
-					default:
-						timer := time.NewTimer(config.Current.Republishing.ThrottlingIntervalTime)
-						defer timer.Stop()
-
-						if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-							select {
-							case <-timer.C:
-								continue
-							case <-ctx.Done():
-								log.Info().Msgf("Aborting processing for subscriptionId %s", subscriptionId)
-								return
-							}
-						}
-
-						log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
+				select {
+				case <-ctx.Done():
+					log.Info().Msgf("Aborting processing for subscriptionId %s", subscriptionId)
+					return
+				case <-time.After(config.Current.Republishing.ThrottlingIntervalTime):
+					if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
 						defer throttler.Release(context.Background())
-						return
 					}
 				}
 			}

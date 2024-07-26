@@ -6,11 +6,17 @@ package republish
 
 import (
 	"context"
+	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/kafka"
+	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
@@ -88,60 +94,60 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer cache.RepublishingCache.Unlock(ctx, testSubscriptionId)
 }
 
-//func TestRepublishEvents(t *testing.T) {
-//	// Initialize mocks
-//	mockMongo := new(test.MockMongoHandler)
-//	mockKafka := new(test.MockKafkaHandler)
-//
-//	// Replace real handlers with mocks
-//	mongo.CurrentConnection = mockMongo
-//	kafka.CurrentHandler = mockKafka
-//
-//	// Set configurations for the test
-//	config.Current.Republishing.BatchSize = 10
-//
-//	// Mock data
-//	subscriptionId := "sub123"
-//
-//	partitionValue1 := int32(1)
-//	offsetValue1 := int64(100)
-//	partitionValue2 := int32(1)
-//	offsetValue2 := int64(101)
-//	dbMessages := []message.StatusMessage{
-//		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue1, Offset: &offsetValue1}},
-//		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue2, Offset: &offsetValue2}},
-//	}
-//
-//	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
-//
-//	// Expectations for the batch
-//	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
-//
-//	mockKafka.On("PickMessage", "test-topic", &partitionValue1, &offsetValue1).Return(&kafkaMessage, nil).Once()
-//	mockKafka.On("PickMessage", "test-topic", &partitionValue2, &offsetValue2).Return(&kafkaMessage, nil).Once()
-//
-//	mockKafka.On("RepublishMessage", "test-topic", "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()
-//
-//	// Call the function under test
-//	subscription := &resource.SubscriptionResource{
-//		Spec: struct {
-//			Subscription resource.Subscription `json:"subscription"`
-//			Environment  string                `json:"environment"`
-//		}{
-//			Subscription: resource.Subscription{
-//				SubscriptionId: "sub123",
-//				DeliveryType:   enum.DeliveryTypeCallback,
-//				Callback:       "http://new-callbackUrl/callback",
-//			},
-//		},
-//	}
-//
-//	RepublishPendingEvents(subscription, RepublishingCache{SubscriptionId: subscriptionId})
-//
-//	// Assertions
-//	mockMongo.AssertExpectations(t)
-//	mockKafka.AssertExpectations(t)
-//}
+func TestRepublishEvents(t *testing.T) {
+	// Initialize mocks
+	mockMongo := new(test.MockMongoHandler)
+	mockKafka := new(test.MockKafkaHandler)
+
+	// Replace real handlers with mocks
+	mongo.CurrentConnection = mockMongo
+	kafka.CurrentHandler = mockKafka
+
+	// Set configurations for the test
+	config.Current.Republishing.BatchSize = 10
+
+	// Mock data
+	subscriptionId := "sub123"
+
+	partitionValue1 := int32(1)
+	offsetValue1 := int64(100)
+	partitionValue2 := int32(1)
+	offsetValue2 := int64(101)
+	dbMessages := []message.StatusMessage{
+		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue1, Offset: &offsetValue1}},
+		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue2, Offset: &offsetValue2}},
+	}
+
+	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
+
+	// Expectations for the batch
+	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
+
+	mockKafka.On("PickMessage", "test-topic", &partitionValue1, &offsetValue1).Return(&kafkaMessage, nil).Once()
+	mockKafka.On("PickMessage", "test-topic", &partitionValue2, &offsetValue2).Return(&kafkaMessage, nil).Once()
+
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()
+
+	// Call the function under test
+	subscription := &resource.SubscriptionResource{
+		Spec: struct {
+			Subscription resource.Subscription `json:"subscription"`
+			Environment  string                `json:"environment"`
+		}{
+			Subscription: resource.Subscription{
+				SubscriptionId: "sub123",
+				DeliveryType:   enum.DeliveryTypeCallback,
+				Callback:       "http://new-callbackUrl/callback",
+			},
+		},
+	}
+
+	RepublishPendingEvents(subscription, RepublishingCache{SubscriptionId: subscriptionId})
+
+	// Assertions
+	mockMongo.AssertExpectations(t)
+	mockKafka.AssertExpectations(t)
+}
 
 func Test_Unlock_RepublishingEntryLocked(t *testing.T) {
 	defer test.ClearCaches()
