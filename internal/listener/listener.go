@@ -20,8 +20,6 @@ type SubscriptionListener struct{}
 
 func Initialize() {
 	subscriptionListener := &SubscriptionListener{}
-	log.Info().Msgf("SubscriptionCache Name: %s", config.Current.Hazelcast.Caches.SubscriptionCache)
-	log.Info().Msgf("SubscriptionListener: %v", subscriptionListener)
 	err := cache.SubscriptionCache.AddListener(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionListener)
 	if err != nil {
 		panic(err)
