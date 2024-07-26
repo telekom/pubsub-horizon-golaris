@@ -71,8 +71,6 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		log.Debug().Msgf("HealthCheck is in cooldown for key %s", hcData.HealthCheckKey)
 	}
 
-	// Todo Check if LoopCounter is kept unchanged in comet when opening a circuit breaker again
-
 	// Initiate republishing if last health check was successful
 	if slices.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
 		// Check if circuit breaker is in a loop and update loop counter of cb message or reset it
@@ -92,7 +90,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
 			return
 		}
-		log.Debug().Msgf("Successfully created RepublishingCacheEntry entry for subscriptionId %s: %v", cbMessage.SubscriptionId, republishingCacheEntry)
+		log.Debug().Msgf("Successfully created RepublishingCacheEntry entry for subscriptionId %s: %+v", cbMessage.SubscriptionId, republishingCacheEntry)
 		CloseCircuitBreaker(&cbMessage)
 	}
 
@@ -103,7 +101,8 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 // checkForCircuitBreakerLoop evaluates the circuit breaker's last opened timestamp against the configured loop detection period.
 // If the circuit breaker was last opened within the loop detection period, it increments the circuit breaker counter to indicate
 // a potential loop scenario. If the last opened timestamp is outside the loop detection period, it resets the counter, assuming
-// normal operation. The function updates the circuit breaker's last opened timestamp and republishing count in the cache.
+// normal operation. The function also updates the circuit breaker's last opened timestamp for the next loop detection to the last
+// modified timestamp (as the current circuit breaker was opened then)
 func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error {
 	loopDetectionPeriod := config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod
 
@@ -116,6 +115,8 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 		cbMessage.LoopCounter = 0
 		log.Debug().Msgf("Circuit breaker opened outside loop detection period. Reseted loop counter for subscription %s: %v", cbMessage.SubscriptionId, cbMessage.LoopCounter)
 	}
+	// set last opened for the next loop detection
+	cbMessage.LastOpened = cbMessage.LastModified
 	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
 
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)

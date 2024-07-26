@@ -156,7 +156,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 
 			if dbMessage.Coordinates == nil {
-				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
+				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", subscriptionId, dbMessage)
 				continue
 			}
 

@@ -498,6 +498,7 @@ func TestCheckForCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
 
 	testCbMessage := test.NewTestCbMessage("testSubscriptionId")
 	testCbMessage.LastOpened = types.NewTimestamp(initialLastOpened)
+	testCbMessage.LastModified = types.NewTimestamp(initialLastModified)
 	testCbMessage.LoopCounter = 0
 
 	// call the function under test
@@ -505,8 +506,10 @@ func TestCheckForCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
 
 	// assert the result
 	assert.NoError(t, err)
-	assert.Equal(t, 1, testCbMessage.LoopCounter, "Loop counter should be incremented")
-	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
+	assert.Equal(t, 1, testCbMessage.LoopCounter, "LoopCounter should be incremented")
+	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "LastOpened should be updated to LastModified")
+	assert.Equal(t, testCbMessage.LastOpened, types.NewTimestamp(initialLastModified), "LastModified should be updated afterwards")
+
 }
 
 func TestCheckForCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
@@ -517,6 +520,7 @@ func TestCheckForCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
 
 	testCbMessage := test.NewTestCbMessage("testSubscriptionId")
 	testCbMessage.LastOpened = types.NewTimestamp(initialLastOpened)
+	testCbMessage.LastModified = types.NewTimestamp(initialLastModified)
 	testCbMessage.LoopCounter = 0
 
 	// call the function under test
@@ -524,8 +528,9 @@ func TestCheckForCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
 
 	// assert the result
 	assert.NoError(t, err)
-	assert.Equal(t, 0, testCbMessage.LoopCounter, "Loop counter should be reset to 0")
-	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "Last modified time should be updated")
+	assert.Equal(t, 0, testCbMessage.LoopCounter, "LoopCounter should be reset to 0")
+	assert.Equal(t, testCbMessage.LastOpened, types.NewTimestamp(initialLastModified), "LastOpened should be updated to LastModified")
+	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "LastModified should be updated afterwards")
 }
 
 func TestCalculateExponentialBackoff(t *testing.T) {
@@ -542,7 +547,7 @@ func TestCalculateExponentialBackoff(t *testing.T) {
 		expectedBackoff time.Duration
 	}{
 		{
-			name:            "First open, no backoff",
+			name:            "First open, because loop counter is incremented before, no backoff",
 			cbLoopCounter:   1,
 			expectedBackoff: 0,
 		},
