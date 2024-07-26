@@ -11,7 +11,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/rs/zerolog/log"
 	"pubsub-horizon-golaris/internal/metrics"
-	"pubsub-horizon-golaris/internal/tracing"
 )
 
 var (
@@ -21,7 +20,6 @@ var (
 func init() {
 	app = fiber.New()
 
-	app.Use(tracing.Middleware())
 	app.Use(healthcheck.New())
 	app.Use(pprof.New())
 

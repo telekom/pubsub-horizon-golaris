@@ -14,6 +14,7 @@ import (
 	"pubsub-horizon-golaris/internal/log"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/scheduler"
+	"pubsub-horizon-golaris/internal/tracing"
 )
 
 var serveCmd = &cobra.Command{
@@ -31,6 +32,7 @@ func initialize() {
 	mongo.Initialize()
 	kafka.Initialize()
 	listener.Initialize()
+	tracing.Initialize()
 }
 
 func startGolarisService(cmd *cobra.Command, args []string) {

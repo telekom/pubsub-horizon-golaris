@@ -69,7 +69,6 @@ type Security struct {
 
 type Tracing struct {
 	CollectorEndpoint string `mapstructure:"collectorEndpoint"`
-	Https             bool   `mapstructure:"https"`
 	DebugEnabled      bool   `mapstructure:"debugEnabled"`
 	Enabled           bool   `mapstructure:"enabled"`
 }
