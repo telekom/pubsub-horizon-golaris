@@ -163,10 +163,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
 			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
 
-			traceCtx.StartSpan("republish")
+			traceCtx.StartSpan("republish message")
 			traceCtx.SetAttribute("component", "Horizon Golaris")
+			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
 
-			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
+			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
 				traceCtx.CurrentSpan().RecordError(err)

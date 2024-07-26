@@ -7,6 +7,7 @@ package test
 import (
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 	mongodrv "go.mongodb.org/mongo-driver/mongo"
 	"pubsub-horizon-golaris/internal/config"
 )
@@ -22,7 +23,7 @@ func (m *MockKafkaHandler) PickMessage(topic string, partition *int32, offset *i
 	return args.Get(0).(*sarama.ConsumerMessage), args.Error(1)
 }
 
-func (m *MockKafkaHandler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
+func (m *MockKafkaHandler) RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
 	args := m.Called(message, newDeliveryType, newCallbackUrl)
 	return args.Error(0)
 }

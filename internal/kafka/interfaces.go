@@ -4,9 +4,12 @@
 
 package kafka
 
-import "github.com/IBM/sarama"
+import (
+	"github.com/IBM/sarama"
+	"github.com/telekom/pubsub-horizon-go/tracing"
+)
 
 type HandlerInterface interface {
 	PickMessage(topic string, partition *int32, offset *int64) (*sarama.ConsumerMessage, error)
-	RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error
+	RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error
 }
