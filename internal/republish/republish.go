@@ -110,10 +110,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
-			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+			log.Info().Msgf("Republishing for subscription %s has been cancelled 3", subscriptionId)
 			return
 		}
-		log.Debug().Msgf("Cancel status is 1: %v", cache.GetCancelStatus(subscriptionId))
 
 		opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 		var dbMessages []message.StatusMessage
@@ -139,12 +138,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		for _, dbMessage := range dbMessages {
 			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
-			if !republishEntry.SubscriptionChange == true {
-				if cache.GetCancelStatus(subscriptionId) {
-					log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-					return
-				}
-				log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
+			if cache.GetCancelStatus(subscriptionId) {
+				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+				return
 			}
 
 			if throttlingEnabled {
@@ -153,13 +149,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						sleepInterval := time.Millisecond * 100
 						totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 						for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
-							if !republishEntry.SubscriptionChange == true {
-								if cache.GetCancelStatus(subscriptionId) {
-									log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-									return
-								}
-								log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
+							if cache.GetCancelStatus(subscriptionId) {
+								log.Info().Msgf("Republishing for subscription %s has been cancelled 1", subscriptionId)
+								return
 							}
+
 							time.Sleep(sleepInterval)
 						}
 						continue
@@ -168,6 +162,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					defer throttler.Release(context.Background())
 					break
 				}
+			}
+
+			if cache.GetCancelStatus(subscriptionId) {
+				log.Info().Msgf("Republishing for subscription %s has been cancelled 2", subscriptionId)
+				return
 			}
 
 			var newDeliveryType string

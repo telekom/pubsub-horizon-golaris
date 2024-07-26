@@ -182,9 +182,8 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 
 func setNewEntryToRepublishingCache(subscriptionID string, oldDeliveryType string) {
 	err := cache.RepublishingCache.Set(context.Background(), subscriptionID, republish.RepublishingCache{
-		SubscriptionId:     subscriptionID,
-		OldDeliveryType:    oldDeliveryType,
-		SubscriptionChange: true,
+		SubscriptionId:  subscriptionID,
+		OldDeliveryType: oldDeliveryType,
 	})
 	if err != nil {
 		log.Error().Msgf("Failed to set republishing cache for subscription %s: %v", subscriptionID, err)

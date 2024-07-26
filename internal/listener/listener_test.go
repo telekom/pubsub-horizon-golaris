@@ -75,9 +75,8 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
-		SubscriptionChange: true,
+		SubscriptionId:  subscriptionId,
+		OldDeliveryType: string(oldSubscription.Spec.Subscription.DeliveryType),
 	}).Return(nil)
 
 	openCBMessage := &message.CircuitBreakerMessage{
@@ -117,9 +116,8 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	}
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
-		SubscriptionChange: true,
+		SubscriptionId:  subscriptionId,
+		OldDeliveryType: string(oldSubscription.Spec.Subscription.DeliveryType),
 	})
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
@@ -136,9 +134,8 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		OldDeliveryType:    "",
-		SubscriptionChange: true,
+		SubscriptionId:  subscriptionId,
+		OldDeliveryType: "",
 	}).Return(nil)
 
 	listener := &SubscriptionListener{}
@@ -147,9 +144,8 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	assert.True(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		OldDeliveryType:    "",
-		SubscriptionChange: true,
+		SubscriptionId:  subscriptionId,
+		OldDeliveryType: "",
 	})
 }
 
@@ -169,8 +165,7 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	circuitBreakerCache.On("Put", "test-circuit-breaker-cache", subscriptionId, mock.Anything).Return(nil)
 
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		SubscriptionChange: true,
+		SubscriptionId: subscriptionId,
 	}).Return(nil)
 
 	listener := &SubscriptionListener{}
@@ -179,8 +174,7 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		SubscriptionChange: true,
+		SubscriptionId: subscriptionId,
 	})
 }
 
@@ -195,8 +189,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		SubscriptionChange: true,
+		SubscriptionId: subscriptionId,
 	}).Return(nil)
 
 	listener := &SubscriptionListener{}
@@ -205,8 +198,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	assert.True(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:     subscriptionId,
-		SubscriptionChange: true,
+		SubscriptionId: subscriptionId,
 	})
 }
 
