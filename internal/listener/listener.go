@@ -34,12 +34,9 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	log.Info().Msgf("Subscription %s updated", obj.Spec.Subscription.SubscriptionId)
-
 	if reflect.DeepEqual(obj, oldObj) {
 		return
 	}
-	log.Info().Msgf("Subscription was really %s updated", obj.Spec.Subscription.SubscriptionId)
 
 	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
 		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
