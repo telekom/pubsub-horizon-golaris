@@ -14,6 +14,7 @@ import (
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
 	"reflect"
+	"time"
 )
 
 type SubscriptionListener struct{}
@@ -105,11 +106,19 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 	}
 	if optionalEntry != nil {
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
+
+		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
+		log.Info().Msgf("Waiting for 10 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		time.Sleep(10 * time.Second)
+
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+		log.Debug().Msgf("Successfully set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+
+		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 
 		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 		if err != nil {

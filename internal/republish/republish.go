@@ -110,7 +110,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
-			log.Info().Msgf("Republishing for subscription %s has been cancelled 3", subscriptionId)
+			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 			return
 		}
 
@@ -162,11 +162,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					defer throttler.Release(context.Background())
 					break
 				}
-			}
-
-			if cache.GetCancelStatus(subscriptionId) {
-				log.Info().Msgf("Republishing for subscription %s has been cancelled 2", subscriptionId)
-				return
 			}
 
 			var newDeliveryType string

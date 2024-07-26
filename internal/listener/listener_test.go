@@ -105,13 +105,11 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
 
-	assert.True(t, cache.GetCancelStatus(subscriptionId))
-
 	select {
 	case <-done:
 		t.Logf("Number of completed iterations: %d", iterations)
-		assert.True(t, cache.GetCancelStatus(subscriptionId))
-	case <-time.After(10 * time.Second):
+		assert.False(t, cache.GetCancelStatus(subscriptionId))
+	case <-time.After(20 * time.Second):
 		assert.Fail(t, "Goroutine did not complete within the expected time")
 	}
 
