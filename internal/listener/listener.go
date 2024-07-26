@@ -121,7 +121,6 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 			circuitbreaker.CloseCircuitBreaker(cbMessage)
 		}
 
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 }
 
@@ -143,8 +142,6 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-
-	cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 }
 
 // handleCircuitBreakerOptOutChange reacts to changes for CircuitBreakerOptOut flag of subscriptions.
@@ -181,14 +178,13 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	}
 
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
-
-	cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 }
 
 func setNewEntryToRepublishingCache(subscriptionID string, oldDeliveryType string) {
 	err := cache.RepublishingCache.Set(context.Background(), subscriptionID, republish.RepublishingCache{
-		SubscriptionId:  subscriptionID,
-		OldDeliveryType: oldDeliveryType,
+		SubscriptionId:     subscriptionID,
+		OldDeliveryType:    oldDeliveryType,
+		SubscriptionChange: true,
 	})
 	if err != nil {
 		log.Error().Msgf("Failed to set republishing cache for subscription %s: %v", subscriptionID, err)

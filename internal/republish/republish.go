@@ -83,6 +83,9 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	republishPendingEventsFunc(subscription, republishCache)
 
 	// Delete the republishing entry after processing
+
+	// Maybe set the CancelMap entry to false!
+
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry with subscriptionId %s", subscriptionId)
@@ -136,11 +139,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		for _, dbMessage := range dbMessages {
 			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
-			if cache.GetCancelStatus(subscriptionId) {
-				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-				return
+			if !republishEntry.SubscriptionChange == true {
+				if cache.GetCancelStatus(subscriptionId) {
+					log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+					return
+				}
+				log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
 			}
-			log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
 
 			if throttlingEnabled {
 				for {
@@ -148,9 +153,12 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						sleepInterval := time.Millisecond * 100
 						totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 						for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
-							if cache.GetCancelStatus(subscriptionId) {
-								log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-								return
+							if !republishEntry.SubscriptionChange == true {
+								if cache.GetCancelStatus(subscriptionId) {
+									log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+									return
+								}
+								log.Debug().Msgf("Cancel status is 2: %v", cache.GetCancelStatus(subscriptionId))
 							}
 							time.Sleep(sleepInterval)
 						}
