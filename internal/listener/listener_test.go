@@ -68,13 +68,16 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	newSubscription := createSubscriptionResource(subscriptionId, "sse", false, "", 0)
 
 	republishMockMap, circuitBreakerCache := setupMocks()
+
+	// Adjust the mock setup
 	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(oldSubscription, nil)
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:  subscriptionId,
-		OldDeliveryType: string(oldSubscription.Spec.Subscription.DeliveryType),
+		SubscriptionId:     subscriptionId,
+		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
+		SubscriptionChange: true,
 	}).Return(nil)
 
 	openCBMessage := &message.CircuitBreakerMessage{
@@ -85,41 +88,38 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything).Return(nil)
 
-	// Channel to signal that the goroutine has finished
 	done := make(chan struct{})
-	stop := make(chan struct{})
 	iterations := 0
-
 	go func() {
-		// Close the channel when the goroutine is finished
 		defer close(done)
-		// Simulate a long-running goroutine (for example, publishing events)
 		for i := 1; i <= 10000; i++ {
-			select {
-			case <-stop:
-				return
-			default:
-				time.Sleep(1 * time.Nanosecond)
-				iterations++
+			time.Sleep(10 * time.Millisecond)
+			status := cache.GetCancelStatus(subscriptionId)
+			t.Logf("Iteration %d: GetCancelStatus returned %v", i, status)
+			if status {
+				break
 			}
+			iterations++
 		}
 	}()
 
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
 
-	close(stop)
+	assert.True(t, cache.GetCancelStatus(subscriptionId))
+
 	select {
 	case <-done:
-		t.Logf("Number of iterations completed: %d", iterations)
-		assert.NotEqual(t, 10000, iterations, "The goroutine did not exit as expected")
-	case <-time.After(1 * time.Second):
-		assert.Fail(t, "Goroutine did not exit within expected time")
+		t.Logf("Number of completed iterations: %d", iterations)
+		assert.True(t, cache.GetCancelStatus(subscriptionId))
+	case <-time.After(10 * time.Second):
+		assert.Fail(t, "Goroutine did not complete within the expected time")
 	}
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
-		SubscriptionId:  subscriptionId,
-		OldDeliveryType: string(oldSubscription.Spec.Subscription.DeliveryType),
+		SubscriptionId:     subscriptionId,
+		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
+		SubscriptionChange: true,
 	})
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
