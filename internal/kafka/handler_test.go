@@ -9,6 +9,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/IBM/sarama/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"testing"
 )
 
@@ -23,7 +24,9 @@ func GetMockHandler(t *testing.T, shouldFail bool) *Handler {
 	mockProducer := mocks.NewSyncProducer(t, mockConfig)
 	if shouldFail {
 		mockProducer.ExpectSendMessageAndFail(errors.New("Could not send message with id"))
+		mockProducer.ExpectSendMessageAndFail(errors.New("Could not send message with id"))
 	} else {
+		mockProducer.ExpectSendMessageAndSucceed()
 		mockProducer.ExpectSendMessageAndSucceed()
 	}
 
@@ -50,7 +53,15 @@ func TestPickMessage(t *testing.T) {
 	partition := int32(0)
 	offset := int64(0)
 
-	pickedMessage, err := mockHandler.PickMessage("test-topic", &partition, &offset)
+	dbMessage := message.StatusMessage{
+		Topic: "test-topic",
+		Coordinates: &message.Coordinates{
+			Partition: &partition,
+			Offset:    &offset,
+		},
+	}
+
+	pickedMessage, err := mockHandler.PickMessage(dbMessage)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, pickedMessage)

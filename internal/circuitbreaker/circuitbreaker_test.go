@@ -33,24 +33,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestIncreaseRepublishingCount_Success(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-
-	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
-
-	// set mocked  circuit breaker message in the cache
-	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
-
-	result, err := IncreaseRepublishingCount(testSubscriptionId)
-
-	assertions.NoError(err)
-	assertions.Equal(1, result.RepublishingCount)
-}
-
 func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
