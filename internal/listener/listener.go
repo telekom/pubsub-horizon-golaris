@@ -212,6 +212,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 
+	log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s 2", obj.Spec.Subscription.SubscriptionId)
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
 }
 

@@ -217,7 +217,7 @@ func ForceDelete(ctx context.Context, subscriptionId string) {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry for subscriptionId %s", subscriptionId)
 	}
 
-	log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", subscriptionId)
+	log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s 0", subscriptionId)
 	return
 }
 
