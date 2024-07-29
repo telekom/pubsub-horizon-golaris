@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"pubsub-horizon-golaris/internal/cache"
@@ -159,11 +160,24 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				continue
 			}
 
-			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
+			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+
+			traceCtx.StartSpan("republish message")
+			traceCtx.SetAttribute("component", "Horizon Golaris")
+			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
+
+			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
+				traceCtx.CurrentSpan().RecordError(err)
 			}
 			log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
+
+			traceCtx.EndCurrentSpan()
 		}
 
 		// If the number of fetched messages is less than the batch size, exit the loop

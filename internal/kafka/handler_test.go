@@ -69,7 +69,7 @@ func TestHandler_RepublishMessage_NoError(t *testing.T) {
 		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
-	err := mockHandler.RepublishMessage(message, "", "")
+	err := mockHandler.RepublishMessage(nil, message, "", "")
 	assert.NoError(t, err)
 }
 
@@ -84,7 +84,7 @@ func TestHandler_RepublishMessage_Error(t *testing.T) {
 		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
-	err := mockHandler.RepublishMessage(message, "", "")
+	err := mockHandler.RepublishMessage(nil, message, "", "")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Could not send message with id")
 }

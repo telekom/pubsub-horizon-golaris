@@ -6,9 +6,11 @@ package kafka
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/IBM/sarama"
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/config"
 )
 
@@ -68,11 +70,16 @@ func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *
 	return message, nil
 }
 
-func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
+func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
 	modifiedValue, err := updateMessage(message, newDeliveryType, newCallbackUrl)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
+	}
+
+	if traceCtx != nil {
+		traceCtx.StartSpan("produce message")
+		defer traceCtx.EndCurrentSpan()
 	}
 
 	msg := &sarama.ProducerMessage{
@@ -85,9 +92,24 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 	partition, offset, err := kafkaHandler.Producer.SendMessage(msg)
 	if err != nil {
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
+		if traceCtx != nil {
+			traceCtx.CurrentSpan().RecordError(err)
+		}
+
 		return err
 	}
 	log.Debug().Msgf("Message with id %s sent to kafka: partition %v offset %v newDeliveryType %s newCallBackUrl %s", string(message.Key), partition, offset, newDeliveryType, newCallbackUrl)
+
+	if traceCtx != nil {
+		traceCtx.SetAttribute("partition", fmt.Sprintf("%d", partition))
+		traceCtx.SetAttribute("offset", fmt.Sprintf("%d", offset))
+
+		log.Debug().Fields(map[string]any{
+			"uuid":      string(message.Key),
+			"partition": partition,
+			"offset":    offset,
+		}).Msgf("Republished message")
+	}
 
 	return nil
 }

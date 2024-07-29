@@ -88,7 +88,6 @@ func BuildTestConfig() config.Configuration {
 		},
 		Tracing: config.Tracing{
 			CollectorEndpoint: "http://tracing.local/collect",
-			Https:             true,
 			DebugEnabled:      false,
 			Enabled:           true,
 		},
