@@ -39,7 +39,7 @@ func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time
 	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
 
-func (m *MockMongoHandler) FindFailedMessagesWithXYZException(status string, timestamp time.Time, pageable options.FindOptions) ([]message.StatusMessage, error) {
-	args := m.Called(status, timestamp, pageable)
+func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp, pageable)
 	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
