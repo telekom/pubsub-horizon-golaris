@@ -269,12 +269,10 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
 	// call the function under test
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	cbMessageAfterDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result
 	assertions.NoError(err)
-	assertions.NotNil(cbMessageAfterDeletion)
-	assertions.Equal(0, cbMessageAfterDeletion.RepublishingCount)
 }
 
 func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
@@ -297,13 +295,11 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
-	cbMessageAfterRepubEntryDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result
 	assertions.NoError(err)
 	assertions.Nil(cache.RepublishingCache.Get(context.Background(), testSubscriptionId))
-	assertions.Equal(1, cbMessageAfterRepubEntryDeletion.RepublishingCount)
-	assertions.NotNil(cbMessageAfterRepubEntryDeletion)
 }
 
 func TestCloseCircuitBreaker(t *testing.T) {
