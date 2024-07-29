@@ -132,7 +132,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 
 		for _, dbMessage := range dbMessages {
-			log.Debug().Msgf("Republishing message for subscriptionId %s: %+v", subscriptionId, dbMessage)
 			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 				return
@@ -140,8 +139,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			for {
 				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-					sleepInterval := time.Second * 10
-					log.Info().Msgf("Throttling republishing for subscription %s", subscriptionId)
+					sleepInterval := time.Millisecond * 10
 					totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
 						if cache.GetCancelStatus(subscriptionId) {
@@ -150,7 +148,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 						}
 
 						time.Sleep(sleepInterval)
-						log.Info().Msgf("Slept for %v seconds", slept)
 					}
 					continue
 				}
@@ -219,7 +216,7 @@ func ForceDelete(ctx context.Context, subscriptionId string) {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry for subscriptionId %s", subscriptionId)
 	}
 
-	log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s 0", subscriptionId)
+	log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", subscriptionId)
 	return
 }
 
