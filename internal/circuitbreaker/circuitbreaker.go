@@ -52,9 +52,9 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		}
 	}()
 
-	cbMessage, err = deleteRepubEntryAndIncreaseRepubCount(cbMessage, hcData)
+	err = forceDeleteRepublishingEntry(cbMessage, hcData)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while deleting Republishing cache entry and increasing republishing count for subscriptionId %s", cbMessage.SubscriptionId)
+		log.Error().Err(err).Msgf("Error while deleting Republishing cache entry for subscriptionId %s", cbMessage.SubscriptionId)
 		return
 	}
 
@@ -86,29 +86,27 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	return
 }
 
-// deleteRepubEntryAndIncreaseRepubCount deletes a republishing cache entry and increases the republishing count for a given subscription.
-func deleteRepubEntryAndIncreaseRepubCount(cbMessage message.CircuitBreakerMessage, hcData *healthcheck.PreparedHealthCheckData) (message.CircuitBreakerMessage, error) {
-	// Attempt to get an republishingCache entry for the subscriptionId
+// forceDeleteRepublishingEntry forces the deletion of a republishing cache entry.
+func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcData *healthcheck.PreparedHealthCheckData) error {
+	// Attempt to get an RepublishingCacheEntry for the subscriptionId
 	republishingEntry, err := cache.RepublishingCache.Get(hcData.Ctx, cbMessage.SubscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error getting RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
+		log.Error().Err(err).Msgf("Error getting RepublishingCacheEntry for subscriptionId %s", cbMessage.SubscriptionId)
+		return err
 	}
 
-	// If there is an entry, force delete and increase republishingCount
-	if republishingEntry != nil {
-		log.Debug().Msgf("RepublishingCache entry found for subscriptionId %s", cbMessage.SubscriptionId)
-		// ForceDelete eventual existing RepublishingCache entry for the subscriptionId
-		republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
-		log.Info().Msgf("Here deleted RepublishingCache entry for subscriptionId %s", cbMessage.SubscriptionId)
-		// Increase the republishing count for the subscription by 1
-		updatedCbMessage, err := IncreaseRepublishingCount(cbMessage.SubscriptionId)
-		if err != nil {
-			log.Error().Err(err).Msgf("Error while increasing republishing count for subscription %s", cbMessage.SubscriptionId)
-			return message.CircuitBreakerMessage{}, err
-		}
-		cbMessage = *updatedCbMessage
+	republishCacheEntry, ok := republishingEntry.(republish.RepublishingCache)
+	if !ok {
+		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", cbMessage.SubscriptionId)
+		return err
 	}
-	return cbMessage, nil
+
+	// If there is an entry, force delete
+	if republishingEntry != nil && republishCacheEntry.SubscriptionChange != true {
+		log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
+		republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
+	}
+	return nil
 }
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
