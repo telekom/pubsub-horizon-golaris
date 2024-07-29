@@ -137,6 +137,14 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		}
 	}
 
+	// These fields can be set if the FAILED handler republishes an old callback event with a new deliveryType SSE.
+	for _, key := range []string{"errorType", "errorMessage"} {
+		if _, exists := messageValue[key]; exists {
+			log.Debug().Msgf("Replacing %s in message with an empty string", key)
+			messageValue[key] = ""
+		}
+	}
+
 	modifiedValue, err := json.Marshal(messageValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not marshal modified message value")
