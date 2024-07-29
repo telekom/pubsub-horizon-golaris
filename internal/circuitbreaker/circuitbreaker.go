@@ -121,22 +121,3 @@ func CloseCircuitBreaker(cbMessage *message.CircuitBreakerMessage) {
 	}
 	log.Info().Msgf("Successfully closed circuit breaker for subscription %s with status %s", cbMessage.SubscriptionId, cbMessage.Status)
 }
-
-// IncreaseRepublishingCount increments the republishing count for a given subscription by 1.
-func IncreaseRepublishingCount(subscriptionId string) (*message.CircuitBreakerMessage, error) {
-	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error while getting CircuitBreaker message for subscription %s", subscriptionId)
-		return nil, err
-	}
-
-	cbMessage.LastRepublished = types.NewTimestamp(time.Now().UTC())
-	cbMessage.RepublishingCount++
-	if err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, *cbMessage); err != nil {
-		log.Error().Err(err).Msgf("Error while updating CircuitBreaker message for subscription %s", subscriptionId)
-		return nil, err
-	}
-
-	log.Debug().Msgf("Successfully increased RepublishingCount to %d for subscription %s", cbMessage.RepublishingCount, subscriptionId)
-	return cbMessage, nil
-}
