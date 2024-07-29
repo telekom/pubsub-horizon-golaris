@@ -150,13 +150,14 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 	}
 
 	if optionalEntry != nil {
-		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Setting cancel map for subscription %s 1", obj.Spec.Subscription.SubscriptionId)
 		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s 1", obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s 1", obj.Spec.Subscription.SubscriptionId)
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
@@ -195,13 +196,14 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	}
 
 	if optionalEntry != nil {
-		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Setting cancel map for subscription %s 2", obj.Spec.Subscription.SubscriptionId)
 		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s 2", obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s 2", obj.Spec.Subscription.SubscriptionId)
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
