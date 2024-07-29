@@ -95,16 +95,17 @@ func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcDat
 		return err
 	}
 
-	republishCacheEntry, ok := republishingEntry.(republish.RepublishingCache)
-	if !ok {
-		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", cbMessage.SubscriptionId)
-		return err
-	}
-
 	// If there is an entry, force delete
-	if republishingEntry != nil && republishCacheEntry.SubscriptionChange != true {
-		log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
-		republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
+	if republishingEntry != nil {
+		republishCacheEntry, ok := republishingEntry.(republish.RepublishingCache)
+		if !ok {
+			log.Error().Msgf("Error casting republishing entry for subscriptionId %s", cbMessage.SubscriptionId)
+			return err
+		}
+		if republishCacheEntry.SubscriptionChange != true {
+			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
+			republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
+		}
 	}
 	return nil
 }
