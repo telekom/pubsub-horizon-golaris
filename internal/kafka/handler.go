@@ -6,12 +6,12 @@ package kafka
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/IBM/sarama"
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/config"
-	"strconv"
 )
 
 var CurrentHandler HandlerInterface
@@ -101,8 +101,14 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 	log.Debug().Msgf("Message with id %s sent to kafka: partition %v offset %v newDeliveryType %s newCallBackUrl %s", string(message.Key), partition, offset, newDeliveryType, newCallbackUrl)
 
 	if traceCtx != nil {
-		traceCtx.SetAttribute("partition", string(partition))
-		traceCtx.SetAttribute("offset", strconv.FormatInt(offset, 10))
+		traceCtx.SetAttribute("partition", fmt.Sprintf("%d", partition))
+		traceCtx.SetAttribute("offset", fmt.Sprintf("%d", offset))
+
+		log.Debug().Fields(map[string]any{
+			"uuid":      string(message.Key),
+			"partition": partition,
+			"offset":    offset,
+		}).Msgf("Republished message")
 	}
 
 	return nil
