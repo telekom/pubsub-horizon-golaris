@@ -82,7 +82,6 @@ func setDefaults() {
 	// Tracing
 	viper.SetDefault("tracing.enabled", true)
 	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
-	viper.SetDefault("tracing.https", true)
 	viper.SetDefault("tracing.debugEnabled", false)
 
 	// Kubernetes

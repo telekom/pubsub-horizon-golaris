@@ -124,6 +124,12 @@ func pingMongoDb() error {
 }
 
 func setupMongoDb() error {
+	if container, exists := pool.ContainerByName("golaris-mongodb"); exists {
+		if err := container.Close(); err != nil {
+			log.Fatalf("could not delete existing container '%s': %s", container.Container.Name, err)
+		}
+	}
+
 	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Name:         "golaris-mongodb",
 		Repository:   mongoImage,
@@ -138,6 +144,12 @@ func setupMongoDb() error {
 }
 
 func setupHazelcast() error {
+	if container, exists := pool.ContainerByName("golaris-hazelcast"); exists {
+		if err := container.Close(); err != nil {
+			log.Fatalf("could not delete existing container '%s': %s", container.Container.Name, err)
+		}
+	}
+
 	resource, err := pool.RunWithOptions(&dockertest.RunOptions{
 		Name:         "golaris-hazelcast",
 		Repository:   hazelcastImage,
