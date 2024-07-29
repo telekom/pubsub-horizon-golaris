@@ -140,11 +140,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			for {
 				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-					sleepInterval := time.Millisecond * 100
+					sleepInterval := time.Nanosecond * 10
 					totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
 						if cache.GetCancelStatus(subscriptionId) {
-							log.Info().Msgf("Republishing for subscription %s has been cancelled 1", subscriptionId)
+							log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 							return
 						}
 
@@ -152,7 +152,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					}
 					continue
 				}
-				log.Info().Msgf("Acquired throttler for subscriptionId %s", subscriptionId)
 				defer throttler.Release(context.Background())
 				break
 			}

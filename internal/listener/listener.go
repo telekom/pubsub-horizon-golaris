@@ -115,25 +115,27 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 3 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+
+		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
 
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
 		log.Debug().Msgf("Successfully set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 
 		// Set cancel status to false to allow new goroutines to start
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
+	}
 
-		cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
-		if err != nil {
-			log.Error().Msgf("failed with err: %v to get circuit breaker", err)
-			return
-		}
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
 
-		if cbMessage != nil {
-			circuitbreaker.CloseCircuitBreaker(cbMessage)
-		}
+	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("failed with err: %v to get circuit breaker", err)
+		return
+	}
 
+	if cbMessage != nil {
+		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
 }
 
@@ -154,7 +156,9 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 3 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+
+		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
 
 		// Set cancel status to false to allow new goroutines to start
@@ -197,7 +201,9 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 3 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+
+		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
 
 		// Set cancel status to false to allow new goroutines to start
