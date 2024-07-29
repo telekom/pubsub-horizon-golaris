@@ -26,7 +26,6 @@ func checkFailedEvents() {
 		log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
 		return
 	}
-	log.Debug().Msgf("Found %d FAILED messages in MongoDb", len(dbMessages))
 
 	if len(dbMessages) == 0 {
 		return
@@ -42,6 +41,11 @@ func checkFailedEvents() {
 		}
 
 		if subscription != nil {
+			log.Info().Msgf("Republishing failed events for subscription %s", subscriptionId)
+			log.Info().Msgf("Found %d failed messages in MongoDb", len(dbMessages))
+			log.Info().Msgf("ErrorType is: %s", dbMessage.StateError.Type)
+			log.Info().Msgf("ErrorMessage is: %s", dbMessage.StateError.Message)
+			log.Info().Msgf("Subscription delivery type is: %s", subscription.Spec.Subscription.DeliveryType)
 			if subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
 				var newDeliveryType = "SERVER_SENT_EVENT"
 
