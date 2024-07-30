@@ -64,6 +64,18 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		err := healthCheckFunc(hcData, subscription)
 		if err != nil {
 			log.Debug().Msgf("HealthCheck failed for key %s", hcData.HealthCheckKey)
+
+			// I have observed the case where events were set to DELIVERING.
+			// Then the DeliveryType was changed to SSE. However, the events landed on WAITING.
+			// HealthCheck was performed, but the CallbackUrl was already missing because deliveryType was set to SSE.
+			if subscription.Spec.Subscription.Callback == "" || subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
+				err = cache.RepublishingCache.Set(hcData.Ctx, subscription.Spec.Subscription.SubscriptionId, republish.RepublishingCache{SubscriptionId: subscription.Spec.Subscription.SubscriptionId})
+				if err != nil {
+					log.Error().Err(err).Msgf("Error while creating RepublishingCache entry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
+					return
+				}
+				CloseCircuitBreaker(&cbMessage)
+			}
 			return
 		}
 	} else {
