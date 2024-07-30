@@ -80,9 +80,8 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 	}
 	kafkaMessages = append(kafkaMessages, updatedMessage)
 
-	optionalMetadataMessage := &sarama.ProducerMessage{}
 	if errorParams == true {
-		optionalMetadataMessage, err = updateMetaData(message)
+		optionalMetadataMessage, err := updateMetaData(message)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not update message metadata")
 			return err
@@ -145,14 +144,6 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		}
 	}
 
-	// These fields can be set if the FAILED handler republishes an old callback event with a new deliveryType SSE.
-	for _, key := range []string{"errorType", "errorMessage"} {
-		if _, exists := messageValue[key]; exists {
-			log.Debug().Msgf("Replacing %s in message with an empty string", key)
-			messageValue[key] = ""
-		}
-	}
-
 	modifiedValue, err := json.Marshal(messageValue)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not marshal modified message value")
@@ -180,6 +171,9 @@ func updateMetaData(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, e
 		"uuid": messageValue["uuid"],
 		"event": map[string]any{
 			"id": messageValue["event"].(map[string]any)["id"],
+		},
+		"additionalFields": map[string]any{
+			"replicatedFrom": string(message.Key),
 		},
 		"errorMessage": "",
 		"errorType":    "",
