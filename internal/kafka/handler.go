@@ -71,11 +71,14 @@ func (kafkaHandler Handler) PickMessage(message message.StatusMessage) (*sarama.
 }
 
 func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error {
+	var kafkaMessages = make([]*sarama.ProducerMessage, 0)
+
 	updatedMessage, err := updateMessage(message, newDeliveryType, newCallbackUrl)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
+	kafkaMessages = append(kafkaMessages, updatedMessage)
 
 	optionalMetadataMessage := &sarama.ProducerMessage{}
 	if errorParams == true {
@@ -84,9 +87,9 @@ func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, ne
 			log.Error().Err(err).Msg("Could not update message metadata")
 			return err
 		}
+		kafkaMessages = append(kafkaMessages, optionalMetadataMessage)
 	}
 
-	kafkaMessages := []*sarama.ProducerMessage{optionalMetadataMessage, updatedMessage}
 	err = kafkaHandler.Producer.SendMessages(kafkaMessages)
 	if err != nil {
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
