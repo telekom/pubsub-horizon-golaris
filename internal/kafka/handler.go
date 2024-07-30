@@ -9,6 +9,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/config"
 )
 
@@ -49,45 +50,49 @@ func newKafkaHandler() (*Handler, error) {
 	}, nil
 }
 
-func (kafkaHandler Handler) PickMessage(topic string, partition *int32, offset *int64) (*sarama.ConsumerMessage, error) {
-	log.Debug().Msgf("Picking message at partition %d with offset %d", *partition, *offset)
+func (kafkaHandler Handler) PickMessage(message message.StatusMessage) (*sarama.ConsumerMessage, error) {
+	log.Debug().Msgf("Picking message at partition %d with offset %d", *message.Coordinates.Partition, *message.Coordinates.Offset)
 
-	consumer, err := kafkaHandler.Consumer.ConsumePartition(topic, *partition, *offset)
+	consumer, err := kafkaHandler.Consumer.ConsumePartition(message.Topic, *message.Coordinates.Partition, *message.Coordinates.Offset)
 	if err != nil {
-		log.Debug().Msgf("KafkaPick for partition %d and topic %s and offset %d failed: %v", *partition, topic, *offset, err)
+		log.Debug().Msgf("KafkaPick for partition %d and topic %s and offset %d failed: %v", *message.Coordinates.Partition, message.Topic, *message.Coordinates.Offset, err)
 		return nil, err
 	}
+
 	defer func() {
-		err := consumer.Close()
+		err = consumer.Close()
 		if err != nil {
 			log.Error().Err(err).Msg("Could not close consumer")
 		}
 	}()
 
-	message := <-consumer.Messages()
-	return message, nil
+	msg := <-consumer.Messages()
+	return msg, nil
 }
 
-func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
-	modifiedValue, err := updateMessage(message, newDeliveryType, newCallbackUrl)
+func (kafkaHandler Handler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error {
+	updatedMessage, err := updateMessage(message, newDeliveryType, newCallbackUrl)
 	if err != nil {
 		log.Error().Err(err).Msg("Could not update message metadata")
 		return err
 	}
 
-	msg := &sarama.ProducerMessage{
-		Key:     sarama.ByteEncoder(message.Key),
-		Topic:   message.Topic,
-		Headers: copyHeaders(message.Headers),
-		Value:   sarama.ByteEncoder(modifiedValue),
+	optionalMetadataMessage := &sarama.ProducerMessage{}
+	if errorParams == true {
+		optionalMetadataMessage, err = updateMetaData(message)
+		if err != nil {
+			log.Error().Err(err).Msg("Could not update message metadata")
+			return err
+		}
 	}
 
-	partition, offset, err := kafkaHandler.Producer.SendMessage(msg)
+	kafkaMessages := []*sarama.ProducerMessage{optionalMetadataMessage, updatedMessage}
+	err = kafkaHandler.Producer.SendMessages(kafkaMessages)
 	if err != nil {
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
 		return err
 	}
-	log.Debug().Msgf("Message with id %s sent to kafka: partition %v offset %v newDeliveryType %s newCallBackUrl %s", string(message.Key), partition, offset, newDeliveryType, newCallbackUrl)
+	log.Debug().Msgf("Message with id %s sent to kafka: newDeliveryType %s newCallBackUrl %s", string(message.Key), newDeliveryType, newCallbackUrl)
 
 	return nil
 }
@@ -103,7 +108,7 @@ func copyHeaders(headers []*sarama.RecordHeader) []sarama.RecordHeader {
 	return newHeaders
 }
 
-func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) ([]byte, error) {
+func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) (*sarama.ProducerMessage, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
@@ -151,5 +156,49 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 		return nil, err
 	}
 
-	return modifiedValue, nil
+	msg := &sarama.ProducerMessage{
+		Key:     sarama.ByteEncoder(message.Key),
+		Topic:   message.Topic,
+		Headers: copyHeaders(message.Headers),
+		Value:   sarama.ByteEncoder(modifiedValue),
+	}
+
+	return msg, nil
+}
+
+func updateMetaData(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, error) {
+	var messageValue map[string]any
+	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
+		log.Error().Err(err).Msg("Could not unmarshal message value")
+		return nil, err
+	}
+
+	var metadataValue = map[string]any{
+		"uuid": messageValue["uuid"],
+		"event": map[string]any{
+			"id": messageValue["event"].(map[string]any)["id"],
+		},
+		"errorMessage": "",
+		"errorType":    "",
+	}
+
+	newMessageType := "METADATA"
+	newHeaders := []sarama.RecordHeader{
+		{Key: []byte("type"), Value: []byte(newMessageType)},
+	}
+
+	valueBytes, err := json.Marshal(metadataValue)
+	if err != nil {
+		log.Error().Err(err).Msg("Could not marshal metadata value")
+		return nil, err
+	}
+
+	metadataMessage := &sarama.ProducerMessage{
+		Key:     sarama.ByteEncoder(message.Key),
+		Topic:   message.Topic,
+		Headers: newHeaders,
+		Value:   sarama.ByteEncoder(valueBytes),
+	}
+
+	return metadataMessage, nil
 }

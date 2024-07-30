@@ -49,13 +49,15 @@ func checkFailedEvents() {
 					return
 				}
 
-				kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
+				kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
 				if err != nil {
 					log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
 					return
 				}
 
-				err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, "")
+				// Check if errorType and errorMessage is set!
+
+				err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, "", true)
 				if err != nil {
 					log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
 					return

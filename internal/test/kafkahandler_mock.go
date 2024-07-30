@@ -23,7 +23,7 @@ func (m *MockKafkaHandler) PickMessage(status message.StatusMessage) (*sarama.Co
 	return args.Get(0).(*sarama.ConsumerMessage), args.Error(1)
 }
 
-func (m *MockKafkaHandler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) error {
+func (m *MockKafkaHandler) RepublishMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error {
 	args := m.Called(message, newDeliveryType, newCallbackUrl)
 	return args.Error(0)
 }

@@ -80,7 +80,6 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(status string,
 	return connection.findMessagesByQuery(query, pageable)
 }
 
-// ToDo: Here we need to discuss which FAILED events we want to republish!
 func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
 	query := bson.M{
 		"status":    "FAILED",

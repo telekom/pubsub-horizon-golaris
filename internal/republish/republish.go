@@ -170,13 +170,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				return
 			}
 
-			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage.Topic, dbMessage.Coordinates.Partition, dbMessage.Coordinates.Offset)
+			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
 			if err != nil {
 				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
 				return
 			}
 
-			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl)
+			err = kafka.CurrentHandler.RepublishMessage(kafkaMessage, newDeliveryType, newCallbackUrl, false)
 			if err != nil {
 				log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
 				return
