@@ -167,16 +167,13 @@ func updateMetaData(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, e
 		return nil, err
 	}
 
-	originalKey := string(message.Key)
-	newKey := originalKey + "_replicated"
-
 	var metadataValue = map[string]any{
 		"uuid": messageValue["uuid"],
 		"event": map[string]any{
 			"id": messageValue["event"].(map[string]any)["id"],
 		},
 		"additionalFields": map[string]any{
-			"replicatedFrom": newKey,
+			"replicatedFrom": string(message.Key),
 		},
 		"errorMessage": "",
 		"errorType":    "",
