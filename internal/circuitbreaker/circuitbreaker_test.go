@@ -33,24 +33,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func TestIncreaseRepublishingCount_Success(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	// Prepare test data
-	testSubscriptionId := "testSubscriptionId"
-
-	testCircuitBreakerMessage := test.NewTestCbMessage(testSubscriptionId)
-
-	// set mocked  circuit breaker message in the cache
-	cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, testSubscriptionId, testCircuitBreakerMessage)
-
-	result, err := IncreaseRepublishingCount(testSubscriptionId)
-
-	assertions.NoError(err)
-	assertions.Equal(1, result.RepublishingCount)
-}
-
 func TestHandleOpenCircuitBreaker_WithoutHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
@@ -269,12 +251,10 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_NoEntry(t *testing.T) {
 	// call the function under test
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	cbMessageAfterDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result
 	assertions.NoError(err)
-	assertions.NotNil(cbMessageAfterDeletion)
-	assertions.Equal(0, cbMessageAfterDeletion.RepublishingCount)
 }
 
 func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
@@ -297,13 +277,11 @@ func TestDeleteRepubEntryAndIncreaseRepubCount_ExistingEntry(t *testing.T) {
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
-	cbMessageAfterRepubEntryDeletion, err := deleteRepubEntryAndIncreaseRepubCount(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result
 	assertions.NoError(err)
 	assertions.Nil(cache.RepublishingCache.Get(context.Background(), testSubscriptionId))
-	assertions.Equal(1, cbMessageAfterRepubEntryDeletion.RepublishingCount)
-	assertions.NotNil(cbMessageAfterRepubEntryDeletion)
 }
 
 func TestCloseCircuitBreaker(t *testing.T) {

@@ -30,8 +30,9 @@ type HealthCheck struct {
 }
 
 type Republishing struct {
-	CheckInterval time.Duration `mapstructure:"checkInterval"`
-	BatchSize     int64         `mapstructure:"batchSize"`
+	CheckInterval          time.Duration `mapstructure:"checkInterval"`
+	BatchSize              int64         `mapstructure:"batchSize"`
+	ThrottlingIntervalTime time.Duration `mapstructure:"throttlingIntervalTime"`
 }
 
 type Hazelcast struct {

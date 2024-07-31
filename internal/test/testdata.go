@@ -17,11 +17,9 @@ import (
 
 func NewTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
 	testCircuitBreakerMessage := message.CircuitBreakerMessage{
-		SubscriptionId:    testSubscriptionId,
-		Status:            enum.CircuitBreakerStatusOpen,
-		RepublishingCount: 0,
-		LastRepublished:   types.NewTimestamp(time.Now().UTC()),
-		LastModified:      types.NewTimestamp(time.Now().UTC()),
+		SubscriptionId: testSubscriptionId,
+		Status:         enum.CircuitBreakerStatusOpen,
+		LastModified:   types.NewTimestamp(time.Now().UTC()),
 	}
 	return testCircuitBreakerMessage
 }

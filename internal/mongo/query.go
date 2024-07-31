@@ -68,15 +68,14 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(status string,
 	return connection.findMessagesByQuery(query, pageable)
 }
 
-// ToDo: Here we need to discuss which FAILED events we want to republish!
-func (connection Connection) FindFailedMessagesWithXYZException(status string, timestamp time.Time, pageable options.FindOptions) ([]message.StatusMessage, error) {
+func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
 	query := bson.M{
-		"status":     status,
-		"error.type": "",
+		"status":    "FAILED",
+		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",
 		"modified": bson.M{
 			"$lte": timestamp,
 		},
 	}
 
-	return connection.findMessagesByQuery(query, pageable)
+	return connection.findMessagesByQuery(query, *pageable)
 }
