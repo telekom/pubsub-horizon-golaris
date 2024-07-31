@@ -102,6 +102,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	page := int64(0)
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
+	defer throttler.Release(context.Background())
 
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
@@ -151,7 +152,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					}
 					continue
 				}
-				defer throttler.Release(context.Background())
 				break
 			}
 
