@@ -45,6 +45,7 @@ func TestConnection_FindWaitingMessages(t *testing.T) {
 		assert.Equal(t, expectedMessage, messages[0])
 	})
 }
+
 func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 	mt := mtest.New(t, mtest.NewOptions().ClientType(mtest.Mock))
 
@@ -69,8 +70,8 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 			{"subscriptionId", expectedMessage.SubscriptionId},
 		}))
 
-		opts := *options.Find()
-		messages, err := connection.FindDeliveringMessagesByDeliveryType(string(enum.StatusDelivering), time.Now(), opts, string(enum.DeliveryTypeCallback))
+		opts := options.Find()
+		messages, err := connection.FindDeliveringMessagesByDeliveryType(time.Now(), opts)
 
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)

@@ -14,8 +14,20 @@ import (
 	"time"
 )
 
-// ToDo: However, we have to build the code that only one pod is allowed to do this at a time
 func checkFailedEvents() {
+	ctx := cache.FailedHandler.NewLockContext(context.Background())
+
+	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, "failedHandler", 10*time.Millisecond); !acquired {
+		log.Debug().Msgf("Could not acquire lock for FailedHandler, skipping checkFailedEvents")
+		return
+	}
+
+	defer func() {
+		if err := cache.FailedHandler.Unlock(ctx, "failedHandler"); err != nil {
+			log.Error().Msgf("Error while unlocking FailedHandler: %v", err)
+		}
+	}()
+
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 

@@ -56,16 +56,15 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp ti
 	return connection.findMessagesByQuery(query, *pageable)
 }
 
-func (connection Connection) FindDeliveringMessagesByDeliveryType(status string, timestamp time.Time, pageable options.FindOptions, deliveryType string) ([]message.StatusMessage, error) {
+func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
 	query := bson.M{
-		"status":       status,
-		"deliveryType": deliveryType,
+		"status": "DELIVERING",
 		"modified": bson.M{
 			"$lte": timestamp,
 		},
 	}
 
-	return connection.findMessagesByQuery(query, pageable)
+	return connection.findMessagesByQuery(query, *pageable)
 }
 
 func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {

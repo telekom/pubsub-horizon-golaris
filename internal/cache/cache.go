@@ -43,6 +43,9 @@ var hazelcastClient *hazelcast.Client
 var subscriptionCancelMap = make(map[string]bool)
 var cancelMapMutex sync.RWMutex
 
+var DeliveringHandler HazelcastMapInterface
+var FailedHandler HazelcastMapInterface
+
 func SetCancelStatus(subscriptionId string, status bool) {
 	cancelMapMutex.Lock()
 	defer cancelMapMutex.Unlock()
@@ -98,6 +101,16 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 	RepublishingCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
 		return fmt.Errorf("error initializing RebublishingCache: %v", err)
+	}
+
+	DeliveringHandler, err = hazelcastClient.GetMap(context.Background(), "deliveringHandler")
+	if err != nil {
+		return fmt.Errorf("error initializing DeliveringHandler: %v", err)
+	}
+
+	FailedHandler, err = hazelcastClient.GetMap(context.Background(), "failedHandler")
+	if err != nil {
+		return fmt.Errorf("error initializing FailedHandler: %v", err)
 	}
 
 	return nil
