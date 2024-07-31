@@ -36,7 +36,7 @@ func GetMockHandler(t *testing.T, shouldFail bool) *Handler {
 		Partition: 0,
 		Offset:    0,
 		Key:       []byte("test-key"),
-		Value:     []byte("test-value"),
+		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	})
 
 	mockHandler = &Handler{
@@ -65,8 +65,11 @@ func TestPickMessage(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, pickedMessage)
+	assert.Equal(t, "test-topic", pickedMessage.Topic)
+	assert.Equal(t, int32(0), pickedMessage.Partition)
+	assert.Equal(t, int64(0), pickedMessage.Offset)
 	assert.Equal(t, []byte("test-key"), pickedMessage.Key)
-	assert.Equal(t, []byte("test-value"), pickedMessage.Value)
+	assert.Equal(t, []byte(`{"uuid": "12345", "event": {"id": "67890"}}`), pickedMessage.Value)
 }
 
 func TestHandler_RepublishMessage_NoError(t *testing.T) {

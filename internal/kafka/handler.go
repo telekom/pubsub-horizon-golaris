@@ -101,8 +101,8 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
 		if traceCtx != nil {
 			traceCtx.CurrentSpan().RecordError(err)
-			return err
 		}
+		return err
 	}
 
 	log.Debug().Msgf("Message with id %s sent to kafka: newDeliveryType %s newCallBackUrl %s", string(message.Key), newDeliveryType, newCallbackUrl)
