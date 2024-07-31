@@ -1,8 +1,10 @@
 package scheduler
 
 import (
+	"context"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"pubsub-horizon-golaris/internal/cache"
@@ -55,9 +57,17 @@ func checkFailedEvents() {
 					return
 				}
 
-				// Check if errorType and errorMessage is set!
+				var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+				var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
 
-				err = kafka.CurrentHandler.RepublishMessage(nil, kafkaMessage, newDeliveryType, "", true)
+				traceCtx.StartSpan("republish failed message")
+				traceCtx.SetAttribute("component", "Horizon Golaris")
+				traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+				traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+				traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+				traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
+
+				err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, "", true)
 				if err != nil {
 					log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
 					return
