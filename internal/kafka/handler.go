@@ -172,9 +172,6 @@ func updateMetaData(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, e
 		"event": map[string]any{
 			"id": messageValue["event"].(map[string]any)["id"],
 		},
-		"additionalFields": map[string]any{
-			"replicatedFrom": string(message.Key),
-		},
 		"errorMessage": "",
 		"errorType":    "",
 	}
