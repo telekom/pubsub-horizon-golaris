@@ -107,6 +107,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
 		return
 	}
+
 	if optionalEntry != nil {
 		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
 
@@ -203,7 +204,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s 2", obj.Spec.Subscription.SubscriptionId)
+		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
