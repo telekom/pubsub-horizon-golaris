@@ -82,7 +82,6 @@ func CheckConsumerHealth(hcData *PreparedHealthCheckData, subscription *resource
 		return err
 	}
 
-	// Todo caching for token?
 	token, err := auth.RetrieveToken(issuerUrl, clientId, clientSecret)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to retrieve OAuth2 token")

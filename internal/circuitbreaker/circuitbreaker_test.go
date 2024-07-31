@@ -439,7 +439,6 @@ func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	// call the function under test
 	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
 
 	// assert the result

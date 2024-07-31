@@ -51,6 +51,7 @@ func setDefaults() {
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
 	viper.SetDefault("republishing.checkInterval", "30s")
 	viper.SetDefault("republishing.batchSize", 10)
+	viper.SetDefault("republishing.throttlingIntervalTime", "10s")
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
@@ -87,8 +88,6 @@ func setDefaults() {
 	// Kubernetes
 	viper.SetDefault("kubernetes.namespace", "default")
 
-	// Mocks
-	viper.SetDefault("mockCbSubscriptionId", "6484c635dc100e32bf976c7b17a2fde9605899fa")
 }
 
 func readConfiguration() *Configuration {

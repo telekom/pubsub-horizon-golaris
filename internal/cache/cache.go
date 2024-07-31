@@ -40,8 +40,20 @@ var HealthCheckCache HazelcastMapInterface
 var RepublishingCache HazelcastMapInterface
 var hazelcastClient *hazelcast.Client
 
-var SubscriptionCancelMap = make(map[string]bool)
-var CancelMapMutex sync.Mutex
+var subscriptionCancelMap = make(map[string]bool)
+var cancelMapMutex sync.RWMutex
+
+func SetCancelStatus(subscriptionId string, status bool) {
+	cancelMapMutex.Lock()
+	defer cancelMapMutex.Unlock()
+	subscriptionCancelMap[subscriptionId] = status
+}
+
+func GetCancelStatus(subscriptionId string) bool {
+	cancelMapMutex.RLock()
+	defer cancelMapMutex.RUnlock()
+	return subscriptionCancelMap[subscriptionId]
+}
 
 func Initialize() {
 	c := createNewHazelcastConfig()

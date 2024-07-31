@@ -65,13 +65,25 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		err := healthCheckFunc(hcData, subscription)
 		if err != nil {
 			log.Debug().Msgf("HealthCheck failed for key %s", hcData.HealthCheckKey)
+
+			// I have observed the case where events were set to DELIVERING.
+			// Then the DeliveryType was changed to SSE. However, the events landed on WAITING.
+			// HealthCheck was performed, but the CallbackUrl was already missing because deliveryType was set to SSE.
+			if subscription.Spec.Subscription.Callback == "" || subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
+				err = cache.RepublishingCache.Set(hcData.Ctx, subscription.Spec.Subscription.SubscriptionId, republish.RepublishingCacheEntry{SubscriptionId: subscription.Spec.Subscription.SubscriptionId})
+				if err != nil {
+					log.Error().Err(err).Msgf("Error while creating RepublishingCache entry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
+					return
+				}
+				CloseCircuitBreaker(&cbMessage)
+			}
 			return
 		}
 	} else {
 		log.Debug().Msgf("HealthCheck is in cooldown for key %s", hcData.HealthCheckKey)
 	}
 
-	// Initiate republishing if last health check was successful
+	// Create republishing cache entry if last health check was successful
 	if slices.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
 		// Check if circuit breaker is in a loop and update loop counter of cb message or reset it
 		err = checkForCircuitBreakerLoop(&cbMessage)
@@ -127,6 +139,7 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 	return nil
 }
 
+// Attempt to get an RepublishingCacheEntry for the subscriptionId
 // forceDeleteRepublishingEntry forces the deletion of a republishing cache entry.
 func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcData *healthcheck.PreparedHealthCheckData) error {
 	// Attempt to get an RepublishingCacheEntry for the subscriptionId
@@ -138,8 +151,15 @@ func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcDat
 
 	// If there is an entry, force delete
 	if republishingEntry != nil {
-		log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
-		republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
+		republishCacheEntry, ok := republishingEntry.(republish.RepublishingCacheEntry)
+		if !ok {
+			log.Error().Msgf("Error casting republishing entry for subscriptionId %s", cbMessage.SubscriptionId)
+			return err
+		}
+		if republishCacheEntry.SubscriptionChange != true {
+			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
+			republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
+		}
 	}
 	return nil
 }

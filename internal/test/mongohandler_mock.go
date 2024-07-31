@@ -19,12 +19,7 @@ type MockMongoHandler struct {
 	mock.Mock
 }
 
-func (m *MockMongoHandler) FindFailedMessagesWithXYZException(status string, timestamp time.Time, pageable options.FindOptions) ([]message.StatusMessage, error) {
-	args := m.Called(status, timestamp, pageable)
-	return args.Get(0).([]message.StatusMessage), args.Error(1)
-}
-
-func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
+func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
 	args := m.Called(timestamp, pageable, subscriptionId)
 	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
@@ -34,7 +29,17 @@ func (m *MockMongoHandler) FindDeliveringMessagesByDeliveryType(status string, t
 	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
 
-func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
+func (m *MockMongoHandler) FindWaitingAndDeliveringMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
 	args := m.Called(timestamp, pageable, subscriptionId)
+	return args.Get(0).([]message.StatusMessage), args.Error(1)
+}
+
+func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp, pageable, subscriptionId)
+	return args.Get(0).([]message.StatusMessage), args.Error(1)
+}
+
+func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp, pageable)
 	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
