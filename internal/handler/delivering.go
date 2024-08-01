@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/gob"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"go.mongodb.org/mongo-driver/bson"
@@ -12,6 +13,10 @@ import (
 	"pubsub-horizon-golaris/internal/mongo"
 	"time"
 )
+
+func init() {
+	gob.Register(HandlerEntry{})
+}
 
 func CheckDeliveringEvents() {
 	var acquired = false
