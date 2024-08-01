@@ -34,8 +34,6 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	log.Info().Msgf("Subscription updated: %s", obj.Spec.Subscription.SubscriptionId)
-
 	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
 		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
 	}
@@ -44,10 +42,8 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 		handleDeliveryTypeChangeFromCallbackToSSE(obj, oldObj)
 	}
 
-	if obj.Spec.Subscription.Callback != "" && oldObj.Spec.Subscription.Callback != "" {
-		if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
-			handleCallbackUrlChange(obj, oldObj)
-		}
+	if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
+		handleCallbackUrlChange(obj, oldObj)
 	}
 
 	if obj.Spec.Subscription.CircuitBreakerOptOut == true && oldObj.Spec.Subscription.CircuitBreakerOptOut != true {
