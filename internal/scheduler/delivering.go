@@ -22,7 +22,7 @@ func checkDeliveringEvents() {
 	}
 
 	defer func() {
-		if err := cache.FailedHandler.Unlock(ctx, "deliveringHandler"); err != nil {
+		if err := cache.DeliveringHandler.Unlock(ctx, "deliveringHandler"); err != nil {
 			log.Error().Msgf("Error while unlocking DeliveringHandler: %v", err)
 		}
 	}()

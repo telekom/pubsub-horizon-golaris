@@ -17,7 +17,7 @@ import (
 func checkFailedEvents() {
 	ctx := cache.FailedHandler.NewLockContext(context.Background())
 
-	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, "failedHandler", 10*time.Millisecond); !acquired {
+	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, "failedHandler", 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler, skipping checkFailedEvents")
 		return
 	}
