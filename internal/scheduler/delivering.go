@@ -42,7 +42,7 @@ func checkDeliveringEvents() {
 	}
 
 	if deliveringHandlerEntry == nil {
-		deliveringHandlerEntry = NewHandlerEntry(deliveringLockKey)
+		deliveringHandlerEntry = NewDeliveringEntry(deliveringLockKey)
 		err = cache.DeliveringHandler.Set(ctx, deliveringLockKey, deliveringHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", deliveringLockKey)
