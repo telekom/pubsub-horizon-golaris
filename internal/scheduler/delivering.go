@@ -16,17 +16,6 @@ import (
 
 func init() {
 	gob.Register(HandlerEntry{})
-	gob.Register(DeliveringEntry{})
-}
-
-type DeliveringEntry struct {
-	Name string `json:"name"`
-}
-
-func NewDeliveringEntry(deliveringLockKey string) DeliveringEntry {
-	return DeliveringEntry{
-		Name: deliveringLockKey,
-	}
 }
 
 func checkDeliveringEvents() {
@@ -51,12 +40,6 @@ func checkDeliveringEvents() {
 
 		return
 	}
-
-	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Millisecond); !acquired {
-		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
-		return
-	}
-	log.Info().Msg("Lock acquired for DeliveringHandler")
 
 	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
