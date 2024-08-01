@@ -1,9 +1,8 @@
-package scheduler
+package handler
 
 import (
 	"context"
 	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -14,21 +13,41 @@ import (
 	"time"
 )
 
-func checkFailedEvents() {
-	ctx := cache.FailedHandler.NewLockContext(context.Background())
-	failedLockKey := "FailedHandlerLock"
+func CheckFailedEvents() {
+	var acquired = false
+	var err error
 
-	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, failedLockKey, 10*time.Second); !acquired {
+	failedLockKey := "FailedHandlerLock"
+	ctx := cache.FailedHandler.NewLockContext(context.Background())
+
+	failedHandlerEntry, err := cache.FailedHandler.Get(ctx, failedLockKey)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", failedLockKey)
+		return
+	}
+
+	if failedHandlerEntry == nil {
+		failedHandlerEntry = NewHandlerEntry(failedLockKey)
+		err = cache.DeliveringHandler.Set(ctx, failedLockKey, failedHandlerEntry)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error setting FailedHandler entry for key %s", failedLockKey)
+			return
+		}
+
+		return
+	}
+
+	if acquired, _ = cache.FailedHandler.TryLockWithTimeout(ctx, failedLockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler, skipping checkFailedEvents")
 		return
 	}
-	log.Info().Msg("Lock acquired for FailedHandler")
 
 	defer func() {
-		if err := cache.FailedHandler.Unlock(ctx, failedLockKey); err != nil {
-			log.Error().Msgf("Error while unlocking FailedHandler: %v", err)
+		if acquired {
+			if err = cache.FailedHandler.Unlock(ctx, failedLockKey); err != nil {
+				log.Error().Err(err).Msg("Error unlocking FailedHandler")
+			}
 		}
-		log.Info().Msgf("Unlocking FailedHandler")
 	}()
 
 	batchSize := config.Current.Republishing.BatchSize
@@ -36,14 +55,11 @@ func checkFailedEvents() {
 
 	opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
-	var dbMessages []message.StatusMessage
-	var err error
-	dbMessages, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), opts)
+	dbMessages, err := mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), opts)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
 		return
 	}
-	log.Debug().Msgf("Found %d FAILED messages in MongoDb", len(dbMessages))
 
 	if len(dbMessages) == 0 {
 		return
