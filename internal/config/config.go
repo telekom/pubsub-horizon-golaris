@@ -49,7 +49,7 @@ func setDefaults() {
 	viper.SetDefault("republishing.checkInterval", "30s")
 	viper.SetDefault("republishing.batchSize", 10)
 	viper.SetDefault("republishing.throttlingIntervalTime", "10s")
-	viper.SetDefault("republishing.deliveringStatesOffsetMins", 15)
+	viper.SetDefault("republishing.deliveringStatesOffsetMins", "15m")
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
