@@ -1,4 +1,4 @@
-package handler
+package scheduler
 
 import (
 	"context"
@@ -14,18 +14,22 @@ import (
 	"time"
 )
 
+func init() {
+	gob.Register(DeliveringEntry{})
+}
+
 type DeliveringEntry struct {
 	Name string `json:"name"`
 }
 
-func init() {
-	gob.Register(HandlerEntry{})
-	gob.Register(DeliveringEntry{})
+func NewDeliveringEntry(deliveringLockKey string) DeliveringEntry {
+	return DeliveringEntry{
+		Name: deliveringLockKey,
+	}
 }
 
-func CheckDeliveringEvents() {
+func checkDeliveringEvents() {
 	var acquired = false
-	var err error
 
 	deliveringLockKey := "DeliveringHandlerLock"
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
@@ -37,7 +41,7 @@ func CheckDeliveringEvents() {
 	}
 
 	if deliveringHandlerEntry == nil {
-		deliveringHandlerEntry = NewHandlerEntry(deliveringLockKey)
+		deliveringHandlerEntry = NewDeliveringEntry(deliveringLockKey)
 		err = cache.DeliveringHandler.Set(ctx, deliveringLockKey, deliveringHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", deliveringLockKey)
@@ -51,12 +55,14 @@ func CheckDeliveringEvents() {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
+	log.Info().Msg("Lock acquired for DeliveringHandler")
 
 	defer func() {
 		if acquired {
 			if err = cache.DeliveringHandler.Unlock(ctx, deliveringLockKey); err != nil {
 				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 			}
+			log.Info().Msg("Lock released for DeliveringHandler")
 		}
 	}()
 
@@ -73,6 +79,7 @@ func CheckDeliveringEvents() {
 		log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
 		return
 	}
+	log.Debug().Msgf("Found %d DELIVERING messages in MongoDb", len(dbMessages))
 
 	if len(dbMessages) == 0 {
 		return

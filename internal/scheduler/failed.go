@@ -1,4 +1,4 @@
-package handler
+package scheduler
 
 import (
 	"context"
@@ -15,10 +15,20 @@ import (
 )
 
 func init() {
-	gob.Register(HandlerEntry{})
+	gob.Register(FailedEntry{})
 }
 
-func CheckFailedEvents() {
+type FailedEntry struct {
+	Name string `json:"name"`
+}
+
+func NewFailedEntry(failedLockKey string) FailedEntry {
+	return FailedEntry{
+		Name: failedLockKey,
+	}
+}
+
+func checkFailedEvents() {
 	var acquired = false
 	var err error
 
@@ -32,7 +42,7 @@ func CheckFailedEvents() {
 	}
 
 	if failedHandlerEntry == nil {
-		failedHandlerEntry = NewHandlerEntry(failedLockKey)
+		failedHandlerEntry = NewFailedEntry(failedLockKey)
 		err = cache.FailedHandler.Set(ctx, failedLockKey, failedHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting FailedHandler entry for key %s", failedLockKey)
