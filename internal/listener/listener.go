@@ -16,6 +16,9 @@ import (
 	"time"
 )
 
+//ToDo: Listener creates new republishingEntry and endpoint is reachable again. At the same time!!!
+//ToDo: Test field of subscriptionChange with healthCheck
+
 type SubscriptionListener struct{}
 
 func Initialize() {
@@ -90,7 +93,7 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // Delete the HealthCheck entry and close the circuitBreaker, because it is no longer needed for sse.
 func handleDeliveryTypeChangeFromSSEToCallback(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), false)
 }
 
 func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
@@ -120,7 +123,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType))
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), true)
 
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 	if err != nil {
@@ -160,7 +163,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 }
 
 // handleCircuitBreakerOptOutChange reacts to changes for CircuitBreakerOptOut flag of subscriptions.
@@ -178,7 +181,7 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
 
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 }
 
 func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
@@ -207,14 +210,14 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	}
 
 	log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "")
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
 }
 
-func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string) {
+func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
 	err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCache{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    oldDeliveryType,
-		SubscriptionChange: true,
+		SubscriptionChange: subscriptionChange,
 	})
 	if err != nil {
 		log.Error().Msgf("Failed to set republishing cache for subscription %s: %v", subscriptionId, err)

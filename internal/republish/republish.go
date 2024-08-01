@@ -200,11 +200,27 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			traceCtx.EndCurrentSpan()
 		}
 
-		if len(dbMessages) < int(batchSize) {
-			break
+		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
+			dbMessages, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), opts, subscriptionId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
+			}
+			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
+		} else {
+			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
+			}
+			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
 
-		page++
+		if dbMessages == nil || len(dbMessages) == 0 {
+			page++
+		}
+
+		//if len(dbMessages) < int(batchSize) {
+		//	break
+		//}
 	}
 }
 
