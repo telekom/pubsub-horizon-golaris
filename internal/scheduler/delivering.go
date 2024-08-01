@@ -55,14 +55,12 @@ func checkDeliveringEvents() {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
-	log.Info().Msg("Lock acquired for DeliveringHandler")
 
 	defer func() {
 		if acquired {
 			if err = cache.DeliveringHandler.Unlock(ctx, deliveringLockKey); err != nil {
 				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 			}
-			log.Info().Msg("Lock released for DeliveringHandler")
 		}
 	}()
 
@@ -79,7 +77,6 @@ func checkDeliveringEvents() {
 		log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
 		return
 	}
-	log.Debug().Msgf("Found %d DELIVERING messages in MongoDb", len(dbMessages))
 
 	if len(dbMessages) == 0 {
 		return
