@@ -14,6 +14,7 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/handler"
 	"pubsub-horizon-golaris/internal/republish"
 	"time"
 )
@@ -38,7 +39,7 @@ func StartScheduler() {
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
 		checkRepublishingEntries()
 		checkDeliveringEvents()
-		checkFailedEvents()
+		handler.CheckFailedEvents()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
 	}

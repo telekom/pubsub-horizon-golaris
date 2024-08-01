@@ -1,4 +1,4 @@
-package scheduler
+package handler
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func NewFailedEntry(failedLockKey string) FailedEntry {
 	}
 }
 
-func checkFailedEvents() {
+func CheckFailedEvents() {
 	var acquired = false
 	var err error
 
@@ -42,7 +42,7 @@ func checkFailedEvents() {
 	}
 
 	if failedHandlerEntry == nil {
-		failedHandlerEntry = NewFailedEntry(failedLockKey)
+		failedHandlerEntry = NewHandlerEntry(failedLockKey)
 		err = cache.FailedHandler.Set(ctx, failedLockKey, failedHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting FailedHandler entry for key %s", failedLockKey)
