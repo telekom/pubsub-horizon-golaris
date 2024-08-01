@@ -13,7 +13,6 @@ import (
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
-	"reflect"
 	"time"
 )
 
@@ -35,9 +34,7 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
-	if reflect.DeepEqual(obj, oldObj) {
-		return
-	}
+	log.Info().Msgf("Subscription updated: %s", obj.Spec.Subscription.SubscriptionId)
 
 	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
 		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
