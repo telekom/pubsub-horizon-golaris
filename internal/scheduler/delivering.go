@@ -26,6 +26,7 @@ func checkDeliveringEvents() {
 			log.Error().Msgf("Error while unlocking DeliveringHandler: %v", err)
 		}
 	}()
+	log.Info().Msg("Checking delivering events")
 
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)

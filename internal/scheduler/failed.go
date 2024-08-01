@@ -27,6 +27,7 @@ func checkFailedEvents() {
 			log.Error().Msgf("Error while unlocking FailedHandler: %v", err)
 		}
 	}()
+	log.Info().Msg("Checking failed events")
 
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)

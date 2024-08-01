@@ -103,7 +103,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	page := int64(0)
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
-	defer throttler.Release(context.Background())
 
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
@@ -133,6 +132,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			break
 		}
 
+		log.Debug().Msgf("Processing page %d with batch size %d", page, batchSize)
+		log.Debug().Msgf("Found %d messages on page %d", len(dbMessages), page)
+
 		for _, dbMessage := range dbMessages {
 			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
@@ -153,6 +155,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					}
 					continue
 				}
+				defer throttler.Release(context.Background())
 				break
 			}
 
@@ -200,6 +203,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
+
 		page++
 	}
 }
