@@ -14,8 +14,13 @@ import (
 	"time"
 )
 
+type DeliveringEntry struct {
+	Name string `json:"name"`
+}
+
 func init() {
 	gob.Register(HandlerEntry{})
+	gob.Register(DeliveringEntry{})
 }
 
 func CheckDeliveringEvents() {
