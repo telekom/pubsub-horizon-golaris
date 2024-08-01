@@ -20,13 +20,14 @@ func checkDeliveringEvents() {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
+	log.Info().Msg("Lock acquired for DeliveringHandler")
 
 	defer func() {
 		if err := cache.DeliveringHandler.Unlock(ctx, config.Current.Handler.Delivering); err != nil {
 			log.Error().Msgf("Error while unlocking DeliveringHandler: %v", err)
 		}
+		log.Info().Msgf("Unlocking DeliveringHandler")
 	}()
-	log.Info().Msg("Checking delivering events")
 
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)

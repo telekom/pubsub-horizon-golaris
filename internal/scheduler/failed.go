@@ -21,13 +21,14 @@ func checkFailedEvents() {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler, skipping checkFailedEvents")
 		return
 	}
+	log.Info().Msg("Lock acquired for FailedHandler")
 
 	defer func() {
 		if err := cache.FailedHandler.Unlock(ctx, config.Current.Handler.Failed); err != nil {
 			log.Error().Msgf("Error while unlocking FailedHandler: %v", err)
 		}
+		log.Info().Msgf("Unlocking FailedHandler")
 	}()
-	log.Info().Msg("Checking failed events")
 
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
@@ -41,6 +42,7 @@ func checkFailedEvents() {
 		log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
 		return
 	}
+	log.Debug().Msgf("Found %d FAILED messages in MongoDb", len(dbMessages))
 
 	if len(dbMessages) == 0 {
 		return
