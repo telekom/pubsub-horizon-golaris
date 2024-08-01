@@ -89,8 +89,5 @@ func BuildTestConfig() config.Configuration {
 			DebugEnabled:      false,
 			Enabled:           true,
 		},
-		Kubernetes: config.Kubernetes{
-			Namespace: "default",
-		},
 	}
 }
