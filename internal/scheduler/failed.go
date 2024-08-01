@@ -16,15 +16,16 @@ import (
 
 func checkFailedEvents() {
 	ctx := cache.FailedHandler.NewLockContext(context.Background())
+	failedLockKey := "FailedHandlerLock"
 
-	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, config.Current.Handler.Failed, 10*time.Second); !acquired {
+	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, failedLockKey, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler, skipping checkFailedEvents")
 		return
 	}
 	log.Info().Msg("Lock acquired for FailedHandler")
 
 	defer func() {
-		if err := cache.FailedHandler.Unlock(ctx, config.Current.Handler.Failed); err != nil {
+		if err := cache.FailedHandler.Unlock(ctx, failedLockKey); err != nil {
 			log.Error().Msgf("Error while unlocking FailedHandler: %v", err)
 		}
 		log.Info().Msgf("Unlocking FailedHandler")

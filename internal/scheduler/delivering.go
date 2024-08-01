@@ -15,15 +15,16 @@ import (
 
 func checkDeliveringEvents() {
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
+	deliveringLockKey := "DeliveringHandlerLock"
 
-	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, config.Current.Handler.Delivering, 10*time.Second); !acquired {
+	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
 	log.Info().Msg("Lock acquired for DeliveringHandler")
 
 	defer func() {
-		if err := cache.DeliveringHandler.Unlock(ctx, config.Current.Handler.Delivering); err != nil {
+		if err := cache.DeliveringHandler.Unlock(ctx, deliveringLockKey); err != nil {
 			log.Error().Msgf("Error while unlocking DeliveringHandler: %v", err)
 		}
 		log.Info().Msgf("Unlocking DeliveringHandler")
@@ -34,7 +35,8 @@ func checkDeliveringEvents() {
 
 	opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
-	upperThresholdTimestamp := time.Now().Add(-time.Duration(config.Current.Republishing.DeliveringStatesOffsetMins) * time.Minute)
+	deliveringStatesOffsetMins := config.Current.Republishing.DeliveringStatesOffsetMins
+	upperThresholdTimestamp := time.Now().Add(-deliveringStatesOffsetMins * time.Minute)
 
 	dbMessages, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, opts)
 	if err != nil {
