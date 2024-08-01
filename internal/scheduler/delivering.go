@@ -23,6 +23,12 @@ type DeliveringEntry struct {
 	Name string `json:"name"`
 }
 
+func NewDeliveringEntry(deliveringLockKey string) DeliveringEntry {
+	return DeliveringEntry{
+		Name: deliveringLockKey,
+	}
+}
+
 func checkDeliveringEvents() {
 	var acquired = false
 
@@ -46,7 +52,7 @@ func checkDeliveringEvents() {
 		return
 	}
 
-	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Millisecond); !acquired {
+	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
