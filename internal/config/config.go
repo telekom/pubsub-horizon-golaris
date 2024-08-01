@@ -83,8 +83,9 @@ func setDefaults() {
 	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
 	viper.SetDefault("tracing.debugEnabled", false)
 
-	// Kubernetes
-	viper.SetDefault("kubernetes.namespace", "default")
+	// Handler
+	viper.SetDefault("handler.delivering", "deliveringHandler")
+	viper.SetDefault("handler.failed", "failedHandler")
 
 }
 

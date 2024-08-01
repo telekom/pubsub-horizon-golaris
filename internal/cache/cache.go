@@ -103,12 +103,12 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 		return fmt.Errorf("error initializing RebublishingCache: %v", err)
 	}
 
-	DeliveringHandler, err = hazelcastClient.GetMap(context.Background(), "deliveringHandler")
+	DeliveringHandler, err = hazelcastClient.GetMap(context.Background(), config.Current.Handler.Delivering)
 	if err != nil {
 		return fmt.Errorf("error initializing DeliveringHandler: %v", err)
 	}
 
-	FailedHandler, err = hazelcastClient.GetMap(context.Background(), "failedHandler")
+	FailedHandler, err = hazelcastClient.GetMap(context.Background(), config.Current.Handler.Failed)
 	if err != nil {
 		return fmt.Errorf("error initializing FailedHandler: %v", err)
 	}

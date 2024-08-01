@@ -17,13 +17,13 @@ import (
 func checkFailedEvents() {
 	ctx := cache.FailedHandler.NewLockContext(context.Background())
 
-	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, "failedHandler", 10*time.Millisecond); !acquired {
+	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, config.Current.Handler.Failed, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler, skipping checkFailedEvents")
 		return
 	}
 
 	defer func() {
-		if err := cache.FailedHandler.Unlock(ctx, "failedHandler"); err != nil {
+		if err := cache.FailedHandler.Unlock(ctx, config.Current.Handler.Failed); err != nil {
 			log.Error().Msgf("Error while unlocking FailedHandler: %v", err)
 		}
 	}()

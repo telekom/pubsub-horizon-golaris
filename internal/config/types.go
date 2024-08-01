@@ -17,7 +17,7 @@ type Configuration struct {
 	Mongo          Mongo          `mapstructure:"mongo"`
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
-	Kubernetes     Kubernetes     `mapstructure:"kubernetes"`
+	Handler        Handler        `mapstructure:"handler"`
 }
 
 type CircuitBreaker struct {
@@ -75,6 +75,7 @@ type Tracing struct {
 	Enabled           bool   `mapstructure:"enabled"`
 }
 
-type Kubernetes struct {
-	Namespace string `mapstructure:"namespace"`
+type Handler struct {
+	Delivering string `mapstructure:"delivering"`
+	Failed     string `mapstructure:"failed"`
 }

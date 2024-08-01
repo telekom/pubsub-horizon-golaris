@@ -16,13 +16,13 @@ import (
 func checkDeliveringEvents() {
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
 
-	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, "deliveringHandler", 10*time.Millisecond); !acquired {
+	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, config.Current.Handler.Delivering, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
 
 	defer func() {
-		if err := cache.DeliveringHandler.Unlock(ctx, "deliveringHandler"); err != nil {
+		if err := cache.DeliveringHandler.Unlock(ctx, config.Current.Handler.Delivering); err != nil {
 			log.Error().Msgf("Error while unlocking DeliveringHandler: %v", err)
 		}
 	}()
