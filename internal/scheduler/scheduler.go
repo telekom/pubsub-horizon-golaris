@@ -28,7 +28,7 @@ func StartScheduler() {
 	scheduler = gocron.NewScheduler(time.UTC)
 
 	// Schedule the task for checking open circuit breakers
-	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
+	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCheckInterval).Do(func() {
 		checkOpenCircuitBreakers()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)

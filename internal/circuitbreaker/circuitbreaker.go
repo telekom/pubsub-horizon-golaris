@@ -116,7 +116,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 // normal operation. The function also updates the circuit breaker's last opened timestamp for the next loop detection to the last
 // modified timestamp (as the current circuit breaker was opened then)
 func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error {
-	loopDetectionPeriod := config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod
+	loopDetectionPeriod := config.Current.CircuitBreaker.OpenLoopDetectionPeriod
 
 	// If circuit breaker last opened timestamp is within loop detection period, increase loop counter
 	if cbMessage.LastOpened != nil && time.Since(cbMessage.LastOpened.ToTime()).Seconds() < loopDetectionPeriod.Seconds() {

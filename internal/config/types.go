@@ -23,8 +23,8 @@ type Configuration struct {
 }
 
 type CircuitBreaker struct {
-	OpenCbCheckInterval       time.Duration `mapstructure:"openCbCheckInterval"`
-	OpenCbLoopDetectionPeriod time.Duration `mapstructure:"openCbLoopDetectionPeriod"`
+	OpenCheckInterval       time.Duration `mapstructure:"openCheckInterval"`
+	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
 	ExponentialBackoffBase    time.Duration `mapstructure:"exponentialBackoffBase"`
 	ExponentialBackoffMax     time.Duration `mapstructure:"exponentialBackoffMax"`
 }

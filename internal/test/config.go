@@ -15,8 +15,8 @@ func BuildTestConfig() config.Configuration {
 		LogLevel: "debug",
 		Port:     8080,
 		CircuitBreaker: config.CircuitBreaker{
-			OpenCbCheckInterval:       30 * time.Second,
-			OpenCbLoopDetectionPeriod: 300 * time.Second,
+			OpenCheckInterval:       30 * time.Second,
+			OpenLoopDetectionPeriod: 300 * time.Second,
 			ExponentialBackoffMax:     60 * time.Minute,
 			ExponentialBackoffBase:    1000 * time.Millisecond,
 		},

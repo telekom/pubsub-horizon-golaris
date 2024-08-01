@@ -282,7 +282,7 @@ func TestHandleOpenCircuitBreaker_IncreaseLoopCounterWithinLoopDetectionPeriod(t
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 300 * time.Second
+	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 300 * time.Second
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -322,7 +322,7 @@ func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 0 * time.Second
+	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 0 * time.Second
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -358,7 +358,7 @@ func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhenUnhealthy(t *testing.T
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 600 * time.Second
+	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 600 * time.Second
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -394,7 +394,7 @@ func TestHandleOpenCircuitBreaker_RepublishingPostponedDueToBackoff(t *testing.T
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 600 * time.Second
+	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 600 * time.Second
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -491,7 +491,7 @@ func TestCloseCircuitBreaker(t *testing.T) {
 
 func TestCheckForCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
 	// Prepare test data
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
+	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 10 * time.Second
 	initialLastOpened := time.Now().Add(-5 * time.Second) // Within loop detection period
 	initialLastModified := initialLastOpened
 
@@ -513,7 +513,7 @@ func TestCheckForCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
 
 func TestCheckForCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {
 	// Prepare test data
-	config.Current.CircuitBreaker.OpenCbLoopDetectionPeriod = 10 * time.Second
+	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 10 * time.Second
 	initialLastOpened := time.Now().Add(-15 * time.Second) // Outside loop detection period
 	initialLastModified := initialLastOpened
 

@@ -137,31 +137,3 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 	}
 }
 
-// Todo At the moment only for testing purposes. Delete or refactor after loop detection is implemented
-func putCircuitBreakerMessageById(ctx *fiber.Ctx) error {
-	// Get the subscriptionId from the request parameters
-	subscriptionId := ctx.Params("subscriptionId")
-
-	// Read the request body
-	var cbMessage message.CircuitBreakerMessage
-	if err := ctx.BodyParser(&cbMessage); err != nil {
-		log.Error().Err(err).Msg("Error parsing request body")
-		return ctx.Status(fiber.StatusBadRequest).SendString("Error parsing request body")
-	}
-
-	// Check if the subscriptionId in the request body matches the one in the URL
-	if cbMessage.SubscriptionId != subscriptionId {
-		log.Error().Msgf("SubscriptionId in the request body does not match the one in the URL: %s != %s", cbMessage.SubscriptionId, subscriptionId)
-		return ctx.Status(fiber.StatusBadRequest).SendString("SubscriptionId in the request body does not match the one in the URL")
-	}
-
-	// Put the circuit breaker message into the cache
-	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, cbMessage)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s", subscriptionId)
-		return ctx.Status(fiber.StatusInternalServerError).SendString("Error updating circuit breaker message")
-	}
-
-	// Send the circuit breaker message as the response
-	return ctx.Status(fiber.StatusOK).JSON(cbMessage)
-}
