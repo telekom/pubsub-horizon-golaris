@@ -16,6 +16,11 @@ import (
 
 func init() {
 	gob.Register(HandlerEntry{})
+	gob.Register(DeliveringEntry{})
+}
+
+type DeliveringEntry struct {
+	Name string `json:"name"`
 }
 
 func checkDeliveringEvents() {
