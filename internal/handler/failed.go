@@ -22,13 +22,13 @@ func CheckFailedEvents() {
 
 	failedHandlerEntry, err := cache.FailedHandler.Get(ctx, failedLockKey)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", failedLockKey)
+		log.Error().Err(err).Msgf("Error retrieving FailedHandler entry for key %s", failedLockKey)
 		return
 	}
 
 	if failedHandlerEntry == nil {
 		failedHandlerEntry = NewHandlerEntry(failedLockKey)
-		err = cache.DeliveringHandler.Set(ctx, failedLockKey, failedHandlerEntry)
+		err = cache.FailedHandler.Set(ctx, failedLockKey, failedHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting FailedHandler entry for key %s", failedLockKey)
 			return
