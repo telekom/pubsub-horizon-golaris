@@ -22,9 +22,9 @@ type FailedEntry struct {
 	Name string `json:"name"`
 }
 
-func NewFailedEntry(lockKey string) FailedEntry {
+func NewFailedEntry(failedLockKey string) FailedEntry {
 	return FailedEntry{
-		Name: lockKey,
+		Name: failedLockKey,
 	}
 }
 
@@ -42,7 +42,7 @@ func CheckFailedEvents() {
 	}
 
 	if failedHandlerEntry == nil {
-		failedHandlerEntry = NewHandlerEntry("failedHandler")
+		failedHandlerEntry = NewHandlerEntry(failedLockKey)
 		err = cache.FailedHandler.Set(ctx, failedLockKey, failedHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting FailedHandler entry for key %s", failedLockKey)
