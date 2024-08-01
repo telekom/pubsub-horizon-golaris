@@ -13,21 +13,52 @@ import (
 	"time"
 )
 
-func checkDeliveringEvents() {
-	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
-	deliveringLockKey := "DeliveringHandlerLock"
+type DeliveringEntry struct {
+	Name string `json:"name"`
+}
 
-	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Second); !acquired {
+func NewDeliveringEntry(deliveringLockKey string) DeliveringEntry {
+	return DeliveringEntry{
+		Name: deliveringLockKey,
+	}
+}
+
+func checkDeliveringEvents() {
+	var acquired = false
+
+	deliveringLockKey := "DeliveringHandlerLock"
+	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
+
+	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, deliveringLockKey)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", deliveringLockKey)
+		return
+	}
+
+	if deliveringHandlerEntry == nil {
+		deliveringHandlerEntry = NewDeliveringEntry(deliveringLockKey)
+		err = cache.DeliveringHandler.Set(ctx, deliveringLockKey, deliveringHandlerEntry)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", deliveringLockKey)
+			return
+		}
+
+		return
+	}
+
+	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
 	log.Info().Msg("Lock acquired for DeliveringHandler")
 
 	defer func() {
-		if err := cache.DeliveringHandler.Unlock(ctx, deliveringLockKey); err != nil {
-			log.Error().Msgf("Error while unlocking DeliveringHandler: %v", err)
+		if acquired {
+			if err = cache.RepublishingCache.Unlock(ctx, deliveringLockKey); err != nil {
+				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
+			}
+			log.Info().Msg("Lock released for DeliveringHandler")
 		}
-		log.Info().Msgf("Unlocking DeliveringHandler")
 	}()
 
 	batchSize := config.Current.Republishing.BatchSize
