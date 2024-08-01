@@ -22,9 +22,9 @@ type DeliveringEntry struct {
 	Name string `json:"name"`
 }
 
-func NewDeliveringEntry(deliveringLockKey string) DeliveringEntry {
+func NewDeliveringEntry(lockKey string) DeliveringEntry {
 	return DeliveringEntry{
-		Name: deliveringLockKey,
+		Name: lockKey,
 	}
 }
 
@@ -41,7 +41,7 @@ func checkDeliveringEvents() {
 	}
 
 	if deliveringHandlerEntry == nil {
-		deliveringHandlerEntry = NewDeliveringEntry(deliveringLockKey)
+		deliveringHandlerEntry = NewDeliveringEntry("deliveringHandler")
 		err = cache.DeliveringHandler.Set(ctx, deliveringLockKey, deliveringHandlerEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", deliveringLockKey)
@@ -55,6 +55,7 @@ func checkDeliveringEvents() {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
+	log.Info().Msgf("Acquired lock for DeliveringHandler")
 
 	defer func() {
 		if acquired {
