@@ -39,7 +39,7 @@ func TestConnection_FindWaitingMessages(t *testing.T) {
 		}))
 
 		opts := options.Find()
-		messages, err := connection.FindWaitingMessages(time.Now(), opts, expectedMessage.SubscriptionId)
+		messages, _, err := connection.FindWaitingMessages(time.Now(), opts, expectedMessage.SubscriptionId)
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)
 		assert.Equal(t, expectedMessage, messages[0])
@@ -71,7 +71,7 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 		}))
 
 		opts := options.Find()
-		messages, err := connection.FindDeliveringMessagesByDeliveryType(time.Now(), opts)
+		messages, _, err := connection.FindDeliveringMessagesByDeliveryType(time.Now(), opts)
 
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)

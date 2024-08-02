@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/message"
 	mongodrv "go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"pubsub-horizon-golaris/internal/config"
 	"time"
 )
@@ -19,27 +18,22 @@ type MockMongoHandler struct {
 	mock.Mock
 }
 
-func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
-	args := m.Called(timestamp, pageable, subscriptionId)
-	return args.Get(0).([]message.StatusMessage), args.Error(1)
+func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, cursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+	args := m.Called(timestamp, cursor, subscriptionId)
+	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
 }
 
-func (m *MockMongoHandler) FindDeliveringMessagesByDeliveryType(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
-	args := m.Called(timestamp, pageable)
-	return args.Get(0).([]message.StatusMessage), args.Error(1)
+func (m *MockMongoHandler) FindDeliveringMessagesByDeliveryType(timestamp time.Time, cursor any) ([]message.StatusMessage, any, error) {
+	args := m.Called(timestamp, cursor)
+	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
 }
 
-func (m *MockMongoHandler) FindWaitingAndDeliveringMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
-	args := m.Called(timestamp, pageable, subscriptionId)
-	return args.Get(0).([]message.StatusMessage), args.Error(1)
+func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, cursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+	args := m.Called(timestamp, cursor, subscriptionId)
+	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
 }
 
-func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
-	args := m.Called(timestamp, pageable, subscriptionId)
-	return args.Get(0).([]message.StatusMessage), args.Error(1)
-}
-
-func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
-	args := m.Called(timestamp, pageable)
-	return args.Get(0).([]message.StatusMessage), args.Error(1)
+func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, cursor any) ([]message.StatusMessage, any, error) {
+	args := m.Called(timestamp, cursor)
+	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
 }

@@ -75,7 +75,7 @@ func checkDeliveringEvents() {
 	deliveringStatesOffsetMins := config.Current.Republishing.DeliveringStatesOffsetMins
 	upperThresholdTimestamp := time.Now().Add(-deliveringStatesOffsetMins * time.Minute)
 
-	dbMessages, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, opts)
+	dbMessages, _, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, opts)
 	if err != nil {
 		log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
 		return
