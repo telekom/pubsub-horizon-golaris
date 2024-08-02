@@ -45,8 +45,6 @@ var cancelMapMutex sync.RWMutex
 
 var DeliveringHandler HazelcastMapInterface
 var FailedHandler HazelcastMapInterface
-var DeliveringLockKey = "DeliveringHandlerLock"
-var FailedLockKey = "FailedHandlerLock"
 
 func SetCancelStatus(subscriptionId string, status bool) {
 	cancelMapMutex.Lock()

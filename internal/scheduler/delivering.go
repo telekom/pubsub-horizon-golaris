@@ -3,6 +3,7 @@ package scheduler
 import (
 	"context"
 	"encoding/gob"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/cache"
@@ -29,18 +30,19 @@ func NewDeliveringEntry(lockKey string) DeliveringEntry {
 
 func checkDeliveringEvents() {
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
+	lockKey := uuid.New().String()
 
-	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, cache.DeliveringLockKey)
+	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, lockKey)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", cache.DeliveringLockKey)
+		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", lockKey)
 		return
 	}
 
 	if deliveringHandlerEntry == nil {
-		deliveringHandlerEntry = NewDeliveringEntry(cache.DeliveringLockKey)
-		err = cache.DeliveringHandler.Set(ctx, cache.DeliveringLockKey, deliveringHandlerEntry)
+		deliveringHandlerEntry = NewDeliveringEntry(lockKey)
+		err = cache.DeliveringHandler.Set(ctx, lockKey, deliveringHandlerEntry)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", cache.DeliveringLockKey)
+			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", lockKey)
 			return
 		}
 
@@ -48,7 +50,7 @@ func checkDeliveringEvents() {
 	}
 
 	var acquired bool
-	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
+	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
@@ -56,7 +58,7 @@ func checkDeliveringEvents() {
 
 	defer func() {
 		if acquired {
-			if err = cache.DeliveringHandler.Unlock(ctx, cache.DeliveringLockKey); err != nil {
+			if err = cache.DeliveringHandler.Unlock(ctx, lockKey); err != nil {
 				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 			}
 			log.Info().Msg("Lock released for DeliveringHandler")
