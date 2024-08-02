@@ -47,7 +47,7 @@ func TestRepublishPendingEvents(t *testing.T) {
 			},
 		}
 
-		republishEntry := RepublishingCache{
+		republishEntry := RepublishingCacheEntry{
 			OldDeliveryType: "callback",
 		}
 

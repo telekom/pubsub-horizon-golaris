@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type HealthCheck struct {
+type HealthCheckCacheEntry struct {
 	Environment       string    `json:"environment"`
 	Method            string    `json:"method"`
 	CallbackUrl       string    `json:"callbackUrl"`
@@ -18,8 +18,8 @@ type HealthCheck struct {
 }
 
 type PreparedHealthCheckData struct {
-	Ctx              context.Context `json:"ctx"`
-	HealthCheckKey   string          `json:"healthCheckKey"`
-	HealthCheckEntry HealthCheck     `json:"healthCheckEntry"`
-	IsAcquired       bool            `json:"isAcquired"`
+	Ctx              context.Context       `json:"ctx"`
+	HealthCheckKey   string                `json:"healthCheckKey"`
+	HealthCheckEntry HealthCheckCacheEntry `json:"healthCheckEntry"`
+	IsAcquired       bool                  `json:"isAcquired"`
 }

@@ -23,9 +23,9 @@ import (
 
 type CircuitBreakerResponse struct {
 	message.CircuitBreakerMessage
-	HealthCheck  healthcheck.HealthCheck `json:"healthCheck,omitempty"`
-	SubscriberId string                  `json:"subscriberId,omitempty"`
-	PublisherId  string                  `json:"publisherId,omitempty"`
+	HealthCheck  healthcheck.HealthCheckCacheEntry `json:"healthCheck,omitempty"`
+	SubscriberId string                            `json:"subscriberId,omitempty"`
+	PublisherId  string                            `json:"publisherId,omitempty"`
 }
 
 func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
@@ -89,7 +89,7 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 	}
 
 	// Set new republishing entry to pick the last waiting
-	err = cache.RepublishingCache.Set(ctx.Context(), subscriptionId, republish.RepublishingCache{SubscriptionId: subscriptionId})
+	err = cache.RepublishingCache.Set(ctx.Context(), subscriptionId, republish.RepublishingCacheEntry{SubscriptionId: subscriptionId})
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while setting Republishing Cache entry for subscription %s", subscriptionId)
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error to set the republishing cache entry")
@@ -132,7 +132,8 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 		return
 	} else {
 		if healthCheck != nil {
-			res.HealthCheck = healthCheck.(healthcheck.HealthCheck)
+			res.HealthCheck = healthCheck.(healthcheck.HealthCheckCacheEntry)
 		}
 	}
 }
+

@@ -40,7 +40,7 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	var assertions = assert.New(t)
 
 	// Mock republishPendingEventsFunc
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {}
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {}
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -50,7 +50,7 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
 	ctx := context.Background()
-	republishingCacheEntry := RepublishingCache{
+	republishingCacheEntry := RepublishingCacheEntry{
 		SubscriptionId:   testSubscriptionId,
 		RepublishingUpTo: time.Now(),
 	}
@@ -69,7 +69,7 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {}
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {}
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -80,7 +80,7 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 
 	ctx := context.Background()
 
-	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
 	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
 
@@ -140,7 +140,7 @@ func TestRepublishEvents(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(subscription, RepublishingCache{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
@@ -154,7 +154,7 @@ func Test_Unlock_RepublishingEntryLocked(t *testing.T) {
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 	ctx := context.Background()
-	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
 	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
 
@@ -173,7 +173,7 @@ func Test_Unlock_RepublishingEntryUnlocked(t *testing.T) {
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 	ctx := context.Background()
-	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
 
 	// call the function under test
@@ -191,7 +191,7 @@ func Test_ForceDelete_RepublishingEntryLocked(t *testing.T) {
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 	ctx := context.Background()
-	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
 	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
 
@@ -209,7 +209,7 @@ func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
 	ctx := context.Background()
-	republishingCacheEntry := RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
 
 	// call the function under test

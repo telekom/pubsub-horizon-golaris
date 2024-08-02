@@ -17,7 +17,7 @@ import (
 )
 
 type HealthCheckResponse struct {
-	healthcheck.HealthCheck
+	healthcheck.HealthCheckCacheEntry
 	SubscriptionIds []string `json:"subscriptionIds"`
 }
 
@@ -34,15 +34,15 @@ func getAllHealthChecks(ctx *fiber.Ctx) error {
 	}{make([]HealthCheckResponse, 0)}
 
 	for _, value := range values {
-		healthCheck := value.(healthcheck.HealthCheck)
+		healthCheck := value.(healthcheck.HealthCheckCacheEntry)
 		body.Items = append(body.Items, makeResponse(&healthCheck))
 	}
 
 	return ctx.Status(fiber.StatusOK).JSON(body)
 }
 
-func makeResponse(healthCheck *healthcheck.HealthCheck) HealthCheckResponse {
-	var res = HealthCheckResponse{HealthCheck: *healthCheck}
+func makeResponse(healthCheck *healthcheck.HealthCheckCacheEntry) HealthCheckResponse {
+	var res = HealthCheckResponse{HealthCheckCacheEntry: *healthCheck}
 	populateHealthCheckResponse(&res)
 	return res
 }

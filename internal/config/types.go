@@ -4,7 +4,9 @@
 
 package config
 
-import "time"
+import (
+	"time"
+)
 
 type Configuration struct {
 	LogLevel       string         `mapstructure:"logLevel"`
@@ -21,7 +23,10 @@ type Configuration struct {
 }
 
 type CircuitBreaker struct {
-	OpenCbCheckInterval time.Duration `mapstructure:"openCbCheckInterval"`
+	OpenCheckInterval       time.Duration `mapstructure:"openCheckInterval"`
+	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
+	ExponentialBackoffBase    time.Duration `mapstructure:"exponentialBackoffBase"`
+	ExponentialBackoffMax     time.Duration `mapstructure:"exponentialBackoffMax"`
 }
 
 type HealthCheck struct {

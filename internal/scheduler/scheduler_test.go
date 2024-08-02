@@ -102,7 +102,7 @@ func TestCheckRepublishingEntries_SubscriptionExists(t *testing.T) {
 		cache.RepublishingCache.Delete(ctx, testSubscriptionId)
 	}
 
-	republishingCacheEntry := republish.RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
 	// Set mocked republishing cache entry in the cache
@@ -129,7 +129,7 @@ func TestCheckRepublishingEntries_NoSubscription(t *testing.T) {
 	// Mock HandleRepublishingEntry function
 	HandleRepublishingEntryFunc = func(subscription *resource.SubscriptionResource) {}
 
-	republishingCacheEntry := republish.RepublishingCache{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
+	republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: testSubscriptionId, RepublishingUpTo: time.Now()}
 
 	// Set mocked republishing cache entry in the cache
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
