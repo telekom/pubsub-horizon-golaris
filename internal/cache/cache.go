@@ -7,6 +7,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/types"
 	"github.com/rs/zerolog/log"
@@ -45,6 +46,8 @@ var cancelMapMutex sync.RWMutex
 
 var DeliveringHandler HazelcastMapInterface
 var FailedHandler HazelcastMapInterface
+var DeliveringLockKey = "delivering" + uuid.New().String()
+var FailedLockKey = "failed" + uuid.New().String()
 
 func SetCancelStatus(subscriptionId string, status bool) {
 	cancelMapMutex.Lock()
