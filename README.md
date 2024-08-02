@@ -35,8 +35,6 @@ For the optimal setup, ensure you have:
 - A running hazelcast host
 
 ## Building Golaris
-
-## Building Quasar
 ### Go build
 
 Assuming you have already installed [Go](https://go.dev/), simply run the following to build the executable:
