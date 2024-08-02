@@ -45,7 +45,7 @@ func recordCircuitBreaker(subscriptionId string, eventType string, open bool) {
 
 func PopulateFromCache() {
 	var cbc = cache.CircuitBreakerCache
-	circuitBreakers, err := cbc.GetQuery("circuit-breakers", predicate.True())
+	circuitBreakers, err := cbc.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, predicate.True())
 	if err != nil {
 		log.Warn().Err(err).Msg("could initialize metrics from circuit-breakers map")
 	}
@@ -59,7 +59,7 @@ func PopulateFromCache() {
 func ListenForChanges() {
 	var cbc = cache.CircuitBreakerCache
 	var listener = new(CircuitBreakerListener)
-	if err := cbc.AddListener("circuit-breakers", listener); err != nil {
+	if err := cbc.AddListener(config.Current.Hazelcast.Caches.CircuitBreakerCache, listener); err != nil {
 		log.Warn().Err(err).Msg("could not register listener for circuit-breakers map")
 	}
 }
