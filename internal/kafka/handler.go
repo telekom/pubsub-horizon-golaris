@@ -165,6 +165,7 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 			}
 		}
 	}
+	messageValue["status"] = "PROCESSED"
 
 	modifiedValue, err := json.Marshal(messageValue)
 	if err != nil {
