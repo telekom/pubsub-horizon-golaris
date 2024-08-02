@@ -110,15 +110,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		var dbMessages []message.StatusMessage
 		var err error
 
-		var cursor any
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
-			dbMessages, _, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), cursor, subscriptionId)
+			dbMessages, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
 		} else {
-			dbMessages, _, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), cursor, subscriptionId)
+			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
 			}

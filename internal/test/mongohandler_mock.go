@@ -18,22 +18,22 @@ type MockMongoHandler struct {
 	mock.Mock
 }
 
-func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, cursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
-	args := m.Called(timestamp, cursor, subscriptionId)
-	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
+func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, subscriptionId string) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp, subscriptionId)
+	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
 
-func (m *MockMongoHandler) FindDeliveringMessagesByDeliveryType(timestamp time.Time, cursor any) ([]message.StatusMessage, any, error) {
-	args := m.Called(timestamp, cursor)
-	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
+func (m *MockMongoHandler) FindDeliveringMessagesByDeliveryType(timestamp time.Time) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp)
+	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
 
-func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, cursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
-	args := m.Called(timestamp, cursor, subscriptionId)
-	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
+func (m *MockMongoHandler) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, subscriptionId string) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp, subscriptionId)
+	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }
 
-func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, cursor any) ([]message.StatusMessage, any, error) {
-	args := m.Called(timestamp, cursor)
-	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
+func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time) ([]message.StatusMessage, error) {
+	args := m.Called(timestamp)
+	return args.Get(0).([]message.StatusMessage), args.Error(1)
 }

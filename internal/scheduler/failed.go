@@ -5,8 +5,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/tracing"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -18,11 +16,9 @@ func checkFailedEvents() {
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
-	opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
-
 	var dbMessages []message.StatusMessage
 	var err error
-	dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), opts)
+	dbMessages, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now())
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
 		return

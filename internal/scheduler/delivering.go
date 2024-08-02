@@ -5,8 +5,6 @@ import (
 	"encoding/gob"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/tracing"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -70,12 +68,10 @@ func checkDeliveringEvents() {
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
 
-	opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
-
 	deliveringStatesOffsetMins := config.Current.Republishing.DeliveringStatesOffsetMins
 	upperThresholdTimestamp := time.Now().Add(-deliveringStatesOffsetMins * time.Minute)
 
-	dbMessages, _, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, opts)
+	dbMessages, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp)
 	if err != nil {
 		log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
 		return

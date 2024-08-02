@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) findMessagesByQuery(query bson.M) ([]message.StatusMessage, error) {
 	var batchSize = config.Current.Republishing.BatchSize
 
 	opts := options.Find().
@@ -23,15 +23,10 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
-	// If a lastCursor is provided, add it to the query to retrieve only documents after this timestamp.
-	if lastCursor != nil {
-		query["timestamp"] = bson.M{"$gt": lastCursor}
-	}
-
 	cursor, err := collection.Find(context.Background(), query, opts)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error finding documents: %v", err)
-		return nil, nil, err
+		return nil, err
 	}
 
 	var messages []message.StatusMessage
@@ -40,7 +35,7 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 		var msg message.StatusMessage
 		if err := cursor.Decode(&msg); err != nil {
 			log.Error().Err(err).Msgf("Error decoding document: %v", err)
-			return nil, nil, err
+			return nil, err
 		}
 		messages = append(messages, msg)
 		if len(messages) >= int(batchSize) {
@@ -50,19 +45,13 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 
 	if err := cursor.Err(); err != nil {
 		log.Error().Err(err).Msgf("Error iterating cursor: %v", err)
-		return nil, nil, err
+		return nil, err
 	}
 
-	// Set the lastCursor to the timestamp of the last message in the list,
-	// so that the next fetch only retrieves messages after this timestamp.
-	if len(messages) > 0 {
-		lastCursor = messages[len(messages)-1].Timestamp
-	}
-
-	return messages, lastCursor, nil
+	return messages, nil
 }
 
-func (connection Connection) FindWaitingMessages(timestamp time.Time, cursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindWaitingMessages(timestamp time.Time, subscriptionId string) ([]message.StatusMessage, error) {
 	query := bson.M{
 		"status":         "WAITING",
 		"subscriptionId": subscriptionId,
@@ -71,10 +60,10 @@ func (connection Connection) FindWaitingMessages(timestamp time.Time, cursor any
 		},
 	}
 
-	return connection.findMessagesByQuery(query, cursor)
+	return connection.findMessagesByQuery(query)
 }
 
-func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, cursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, subscriptionId string) ([]message.StatusMessage, error) {
 	query := bson.M{
 		"status":         "PROCESSED",
 		"deliveryType":   "SERVER_SENT_EVENT",
@@ -84,10 +73,10 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp ti
 		},
 	}
 
-	return connection.findMessagesByQuery(query, cursor)
+	return connection.findMessagesByQuery(query)
 }
 
-func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, cursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time) ([]message.StatusMessage, error) {
 	query := bson.M{
 		"status": "DELIVERING",
 		"modified": bson.M{
@@ -95,10 +84,10 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 		},
 	}
 
-	return connection.findMessagesByQuery(query, cursor)
+	return connection.findMessagesByQuery(query)
 }
 
-func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, cursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time) ([]message.StatusMessage, error) {
 	query := bson.M{
 		"status":    "FAILED",
 		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",
@@ -107,5 +96,5 @@ func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(
 		},
 	}
 
-	return connection.findMessagesByQuery(query, cursor)
+	return connection.findMessagesByQuery(query)
 }
