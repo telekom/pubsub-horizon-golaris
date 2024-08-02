@@ -10,12 +10,23 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"pubsub-horizon-golaris/internal/config"
 	"time"
 )
 
 func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) ([]message.StatusMessage, any, error) {
-	opts := options.Find().SetBatchSize(int32(10)).SetSort(bson.D{{Key: "timestamp", Value: 1}})
+	var batchSize = config.Current.Republishing.BatchSize
+
+	opts := options.Find().
+		SetBatchSize(int32(batchSize)).
+		SetSort(bson.D{{Key: "timestamp", Value: 1}})
+
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
+
+	// If a lastCursor is provided, add it to the query to retrieve only documents after this timestamp.
+	if lastCursor != nil {
+		query["timestamp"] = bson.M{"$gt": lastCursor}
+	}
 
 	cursor, err := collection.Find(context.Background(), query, opts)
 	if err != nil {
@@ -24,11 +35,26 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 	}
 
 	var messages []message.StatusMessage
-	if err = cursor.All(context.Background(), &messages); err != nil {
-		log.Error().Err(err).Msgf("Error reading documents from cursor: %v", err)
+	// Iterate through the results in the cursor.
+	for cursor.Next(context.Background()) {
+		var msg message.StatusMessage
+		if err := cursor.Decode(&msg); err != nil {
+			log.Error().Err(err).Msgf("Error decoding document: %v", err)
+			return nil, nil, err
+		}
+		messages = append(messages, msg)
+		if len(messages) >= int(batchSize) {
+			break
+		}
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Error().Err(err).Msgf("Error iterating cursor: %v", err)
 		return nil, nil, err
 	}
 
+	// Set the lastCursor to the timestamp of the last message in the list,
+	// so that the next fetch only retrieves messages after this timestamp.
 	if len(messages) > 0 {
 		lastCursor = messages[len(messages)-1].Timestamp
 	}
