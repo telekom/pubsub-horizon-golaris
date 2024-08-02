@@ -121,7 +121,7 @@ func TestRepublishEvents(t *testing.T) {
 	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
 
 	// Expectations for the batch
-	mockMongo.On("FindWaitingMessages", mock.Anything, subscriptionId).Return(dbMessages, nil).Once()
+	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
 
 	mockKafka.On("PickMessage", mock.AnythingOfType("message.StatusMessage")).Return(&kafkaMessage, nil).Twice()
 	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()

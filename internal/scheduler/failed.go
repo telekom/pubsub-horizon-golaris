@@ -18,7 +18,8 @@ func checkFailedEvents() {
 
 	var dbMessages []message.StatusMessage
 	var err error
-	dbMessages, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now())
+	var lastCursor any
+	dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
 		return

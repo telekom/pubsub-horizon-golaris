@@ -10,8 +10,8 @@ import (
 )
 
 type HandlerInterface interface {
-	FindWaitingMessages(timestamp time.Time, subscriptionId string) ([]message.StatusMessage, error)
-	FindDeliveringMessagesByDeliveryType(timestamp time.Time) ([]message.StatusMessage, error)
-	FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, subscriptionId string) ([]message.StatusMessage, error)
-	FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time) ([]message.StatusMessage, error)
+	FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error)
+	FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
+	FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error)
+	FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
 }

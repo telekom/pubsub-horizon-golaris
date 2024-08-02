@@ -6,6 +6,7 @@ package mongo
 
 import (
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
@@ -37,7 +38,7 @@ func TestConnection_FindWaitingMessages(t *testing.T) {
 			{"subscriptionId", expectedMessage.SubscriptionId},
 		}))
 
-		messages, err := connection.FindWaitingMessages(time.Now(), expectedMessage.SubscriptionId)
+		messages, _, err := connection.FindWaitingMessages(time.Now(), expectedMessage.SubscriptionId, mock.Anything)
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)
 		assert.Equal(t, expectedMessage, messages[0])
@@ -68,7 +69,7 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 			{"subscriptionId", expectedMessage.SubscriptionId},
 		}))
 
-		messages, err := connection.FindDeliveringMessagesByDeliveryType(time.Now())
+		messages, _, err := connection.FindDeliveringMessagesByDeliveryType(time.Now(), mock.Anything)
 
 		assert.NoError(t, err)
 		assert.Len(t, messages, 1)
