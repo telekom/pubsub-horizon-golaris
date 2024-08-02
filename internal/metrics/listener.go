@@ -15,7 +15,9 @@ import (
 type CircuitBreakerListener struct{}
 
 func (c *CircuitBreakerListener) OnAdd(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage) {
-	// Nothing to do!
+	var open = obj.Status == enum.CircuitBreakerStatusOpen
+	var subscriptionId = event.Key.(string)
+	recordCircuitBreaker(subscriptionId, obj.EventType, open)
 }
 
 func (c *CircuitBreakerListener) OnUpdate(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage, oldObj message.CircuitBreakerMessage) {
