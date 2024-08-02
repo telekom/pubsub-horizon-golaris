@@ -16,6 +16,7 @@ type Configuration struct {
 	Republishing   Republishing   `mapstructure:"republishing"`
 	Hazelcast      Hazelcast      `mapstructure:"hazelcast"`
 	Kafka          Kafka          `mapstructure:"kafka"`
+	Metrics        Metrics        `mapstructure:"metrics"`
 	Mongo          Mongo          `mapstructure:"mongo"`
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
@@ -57,6 +58,10 @@ type Caches struct {
 type Kafka struct {
 	Brokers []string `mapstructure:"brokers"`
 	Topics  []string `mapstructure:"topics"`
+}
+
+type Metrics struct {
+	Enabled bool `mapstructure:"enabled"`
 }
 
 type Mongo struct {
