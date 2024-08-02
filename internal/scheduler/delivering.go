@@ -33,7 +33,7 @@ func checkDeliveringEvents() {
 
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
 
-	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond); !acquired {
+	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", lockKey)
 		return
 	}
