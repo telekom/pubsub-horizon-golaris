@@ -28,29 +28,27 @@ func NewDeliveringEntry(lockKey string) DeliveringEntry {
 }
 
 func checkDeliveringEvents() {
-	var acquired = false
-
-	deliveringLockKey := "DeliveringHandlerLock"
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
 
-	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, deliveringLockKey)
+	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, cache.DeliveringLockKey)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", deliveringLockKey)
+		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", cache.DeliveringLockKey)
 		return
 	}
 
 	if deliveringHandlerEntry == nil {
-		deliveringHandlerEntry = NewDeliveringEntry("DeliveringHandler")
-		err = cache.DeliveringHandler.Set(ctx, deliveringLockKey, deliveringHandlerEntry)
+		deliveringHandlerEntry = NewDeliveringEntry(cache.DeliveringLockKey)
+		err = cache.DeliveringHandler.Set(ctx, cache.DeliveringLockKey, deliveringHandlerEntry)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", deliveringLockKey)
+			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", cache.DeliveringLockKey)
 			return
 		}
 
 		return
 	}
 
-	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, deliveringLockKey, 10*time.Millisecond); !acquired {
+	var acquired bool
+	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
 		return
 	}
@@ -58,7 +56,7 @@ func checkDeliveringEvents() {
 
 	defer func() {
 		if acquired {
-			if err = cache.DeliveringHandler.Unlock(ctx, deliveringLockKey); err != nil {
+			if err = cache.DeliveringHandler.Unlock(ctx, cache.DeliveringLockKey); err != nil {
 				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 			}
 			log.Info().Msg("Lock released for DeliveringHandler")
@@ -72,7 +70,7 @@ func checkDeliveringEvents() {
 	upperThresholdTimestamp := time.Now().Add(-deliveringStatesOffsetMins * time.Minute)
 	var lastCursor any
 
-	dbMessages, _, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, lastCursor)
+	dbMessages, lastCursor, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, lastCursor)
 	if err != nil {
 		log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
 		return
