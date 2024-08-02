@@ -210,7 +210,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	}
 
 	log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 }
 
 func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
