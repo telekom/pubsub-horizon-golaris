@@ -35,7 +35,6 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 	}
 
 	var messages []message.StatusMessage
-	var newLastCursor any
 	// Iterate through the results in the cursor.
 	for cursor.Next(context.Background()) {
 		var msg message.StatusMessage
@@ -44,7 +43,7 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 			return nil, nil, err
 		}
 		messages = append(messages, msg)
-		newLastCursor = msg.Timestamp
+		lastCursor = msg.Timestamp
 
 		if len(messages) >= int(batchSize) {
 			break
@@ -56,7 +55,7 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 		return nil, nil, err
 	}
 
-	return messages, newLastCursor, nil
+	return messages, lastCursor, nil
 }
 
 func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
