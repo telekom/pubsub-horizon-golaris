@@ -18,12 +18,12 @@ func init() {
 }
 
 type DeliveringEntry struct {
-	Name string `json:"name"`
+	Entry string `json:"entry"`
 }
 
 func NewDeliveringEntry(lockKey string) DeliveringEntry {
 	return DeliveringEntry{
-		Name: lockKey,
+		Entry: lockKey,
 	}
 }
 
@@ -31,8 +31,6 @@ func checkDeliveringEvents() {
 	lockKey := cache.DeliveringLockKey
 
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
-
-	log.Info().Msgf("Checking lockKey: %v for DeliveringHandler", lockKey)
 
 	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, lockKey)
 	if err != nil {
@@ -49,15 +47,10 @@ func checkDeliveringEvents() {
 		}
 	}
 
-	var acquired bool
-	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond); !acquired {
-		log.Debug().Msgf("Could not acquire lock for DeliveringHandler, skipping checkDeliveringEvents")
-		return
-	}
-	log.Info().Msg("Lock acquired for DeliveringHandler")
+	isAcquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond)
 
 	defer func() {
-		if acquired {
+		if isAcquired == true {
 			if err = cache.DeliveringHandler.Unlock(ctx, lockKey); err != nil {
 				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 			}
