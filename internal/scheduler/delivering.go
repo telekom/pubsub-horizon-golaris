@@ -28,30 +28,19 @@ func NewDeliveringEntry(lockKey string) DeliveringEntry {
 }
 
 func checkDeliveringEvents() {
+	var acquired = false
 	lockKey := cache.DeliveringLockKey
 
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
 
-	deliveringHandlerEntry, err := cache.DeliveringHandler.Get(ctx, lockKey)
-	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving DeliveringHandler entry for key %s", lockKey)
+	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond); !acquired {
+		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", lockKey)
 		return
 	}
 
-	if deliveringHandlerEntry == nil {
-		deliveringHandlerEntry = NewDeliveringEntry(lockKey)
-		err = cache.DeliveringHandler.Set(ctx, lockKey, deliveringHandlerEntry)
-		if err != nil {
-			log.Error().Err(err).Msgf("Error setting DeliveringHandler entry for key %s", lockKey)
-			return
-		}
-	}
-
-	isAcquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, lockKey, 10*time.Millisecond)
-
 	defer func() {
-		if isAcquired == true {
-			if err = cache.DeliveringHandler.Unlock(ctx, lockKey); err != nil {
+		if acquired {
+			if err := cache.DeliveringHandler.Unlock(ctx, lockKey); err != nil {
 				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 			}
 			log.Info().Msg("Lock released for DeliveringHandler")
