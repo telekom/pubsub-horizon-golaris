@@ -92,8 +92,6 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 		},
 	}
 
-	log.Debug().Msgf("MongoDB Query: %v", query)
-
 	return connection.findMessagesByQuery(query, lastCursor)
 }
 

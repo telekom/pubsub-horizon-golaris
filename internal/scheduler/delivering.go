@@ -30,11 +30,7 @@ func NewDeliveringEntry(lockKey string) DeliveringEntry {
 func checkDeliveringEvents() {
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
 
-	log.Info().Msgf("DeliveringLockKey: %s", cache.DeliveringLockKey)
-	log.Info().Msgf("Type of DeliveringLockKey: %T", cache.DeliveringLockKey)
-	log.Info().Msgf("Adress of DeliveringLockKey: %p", &cache.DeliveringLockKey)
-
-	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
+	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Second); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", cache.DeliveringLockKey)
 		return
 	}
@@ -68,7 +64,6 @@ func checkDeliveringEvents() {
 	upperThresholdTimestamp := time.Now().Add(-time.Duration(deliveringStatesOffsetMins) * time.Minute)
 	var lastCursor any
 
-	log.Info().Msgf("Calculated upperThresholdTimestamp: %v", upperThresholdTimestamp)
 	dbMessages, lastCursor, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, lastCursor)
 	if err != nil {
 		log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
