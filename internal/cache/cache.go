@@ -7,7 +7,6 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/types"
 	"github.com/rs/zerolog/log"
@@ -69,8 +68,8 @@ func Initialize() {
 		log.Panic().Err(err).Msg("error while initializing caches")
 	}
 
-	DeliveringLockKey = "delivering_" + uuid.New().String()
-	FailedLockKey = "failed_" + uuid.New().String()
+	DeliveringLockKey = "delivering"
+	FailedLockKey = "failed"
 }
 
 func createNewHazelcastConfig() hazelcast.Config {
