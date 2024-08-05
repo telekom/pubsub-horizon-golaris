@@ -28,24 +28,34 @@ func NewDeliveringEntry(lockKey string) DeliveringEntry {
 }
 
 func checkDeliveringEvents() {
-	var acquired = false
-	lockKey := cache.DeliveringLockKey
-
 	ctx := cache.DeliveringHandler.NewLockContext(context.Background())
 
-	if acquired, _ = cache.DeliveringHandler.TryLockWithTimeout(ctx, config.Current.Handler.Delivering, 10*time.Millisecond); !acquired {
-		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", lockKey)
+	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
+		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", cache.DeliveringLockKey)
 		return
 	}
 
 	defer func() {
-		if acquired {
-			if err := cache.DeliveringHandler.Unlock(ctx, config.Current.Handler.Delivering); err != nil {
-				log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
-			}
-			log.Info().Msg("Lock released for DeliveringHandler")
+		if err := cache.DeliveringHandler.Unlock(ctx, cache.DeliveringLockKey); err != nil {
+			log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 		}
+		log.Info().Msg("Lock released for DeliveringHandler")
 	}()
+
+	entry, err := cache.DeliveringHandler.Get(ctx, cache.DeliveringLockKey)
+	if err != nil {
+		log.Error().Err(err).Msg("Error while fetching DeliveringHandler entry")
+		return
+	}
+
+	if entry == nil {
+		newEntry := NewDeliveringEntry(cache.DeliveringLockKey)
+		err = cache.DeliveringHandler.Set(ctx, cache.DeliveringLockKey, newEntry)
+		if err != nil {
+			log.Error().Err(err).Msg("Error while setting DeliveringHandler entry")
+			return
+		}
+	}
 
 	batchSize := config.Current.Republishing.BatchSize
 	page := int64(0)
