@@ -38,7 +38,7 @@ func StartScheduler() {
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
 		checkRepublishingEntries()
 		go checkDeliveringEvents()
-		checkFailedEvents()
+		go checkFailedEvents()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
 	}
