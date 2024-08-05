@@ -88,7 +88,7 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 	query := bson.M{
 		"status": "DELIVERING",
 		"modified": bson.M{
-			"$lte": timestamp.UTC(),
+			"$lte": timestamp,
 		},
 	}
 

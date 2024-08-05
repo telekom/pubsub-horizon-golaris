@@ -33,7 +33,7 @@ type Republishing struct {
 	CheckInterval              time.Duration `mapstructure:"checkInterval"`
 	BatchSize                  int64         `mapstructure:"batchSize"`
 	ThrottlingIntervalTime     time.Duration `mapstructure:"throttlingIntervalTime"`
-	DeliveringStatesOffsetMins time.Duration `mapstructure:"deliveringStatesOffsetMins"`
+	DeliveringStatesOffsetMins int           `mapstructure:"deliveringStatesOffsetMins"`
 }
 
 type Hazelcast struct {
