@@ -88,9 +88,11 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 	query := bson.M{
 		"status": "DELIVERING",
 		"modified": bson.M{
-			"$lte": timestamp,
+			"$lte": timestamp.UTC(),
 		},
 	}
+
+	log.Debug().Msgf("MongoDB Query: %v", query)
 
 	return connection.findMessagesByQuery(query, lastCursor)
 }
