@@ -1,4 +1,4 @@
-package scheduler
+package handler
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func checkDeliveringEvents() {
+func CheckDeliveringEvents() {
 	var ctx = cache.DeliveringHandler.NewLockContext(context.Background())
 
 	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {

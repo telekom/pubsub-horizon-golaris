@@ -1,9 +1,11 @@
-package scheduler
+package handler
 
 import (
+	"context"
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/message"
+	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
@@ -18,6 +20,14 @@ func TestCheckDeliveringEvents(t *testing.T) {
 	mockKafka := new(test.MockKafkaHandler)
 	kafka.CurrentHandler = mockKafka
 
+	deliveringHandler := new(test.DeliveringMockHandler)
+	cache.DeliveringHandler = deliveringHandler
+
+	deliveringHandler.On("NewLockContext", mock.Anything).Return(context.Background())
+	deliveringHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+
+	config.Current.Republishing.BatchSize = 5
 	config.Current.Republishing.DeliveringStatesOffsetMins = 30
 
 	partitionValue1 := int32(1)
@@ -59,7 +69,7 @@ func TestCheckDeliveringEvents(t *testing.T) {
 	mockKafka.On("PickMessage", mock.AnythingOfType("message.StatusMessage")).Return(expectedKafkaMessage, nil)
 	mockKafka.On("RepublishMessage", expectedKafkaMessage, "", "").Return(nil)
 
-	checkDeliveringEvents()
+	CheckDeliveringEvents()
 
 	mockMongo.AssertExpectations(t)
 	mockMongo.AssertCalled(t, "FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything)

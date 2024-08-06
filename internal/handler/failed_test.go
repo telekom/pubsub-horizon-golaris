@@ -1,6 +1,7 @@
-package scheduler
+package handler
 
 import (
+	"context"
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
@@ -24,7 +25,15 @@ func TestCheckFailedEvents(t *testing.T) {
 	mockCache := new(test.SubscriptionMockCache)
 	cache.SubscriptionCache = mockCache
 
-	// Testdaten
+	failedHandler := new(test.FailedMockHandler)
+	cache.FailedHandler = failedHandler
+
+	failedHandler.On("NewLockContext", mock.Anything).Return(context.Background())
+	failedHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	failedHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+
+	config.Current.Republishing.BatchSize = 5
+
 	partitionValue := int32(1)
 	offsetValue := int64(100)
 
@@ -52,11 +61,9 @@ func TestCheckFailedEvents(t *testing.T) {
 		},
 	}
 
-	// Mock-Antworten einrichten
 	mockMongo.On("FindFailedMessagesWithCallbackUrlNotFoundException", mock.Anything, mock.Anything).Return(dbMessage, nil, nil)
 	mockCache.On("Get", config.Current.Hazelcast.Caches.SubscriptionCache, "sub123").Return(subscription, nil)
 
-	// Erwartete Kafka-Nachricht
 	expectedKafkaMessage := &sarama.ConsumerMessage{
 		Topic:     "test-topic",
 		Partition: 1,
@@ -65,14 +72,11 @@ func TestCheckFailedEvents(t *testing.T) {
 		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
-	// Setze die Erwartungen für den Kafka-Handler
 	mockKafka.On("PickMessage", mock.AnythingOfType("message.StatusMessage")).Return(expectedKafkaMessage, nil)
 	mockKafka.On("RepublishMessage", mock.Anything, "SERVER_SENT_EVENT", "").Return(nil)
 
-	// Funktion aufrufen
-	checkFailedEvents()
+	CheckFailedEvents()
 
-	// Überprüfe die Erwartungen
 	mockMongo.AssertExpectations(t)
 	mockMongo.AssertCalled(t, "FindFailedMessagesWithCallbackUrlNotFoundException", mock.Anything, mock.Anything)
 

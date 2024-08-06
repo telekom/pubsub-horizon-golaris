@@ -1,4 +1,4 @@
-package scheduler
+package handler
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func checkFailedEvents() {
+func CheckFailedEvents() {
 	var ctx = cache.FailedHandler.NewLockContext(context.Background())
 
 	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, cache.FailedLockKey, 10*time.Millisecond); !acquired {
