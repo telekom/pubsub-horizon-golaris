@@ -16,9 +16,6 @@ import (
 	"time"
 )
 
-//ToDo: Listener creates new republishingEntry and endpoint is reachable again. At the same time!!!
-//ToDo: Test field of subscriptionChange with healthCheck
-
 type SubscriptionListener struct{}
 
 func Initialize() {
