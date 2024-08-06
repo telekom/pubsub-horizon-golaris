@@ -43,7 +43,10 @@ func setDefaults() {
 	viper.SetDefault("port", 8080)
 
 	// Processes
-	viper.SetDefault("circuitBreaker.openCbCheckInterval", "30s")
+	viper.SetDefault("circuitBreaker.openCheckInterval", "30s")
+	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "300s")
+	viper.SetDefault("circuitBreaker.exponentialBackoffBase", "1000ms")
+	viper.SetDefault("circuitBreaker.exponentialBackoffMax", "60m")
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
 	viper.SetDefault("republishing.checkInterval", "30s")
@@ -65,6 +68,9 @@ func setDefaults() {
 	// Kafka
 	viper.SetDefault("kafka.brokers", "localhost:9092")
 	viper.SetDefault("kafka.topics", []string{"status"})
+
+	// Metrics
+	viper.SetDefault("metrics.enabled", true)
 
 	// Mongo
 	viper.SetDefault("mongo.url", "mongodb://localhost:27017")

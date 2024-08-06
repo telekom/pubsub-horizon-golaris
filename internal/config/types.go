@@ -4,7 +4,9 @@
 
 package config
 
-import "time"
+import (
+	"time"
+)
 
 type Configuration struct {
 	LogLevel       string         `mapstructure:"logLevel"`
@@ -14,6 +16,7 @@ type Configuration struct {
 	Republishing   Republishing   `mapstructure:"republishing"`
 	Hazelcast      Hazelcast      `mapstructure:"hazelcast"`
 	Kafka          Kafka          `mapstructure:"kafka"`
+	Metrics        Metrics        `mapstructure:"metrics"`
 	Mongo          Mongo          `mapstructure:"mongo"`
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
@@ -21,7 +24,10 @@ type Configuration struct {
 }
 
 type CircuitBreaker struct {
-	OpenCbCheckInterval time.Duration `mapstructure:"openCbCheckInterval"`
+	OpenCheckInterval       time.Duration `mapstructure:"openCheckInterval"`
+	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
+	ExponentialBackoffBase    time.Duration `mapstructure:"exponentialBackoffBase"`
+	ExponentialBackoffMax     time.Duration `mapstructure:"exponentialBackoffMax"`
 }
 
 type HealthCheck struct {
@@ -53,6 +59,10 @@ type Caches struct {
 type Kafka struct {
 	Brokers []string `mapstructure:"brokers"`
 	Topics  []string `mapstructure:"topics"`
+}
+
+type Metrics struct {
+	Enabled bool `mapstructure:"enabled"`
 }
 
 type Mongo struct {

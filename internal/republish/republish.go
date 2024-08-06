@@ -23,9 +23,9 @@ import (
 var republishPendingEventsFunc = RepublishPendingEvents
 var throttler gohalt.Throttler
 
-// register the data type RepublishingCache to gob for encoding and decoding of binary data
+// register the data type RepublishingCacheEntry to gob for encoding and decoding of binary data
 func init() {
-	gob.Register(RepublishingCache{})
+	gob.Register(RepublishingCacheEntry{})
 }
 
 func createThrottler(redeliveriesPerSecond int, deliveryType string) gohalt.Throttler {
@@ -42,58 +42,65 @@ func createThrottler(redeliveriesPerSecond int, deliveryType string) gohalt.Thro
 func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	var acquired = false
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())
-
 	subscriptionId := subscription.Spec.Subscription.SubscriptionId
+
+	// Get the republishing entry from the cache
 	republishingEntry, err := cache.RepublishingCache.Get(ctx, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving RepublishingCache entry for subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error retrieving RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 		return
 	}
 
 	if republishingEntry == nil {
-		log.Debug().Msgf("No RepublishingCache entry found for subscriptionId %s", subscriptionId)
+		log.Debug().Msgf("No RepublishingCacheEntry found for subscriptionId %s", subscriptionId)
+		return
+	}
+
+	castedRepublishCacheEntry, ok := republishingEntry.(RepublishingCacheEntry)
+	if !ok {
+		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
+		return
+	}
+
+	// If republishing entry is postponed in the future skip entry
+	if (castedRepublishCacheEntry.PostponedUntil != time.Time{}) && time.Now().Before(castedRepublishCacheEntry.PostponedUntil) {
+		log.Debug().Msgf("Postponed republishing for subscription %s until %s", subscriptionId, castedRepublishCacheEntry.PostponedUntil)
 		return
 	}
 
 	// Attempt to acquire a lock on the republishing entry
 	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
-		log.Debug().Msgf("Could not acquire lock for RepublishingCache entry, skipping entry for subscriptionId %s", subscriptionId)
+		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
-	log.Debug().Msgf("Successfully locked RepublishingCache entry with subscriptionId %s", subscriptionId)
+	log.Debug().Msgf("Successfully locked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
 		if acquired {
 			err = Unlock(ctx, subscriptionId)
 			if err != nil {
-				log.Debug().Msgf("Failed to unlock RepublishingCache entry with subscriptionId %s and error %v", subscriptionId, err)
+				log.Debug().Msgf("Failed to unlock RepublishingCacheEntry with subscriptionId %s and error %v", subscriptionId, err)
 			}
-			log.Debug().Msgf("Successfully unlocked RepublishingCache entry with subscriptionId %s", subscriptionId)
+			log.Debug().Msgf("Successfully unlocked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 		}
 	}()
 
-	republishCache, ok := republishingEntry.(RepublishingCache)
-	if !ok {
-		log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
-		return
-	}
-
-	republishPendingEventsFunc(subscription, republishCache)
+	republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
 
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry with subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error deleting RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 		return
 	}
 
-	log.Debug().Msgf("Successfully processed RepublishingCache entry with subscriptionId %s", subscriptionId)
+	log.Debug().Msgf("Successfully processed RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 }
 
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 // The function takes a subscriptionId as a parameter.
-func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCache) {
+func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
@@ -166,14 +173,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 
 			if dbMessage.Coordinates == nil {
-				log.Printf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
-				return
+				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", subscriptionId, dbMessage)
+				continue
 			}
 
 			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
 			if err != nil {
 				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
-				return
+				continue
 			}
 
 			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
@@ -202,7 +209,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	}
 }
 
-// ForceDelete attempts to forcefully delete a RepublishingCache entry for a given subscriptionId.
+// ForceDelete attempts to forcefully delete a RepublishingCacheEntry for a given subscriptionId.
 // The function takes two parameters:
 // - subscriptionId: a string representing the subscriptionId of the cache entry to be deleted.
 // - ctx: a context.Context object for managing timeouts and cancellation signals.
@@ -210,24 +217,24 @@ func ForceDelete(ctx context.Context, subscriptionId string) {
 	// Check if the entry is locked
 	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error checking if RepublishingCache entry is locked for subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error checking if RepublishingCacheEntry is locked for subscriptionId %s", subscriptionId)
 	}
 
 	// If locked, unlock it
 	if isLocked {
 		err = cache.RepublishingCache.ForceUnlock(ctx, subscriptionId)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error force-unlocking RepublishingCache entry for subscriptionId %s", subscriptionId)
+			log.Error().Err(err).Msgf("Error force-unlocking RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 		}
 	}
 
 	// Delete the entry
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error deleting RepublishingCache entry for subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error deleting RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 	}
 
-	log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", subscriptionId)
+	log.Debug().Msgf("Successfully deleted RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 	return
 }
 

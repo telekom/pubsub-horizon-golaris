@@ -18,32 +18,32 @@ import (
 	"time"
 )
 
-// register the data type HealthCheck to gob for encoding and decoding of binary data
+// register the data type HealthCheckCacheEntry to gob for encoding and decoding of binary data
 func init() {
-	gob.Register(HealthCheck{})
+	gob.Register(HealthCheckCacheEntry{})
 }
 
-// NewHealthCheckEntry creates a new basic HealthCheck entry with the fields Environment, Method, and CallbackUrl.
-func NewHealthCheckEntry(subscription *resource.SubscriptionResource, httpMethod string) HealthCheck {
-	return HealthCheck{
+// NewHealthCheckEntry creates a new basic HealthCheckCacheEntry  with the fields Environment, Method, and CallbackUrl.
+func NewHealthCheckEntry(subscription *resource.SubscriptionResource, httpMethod string) HealthCheckCacheEntry {
+	return HealthCheckCacheEntry{
 		Environment: subscription.Spec.Environment,
 		Method:      httpMethod,
 		CallbackUrl: subscription.Spec.Subscription.Callback,
 	}
 }
 
-// updateHealthCheckEntry updates a HealthCheck entry with the provided status code and the current time.
-func updateHealthCheckEntry(ctx context.Context, healthCheckKey string, healthCheckData HealthCheck, statusCode int) {
+// updateHealthCheckEntry updates a HealthCheckCacheEntry with the provided status code and the current time.
+func updateHealthCheckEntry(ctx context.Context, healthCheckKey string, healthCheckData HealthCheckCacheEntry, statusCode int) {
 	healthCheckData.LastCheckedStatus = statusCode
 	healthCheckData.LastChecked = time.Now()
 
 	if err := cache.HealthCheckCache.Set(ctx, healthCheckKey, healthCheckData); err != nil {
-		log.Error().Err(err).Msgf("Failed to update HealthCheck for key %s", healthCheckKey)
+		log.Error().Err(err).Msgf("Failed to update HealthCheckCacheEntry for key %s", healthCheckKey)
 	}
 }
 
-// IsHealthCheckInCoolDown compares the HealthCheck entry's LastChecked time with the configured cool down time.
-func IsHealthCheckInCoolDown(healthCheckData HealthCheck) bool {
+// IsHealthCheckInCoolDown compares the HealthCheckCacheEntry's LastChecked time with the configured cool down time.
+func IsHealthCheckInCoolDown(healthCheckData HealthCheckCacheEntry) bool {
 	lastCheckedTime := healthCheckData.LastChecked
 	if lastCheckedTime.IsZero() {
 		return false
@@ -134,7 +134,7 @@ func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedH
 	// Get the health check entry for the healthCacheKey
 	healthCheckEntry, err := cache.HealthCheckCache.Get(ctx, healthCheckKey)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error retrieving HealthCheck entry for key %s", healthCheckKey)
+		log.Error().Err(err).Msgf("Error retrieving HealthCheckCacheEntry for key %s", healthCheckKey)
 	}
 
 	// If no entry exists, create a new one
@@ -145,13 +145,13 @@ func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedH
 			return &PreparedHealthCheckData{}, err
 		}
 
-		log.Debug().Msgf("Creating new HealthCheck entry for key %s", healthCheckKey)
+		log.Debug().Msgf("Creating new HealthCheckCacheEntry for key %s", healthCheckKey)
 	}
 
 	// Attempt to acquire a lock for the health check key
 	isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
 
-	castedHealthCheckEntry := healthCheckEntry.(HealthCheck)
+	castedHealthCheckEntry := healthCheckEntry.(HealthCheckCacheEntry)
 	return &PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}, nil
 }
 

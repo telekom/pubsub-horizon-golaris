@@ -74,7 +74,8 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
-	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+
+	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
 		SubscriptionChange: true,
@@ -83,6 +84,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	openCBMessage := &message.CircuitBreakerMessage{
 		SubscriptionId: subscriptionId,
 		Status:         enum.CircuitBreakerStatusOpen,
+		LoopCounter:    0,
 	}
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything).Return(nil)
@@ -113,13 +115,35 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 		assert.Fail(t, "Goroutine did not complete within the expected time")
 	}
 
-	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
 		SubscriptionChange: true,
 	})
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
+}
+
+func TestSubscriptionListener_OnUpdate_DeliveryTypeToCallback(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+	oldSubscription := createSubscriptionResource(subscriptionId, "sse", false, "", 0)
+	newSubscription := createSubscriptionResource(subscriptionId, "callback", false, "", 0)
+
+	republishMockMap, _ := setupMocks()
+	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
+		SubscriptionId:     subscriptionId,
+		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
+		SubscriptionChange: true,
+	}).Return(nil)
+
+	listener := &SubscriptionListener{}
+	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
+
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
+		SubscriptionId:     subscriptionId,
+		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
+		SubscriptionChange: true,
+	})
 }
 
 func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
@@ -132,7 +156,7 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
-	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    "",
 		SubscriptionChange: true,
@@ -143,7 +167,7 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 
 	assert.False(t, cache.GetCancelStatus(subscriptionId))
 
-	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    "",
 		SubscriptionChange: true,
@@ -160,11 +184,12 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	openCBMessage := &message.CircuitBreakerMessage{
 		SubscriptionId: subscriptionId,
 		Status:         enum.CircuitBreakerStatusOpen,
+		LoopCounter:    0,
 	}
 	circuitBreakerCache.On("Get", "test-circuit-breaker-cache", subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", "test-circuit-breaker-cache", subscriptionId, mock.Anything).Return(nil)
 
-	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		SubscriptionChange: true,
 	}).Return(nil)
@@ -174,7 +199,8 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
-	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		SubscriptionChange: true,
 	})
@@ -190,7 +216,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
-	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		SubscriptionChange: true,
 	}).Return(nil)
@@ -200,7 +226,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 
 	assert.False(t, cache.GetCancelStatus(subscriptionId))
 
-	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCache{
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		SubscriptionChange: true,
 	})
@@ -210,7 +236,7 @@ func TestSubscriptionListener_OnDelete(t *testing.T) {
 	subscriptionId := "test-subscription-id"
 
 	republishMockMap, _ := setupMocks()
-	mockEntry := &republish.RepublishingCache{SubscriptionId: subscriptionId}
+	mockEntry := &republish.RepublishingCacheEntry{SubscriptionId: subscriptionId}
 	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(mockEntry, nil)
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)

@@ -29,7 +29,7 @@ func StartScheduler() {
 	scheduler = gocron.NewScheduler(time.UTC)
 
 	// Schedule the task for checking open circuit breakers
-	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCbCheckInterval).Do(func() {
+	if _, err := scheduler.Every(config.Current.CircuitBreaker.OpenCheckInterval).Do(func() {
 		checkOpenCircuitBreakers()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling for OPEN CircuitBreakerCache: %v", err)
@@ -89,7 +89,7 @@ func checkRepublishingEntries() {
 
 	// Iterate over all republishing entries and handle them
 	for _, entry := range republishingEntries {
-		subscriptionId := entry.Value.(republish.RepublishingCache).SubscriptionId
+		subscriptionId := entry.Value.(republish.RepublishingCacheEntry).SubscriptionId
 		log.Debug().Msgf("Checking republishing entry for subscriptionId %s", subscriptionId)
 
 		subscription := getSubscription(subscriptionId)

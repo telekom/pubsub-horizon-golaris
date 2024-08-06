@@ -32,13 +32,24 @@ Horizon Golaris serves as the circuit breaker within the [Horizon ecosystem](htt
 For the optimal setup, ensure you have:
 
 - A running instance of Kafka
-- Access to a Kubernetes cluster on which the `Subscription` (subscriber.horizon.telekom.de) custom resource definition has been registered
+- A running hazelcast host
 
 ## Building Golaris
+### Go build
 
-### Gradle build
+Assuming you have already installed [Go](https://go.dev/), simply run the following to build the executable:
+```bash
+go build
+```
+
+> Alternatively, you can also follow the Docker build in the following section if you want to build a Docker image without the need to have Golang installed locally.
 
 ### Docker build
+This repository provides a multi-stage Dockerfile that will also take care of compiling the software, as well as dockerizing Quasar. Simply run:
+
+```bash
+docker build -t horizon-golaris:latest  . 
+```
 
 ## Configuration
 

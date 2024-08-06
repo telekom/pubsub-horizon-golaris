@@ -71,7 +71,7 @@ func Test_CheckConsumerHealthSuccess(t *testing.T) {
 	err := CheckConsumerHealth(preparedHealthCheck, subscription)
 
 	healthCheckEntry, _ := cache.HealthCheckCache.Get(context.Background(), preparedHealthCheck.HealthCheckKey)
-	castedHealthCheckEntry := healthCheckEntry.(HealthCheck)
+	castedHealthCheckEntry := healthCheckEntry.(HealthCheckCacheEntry)
 
 	assertions.Equal(2, len(httpmock.GetCallCountInfo()))
 	assertions.NoError(err)
