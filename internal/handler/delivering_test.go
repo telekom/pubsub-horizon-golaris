@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestCheckDeliveringEvents(t *testing.T) {
+func TestCheckDeliveringEvents_Success(t *testing.T) {
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
 
@@ -77,4 +77,34 @@ func TestCheckDeliveringEvents(t *testing.T) {
 	mockKafka.AssertExpectations(t)
 	mockKafka.AssertCalled(t, "PickMessage", mock.AnythingOfType("message.StatusMessage"))
 	mockKafka.AssertCalled(t, "RepublishMessage", expectedKafkaMessage, "", "")
+}
+
+func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
+	mockMongo := new(test.MockMongoHandler)
+	mongo.CurrentConnection = mockMongo
+
+	mockKafka := new(test.MockKafkaHandler)
+	kafka.CurrentHandler = mockKafka
+
+	deliveringHandler := new(test.DeliveringMockHandler)
+	cache.DeliveringHandler = deliveringHandler
+
+	deliveringHandler.On("NewLockContext", mock.Anything).Return(context.Background())
+	deliveringHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+
+	config.Current.Republishing.BatchSize = 5
+	config.Current.Republishing.DeliveringStatesOffsetMins = 30
+
+	mockMongo.On("FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything).Return([]message.StatusMessage{}, nil, nil)
+
+	CheckDeliveringEvents()
+
+	mockKafka.AssertNotCalled(t, "PickMessage", mock.AnythingOfType("message.StatusMessage"))
+	mockKafka.AssertNotCalled(t, "RepublishMessage", mock.Anything, "", "")
+
+	mockMongo.AssertExpectations(t)
+	mockMongo.AssertCalled(t, "FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything)
+
+	mockKafka.AssertExpectations(t)
 }
