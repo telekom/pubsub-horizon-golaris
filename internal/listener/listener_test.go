@@ -133,7 +133,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToCallback(t *testing.T) {
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
-		SubscriptionChange: true,
+		SubscriptionChange: false,
 	}).Return(nil)
 
 	listener := &SubscriptionListener{}
@@ -142,7 +142,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToCallback(t *testing.T) {
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    string(oldSubscription.Spec.Subscription.DeliveryType),
-		SubscriptionChange: true,
+		SubscriptionChange: false,
 	})
 }
 
