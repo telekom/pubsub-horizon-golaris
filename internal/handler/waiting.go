@@ -41,64 +41,77 @@ func CheckWaitingEvents() {
 	var lastCursor any
 	var err error
 
-	for {
-		dbMessages, lastCursor, err = mongo.CurrentConnection.FindUniqueWaitingMessages(time.Now(), lastCursor)
-		if err != nil {
-			log.Error().Err(err).Msg("Error while fetching unique waiting messages from db")
-			return
-		}
+	dbMessages, lastCursor, err = mongo.CurrentConnection.FindUniqueWaitingMessages(time.Now(), lastCursor)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while fetching unique waiting messages from db")
+		return
+	}
 
-		if len(dbMessages) == 0 {
-			return
-		}
+	if len(dbMessages) == 0 {
+		return
+	}
 
-		log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
+	log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
+	resultChan := make(chan ProcessResult, len(dbMessages))
 
-		for _, dbMessage := range dbMessages {
-			result := processWaitingMessages(dbMessage)
-			if result.Error != nil {
-				log.Error().Err(result.Error).Msgf("Error while processing waiting messages for subscriptionId: %s", result.SubscriptionId)
-			}
+	for _, dbMessage := range dbMessages {
+		go processWaitingMessages(dbMessage, resultChan)
+	}
+
+	for range dbMessages {
+		result := <-resultChan
+		if result.Error != nil {
+			log.Error().Err(result.Error).Msgf("Error while processing waiting messages for subscriptionId: %s", result.SubscriptionId)
 		}
 	}
+
+	close(resultChan)
 }
 
-func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
+func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- ProcessResult) {
 	var subscriptionId = dbMessage.SubscriptionId
 
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
-		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
+		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
+		return
 	}
 
 	if optionalRepublishingEntry != nil {
-		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+		return
 	}
 
-	// 10 Versuche um den CircuitBreakerMessage zu bekommen
+	// 10 attempts to get the circuitBreakerMessage, because the Quasar needs some time to start up
 	var optionalCBEntry *message.CircuitBreakerMessage
 	for attempt := 1; attempt <= 10; attempt++ {
 		optionalCBEntry, err = cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
-			return ProcessResult{SubscriptionId: subscriptionId, Error: err}
+			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
+			return
 		}
 
 		if optionalCBEntry != nil {
-			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+			return
 		}
 
-		time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
+		if attempt <= 10 {
+			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
+		} else {
+			log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
+
+			err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
+				SubscriptionId: subscriptionId,
+			})
+			if err != nil {
+				resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
+				return
+			}
+
+			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+			return
+		}
 	}
-
-	log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
-
-	err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
-		SubscriptionId: subscriptionId,
-	})
-	if err != nil {
-		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
-	}
-
-	return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 }
