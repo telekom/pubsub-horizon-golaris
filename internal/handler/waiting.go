@@ -44,7 +44,7 @@ func CheckWaitingEvents() {
 	for {
 		dbMessages, lastCursor, err = mongo.CurrentConnection.FindUniqueWaitingMessages(time.Now(), lastCursor)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching unique waiting messages from db")
+			log.Error().Err(err).Msg("Error while fetching unique waiting messages from db")
 			return
 		}
 
@@ -53,67 +53,52 @@ func CheckWaitingEvents() {
 		}
 
 		log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
-		resultChan := make(chan ProcessResult, len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
-			go processWaitingMessages(dbMessage, resultChan)
-		}
-
-		for range dbMessages {
-			result := <-resultChan
+			result := processWaitingMessages(dbMessage)
 			if result.Error != nil {
 				log.Error().Err(result.Error).Msgf("Error while processing waiting messages for subscriptionId: %s", result.SubscriptionId)
 			}
 		}
-
-		close(resultChan)
 	}
 }
 
-func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- ProcessResult) {
+func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	var subscriptionId = dbMessage.SubscriptionId
 
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
 
 	if optionalRepublishingEntry != nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
 
-	// 10 attempts to get the circuitBreakerMessage, because the Quasar needs some time to start up
+	// 10 Versuche um den CircuitBreakerMessage zu bekommen
 	var optionalCBEntry *message.CircuitBreakerMessage
 	for attempt := 1; attempt <= 10; attempt++ {
 		optionalCBEntry, err = cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
-			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-			return
+			return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 		}
 
 		if optionalCBEntry != nil {
-			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-			return
+			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
 
-		if attempt <= 10 {
-			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
-		} else {
-			log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
-
-			err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
-				SubscriptionId: subscriptionId,
-			})
-			if err != nil {
-				resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-				return
-			}
-
-			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-			return
-		}
+		time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
 	}
+
+	log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
+
+	err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
+		SubscriptionId: subscriptionId,
+	})
+	if err != nil {
+		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
+	}
+
+	return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 }
