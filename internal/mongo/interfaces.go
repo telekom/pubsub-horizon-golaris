@@ -14,4 +14,5 @@ type HandlerInterface interface {
 	FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
 	FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error)
 	FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
+	FindUniqueWaitingMessages(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
 }

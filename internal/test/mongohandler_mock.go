@@ -37,3 +37,8 @@ func (m *MockMongoHandler) FindFailedMessagesWithCallbackUrlNotFoundException(ti
 	args := m.Called(timestamp, lastCursor)
 	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
 }
+
+func (m *MockMongoHandler) FindUniqueWaitingMessages(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
+	args := m.Called(timestamp, lastCursor)
+	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)
+}

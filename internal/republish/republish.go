@@ -109,15 +109,15 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
 	defer throttler.Release(context.Background())
 
+	var dbMessages []message.StatusMessage
 	var lastCursor any
+	var err error
+
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 			return
 		}
-
-		var dbMessages []message.StatusMessage
-		var err error
 
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
 			dbMessages, lastCursor, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastCursor, subscriptionId)
@@ -132,8 +132,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
-
-		log.Info().Msgf("Last cursor: %v", lastCursor)
 
 		if len(dbMessages) == 0 {
 			break

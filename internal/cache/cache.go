@@ -45,9 +45,11 @@ var cancelMapMutex sync.RWMutex
 
 var DeliveringHandler HazelcastMapInterface
 var FailedHandler HazelcastMapInterface
+var WaitingHandler HazelcastMapInterface
 
 var DeliveringLockKey string
 var FailedLockKey string
+var WaitingLockKey string
 
 func SetCancelStatus(subscriptionId string, status bool) {
 	cancelMapMutex.Lock()
@@ -70,6 +72,7 @@ func Initialize() {
 
 	DeliveringLockKey = "delivering"
 	FailedLockKey = "failed"
+	WaitingLockKey = "waiting"
 }
 
 func createNewHazelcastConfig() hazelcast.Config {
@@ -117,6 +120,11 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 	FailedHandler, err = hazelcastClient.GetMap(context.Background(), config.Current.Handler.Failed)
 	if err != nil {
 		return fmt.Errorf("error initializing FailedHandler: %v", err)
+	}
+
+	WaitingHandler, err = hazelcastClient.GetMap(context.Background(), config.Current.Handler.Waiting)
+	if err != nil {
+		return fmt.Errorf("error initializing WaitingHandler: %v", err)
 	}
 
 	return nil
