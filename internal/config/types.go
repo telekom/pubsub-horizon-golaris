@@ -20,7 +20,7 @@ type Configuration struct {
 	Mongo          Mongo          `mapstructure:"mongo"`
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
-	Kubernetes     Kubernetes     `mapstructure:"kubernetes"`
+	Handler        Handler        `mapstructure:"handler"`
 }
 
 type CircuitBreaker struct {
@@ -36,9 +36,10 @@ type HealthCheck struct {
 }
 
 type Republishing struct {
-	CheckInterval          time.Duration `mapstructure:"checkInterval"`
-	BatchSize              int64         `mapstructure:"batchSize"`
-	ThrottlingIntervalTime time.Duration `mapstructure:"throttlingIntervalTime"`
+	CheckInterval              time.Duration `mapstructure:"checkInterval"`
+	BatchSize                  int64         `mapstructure:"batchSize"`
+	ThrottlingIntervalTime     time.Duration `mapstructure:"throttlingIntervalTime"`
+	DeliveringStatesOffsetMins int           `mapstructure:"deliveringStatesOffsetMins"`
 }
 
 type Hazelcast struct {
@@ -84,6 +85,7 @@ type Tracing struct {
 	Enabled           bool   `mapstructure:"enabled"`
 }
 
-type Kubernetes struct {
-	Namespace string `mapstructure:"namespace"`
+type Handler struct {
+	Delivering string `mapstructure:"delivering"`
+	Failed     string `mapstructure:"failed"`
 }

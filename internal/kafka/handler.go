@@ -10,6 +10,7 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/config"
@@ -165,6 +166,7 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 			}
 		}
 	}
+	messageValue["status"] = enum.StatusProcessed
 
 	modifiedValue, err := json.Marshal(messageValue)
 	if err != nil {

@@ -6,13 +6,12 @@ package mongo
 
 import (
 	"github.com/telekom/pubsub-horizon-go/message"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
 
 type HandlerInterface interface {
-	FindWaitingMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error)
-	FindDeliveringMessagesByDeliveryType(status string, timestamp time.Time, pageable options.FindOptions, deliveryType string) ([]message.StatusMessage, error)
-	FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error)
-	FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error)
+	FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error)
+	FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
+	FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error)
+	FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error)
 }
