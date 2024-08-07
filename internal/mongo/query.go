@@ -140,7 +140,6 @@ func (connection Connection) FindUniqueWaitingMessages(timestamp time.Time, last
 
 		if lastCursor != nil {
 			query["modified"] = bson.M{"$gt": lastCursor}
-			log.Debug().Msgf("Querying for messages with timestamp > %v", lastCursor)
 		}
 
 		cursor, err := collection.Find(context.Background(), query, opts)

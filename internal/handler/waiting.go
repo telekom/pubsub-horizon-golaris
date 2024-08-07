@@ -87,6 +87,7 @@ func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- P
 	for attempt := 1; attempt <= 10; attempt++ {
 		optionalCBEntry, err = cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 		if err != nil {
+			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
 			return
 		}
