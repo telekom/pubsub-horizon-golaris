@@ -12,8 +12,6 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/tracing"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -107,34 +105,35 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	batchSize := config.Current.Republishing.BatchSize
-	page := int64(0)
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
 	defer throttler.Release(context.Background())
 
+	var lastCursor any
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
 			return
 		}
 
-		opts := options.Find().SetLimit(batchSize).SetSkip(page * batchSize).SetSort(bson.D{{Key: "timestamp", Value: 1}})
 		var dbMessages []message.StatusMessage
 		var err error
 
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
-			dbMessages, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), opts, subscriptionId)
+			dbMessages, lastCursor, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastCursor, subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
 		} else {
-			dbMessages, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), opts, subscriptionId)
+			dbMessages, lastCursor, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), lastCursor, subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
+
+		log.Info().Msgf("Last cursor: %v", lastCursor)
 
 		if len(dbMessages) == 0 {
 			break
@@ -207,7 +206,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
-		page++
 	}
 }
 

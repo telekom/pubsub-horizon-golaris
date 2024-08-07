@@ -10,15 +10,14 @@ import (
 )
 
 func BuildTestConfig() config.Configuration {
-
 	return config.Configuration{
 		LogLevel: "debug",
 		Port:     8080,
 		CircuitBreaker: config.CircuitBreaker{
 			OpenCheckInterval:       30 * time.Second,
 			OpenLoopDetectionPeriod: 300 * time.Second,
-			ExponentialBackoffMax:     60 * time.Minute,
-			ExponentialBackoffBase:    1000 * time.Millisecond,
+			ExponentialBackoffMax:   60 * time.Minute,
+			ExponentialBackoffBase:  1000 * time.Millisecond,
 		},
 		HealthCheck: config.HealthCheck{
 			SuccessfulResponseCodes: []int{200, 201, 202},
@@ -59,9 +58,6 @@ func BuildTestConfig() config.Configuration {
 			CollectorEndpoint: "http://tracing.local/collect",
 			DebugEnabled:      false,
 			Enabled:           true,
-		},
-		Kubernetes: config.Kubernetes{
-			Namespace: "default",
 		},
 	}
 }

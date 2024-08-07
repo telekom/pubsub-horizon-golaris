@@ -10,28 +10,56 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"pubsub-horizon-golaris/internal/config"
 	"time"
 )
 
-func (connection Connection) findMessagesByQuery(query bson.M, pageable options.FindOptions) ([]message.StatusMessage, error) {
+func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) ([]message.StatusMessage, any, error) {
+	var batchSize = config.Current.Republishing.BatchSize
+
+	opts := options.Find().
+		SetBatchSize(int32(batchSize)).
+		SetSort(bson.D{{Key: "timestamp", Value: 1}})
+
+	if lastCursor != nil {
+		query["timestamp"] = bson.M{"$gt": lastCursor}
+		log.Info().Msgf("Querying for messages with timestamp > %v", lastCursor)
+	}
+
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
-	cursor, err := collection.Find(context.Background(), query, &pageable)
+	cursor, err := collection.Find(context.Background(), query, opts)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error finding documents: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 
 	var messages []message.StatusMessage
-	if err = cursor.All(context.Background(), &messages); err != nil {
-		log.Error().Err(err).Msgf("Error reading documents from cursor: %v", err)
-		return nil, err
+	var newLastCursor any
+	// Iterate through the results in the cursor.
+	for cursor.Next(context.Background()) {
+		var msg message.StatusMessage
+		if err = cursor.Decode(&msg); err != nil {
+			log.Error().Err(err).Msgf("Error decoding document: %v", err)
+			return nil, nil, err
+		}
+		messages = append(messages, msg)
+		newLastCursor = msg.Timestamp
+
+		if len(messages) >= int(batchSize) {
+			break
+		}
 	}
 
-	return messages, nil
+	if err := cursor.Err(); err != nil {
+		log.Error().Err(err).Msgf("Error iterating cursor: %v", err)
+		return nil, nil, err
+	}
+
+	return messages, newLastCursor, nil
 }
 
-func (connection Connection) FindWaitingMessages(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
+func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "WAITING",
 		"subscriptionId": subscriptionId,
@@ -40,10 +68,10 @@ func (connection Connection) FindWaitingMessages(timestamp time.Time, pageable *
 		},
 	}
 
-	return connection.findMessagesByQuery(query, *pageable)
+	return connection.findMessagesByQuery(query, lastCursor)
 }
 
-func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, pageable *options.FindOptions, subscriptionId string) ([]message.StatusMessage, error) {
+func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "PROCESSED",
 		"deliveryType":   "SERVER_SENT_EVENT",
@@ -53,22 +81,21 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp ti
 		},
 	}
 
-	return connection.findMessagesByQuery(query, *pageable)
+	return connection.findMessagesByQuery(query, lastCursor)
 }
 
-func (connection Connection) FindDeliveringMessagesByDeliveryType(status string, timestamp time.Time, pageable options.FindOptions, deliveryType string) ([]message.StatusMessage, error) {
+func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
 	query := bson.M{
-		"status":       status,
-		"deliveryType": deliveryType,
+		"status": "DELIVERING",
 		"modified": bson.M{
 			"$lte": timestamp,
 		},
 	}
 
-	return connection.findMessagesByQuery(query, pageable)
+	return connection.findMessagesByQuery(query, lastCursor)
 }
 
-func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, pageable *options.FindOptions) ([]message.StatusMessage, error) {
+func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":    "FAILED",
 		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",
@@ -77,5 +104,5 @@ func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(
 		},
 	}
 
-	return connection.findMessagesByQuery(query, *pageable)
+	return connection.findMessagesByQuery(query, lastCursor)
 }
