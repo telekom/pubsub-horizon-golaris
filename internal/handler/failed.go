@@ -33,11 +33,11 @@ func CheckFailedEvents() {
 	batchSize := config.Current.Republishing.BatchSize
 
 	var dbMessages []message.StatusMessage
+	var lastCursor any
 	var err error
 
 	for {
-		var lastCursor any
-		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
+		dbMessages, lastCursor, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
 			return
