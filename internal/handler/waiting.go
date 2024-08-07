@@ -29,6 +29,7 @@ func CheckWaitingEvents() {
 		log.Debug().Msgf("Could not acquire lock for WaitingHandler entry: %s", cache.WaitingLockKey)
 		return
 	}
+	log.Info().Msgf("Acquired lock for WaitingHandler entry: %s", cache.WaitingLockKey)
 
 	defer func() {
 		if err := cache.WaitingHandler.Unlock(ctx, cache.WaitingLockKey); err != nil {
@@ -51,6 +52,7 @@ func CheckWaitingEvents() {
 			return
 		}
 
+		log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
 		resultChan := make(chan ProcessResult, len(dbMessages))
 
 		for _, dbMessage := range dbMessages {

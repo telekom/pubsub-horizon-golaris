@@ -112,8 +112,10 @@ func (connection Connection) FindUniqueWaitingMessages(timestamp time.Time, last
 
 	// Search for unique SubscriptionIds where status is WAITING and timestamp is less than today
 	distinctSubscriptionIds, err := collection.Distinct(context.Background(), "subscriptionId", bson.M{
-		"status":   "WAITING",
-		"modified": bson.M{"$lte": timestamp},
+		"status": "WAITING",
+		"modified": bson.M{
+			"$lte": timestamp,
+		},
 	})
 	if err != nil {
 		log.Error().Err(err).Msgf("Error finding distinct subscription IDs: %v", err)
