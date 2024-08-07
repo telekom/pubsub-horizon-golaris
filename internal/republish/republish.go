@@ -107,6 +107,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	batchSize := config.Current.Republishing.BatchSize
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
+	defer throttler.Release(context.Background())
 
 	var lastCursor any
 	for {
@@ -158,7 +159,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					}
 					continue
 				}
-				defer throttler.Release(context.Background())
 				break
 			}
 
