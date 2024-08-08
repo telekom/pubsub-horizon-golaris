@@ -98,22 +98,21 @@ func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- P
 		}
 
 		log.Info().Msgf("Attempt is: %d", attempt)
-		if attempt <= 10 {
+		if attempt < 10 {
 			log.Info().Msgf("Waiting for CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
-		} else {
-			log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
 
-			err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
-				SubscriptionId: subscriptionId,
-			})
-			if err != nil {
-				resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-				return
-			}
-
-			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-			return
 		}
 	}
+	log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
+
+	err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
+		SubscriptionId: subscriptionId,
+	})
+	if err != nil {
+		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
+		return
+	}
+
+	resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 }
