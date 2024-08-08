@@ -66,6 +66,7 @@ func CheckWaitingEvents() {
 }
 
 func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
+	log.Info().Msgf("Processing waiting message for subscriptionId: %s", dbMessage.SubscriptionId)
 	var subscriptionId = dbMessage.SubscriptionId
 
 	optionalSubscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
@@ -99,6 +100,7 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
 
+		log.Info().Msgf("Attempt is: %d", attempt)
 		if attempt < 10 {
 			log.Info().Msgf("Waiting for CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
