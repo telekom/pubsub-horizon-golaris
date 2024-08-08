@@ -78,15 +78,10 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 }
 
 func handlePodEvent(obj any) {
-	// Check if the event is a pod event
 	if pod, ok := obj.(*v1.Pod); ok {
-		// Check if the pod is a Quasar pod
-		if strings.Contains(pod.Name, "horizon-quasar") {
-			log.Info().Msgf("Pod name is: %s", pod.Name)
-			// Check if the pod is restarted
-			if pod.Status.Phase == v1.PodRunning {
-				handler.CheckWaitingEvents()
-			}
+		if strings.Contains(pod.Name, "horizon-quasar") || strings.Contains(pod.Name, config.Current.OldGolarisName) {
+			log.Info().Msgf("Pod with name: %s was deleted", pod.Name)
+			handler.CheckWaitingEvents()
 		}
 	}
 }

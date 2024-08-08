@@ -9,8 +9,11 @@ import (
 )
 
 type Configuration struct {
-	LogLevel       string         `mapstructure:"logLevel"`
-	Port           int            `mapstructure:"port"`
+	LogLevel string `mapstructure:"logLevel"`
+	Port     int    `mapstructure:"port"`
+
+	OldGolarisName string `mapstructure:"oldGolarisName"`
+
 	CircuitBreaker CircuitBreaker `mapstructure:"circuitBreaker"`
 	HealthCheck    HealthCheck    `mapstructure:"healthCheck"`
 	Republishing   Republishing   `mapstructure:"republishing"`

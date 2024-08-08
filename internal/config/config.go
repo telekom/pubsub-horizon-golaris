@@ -41,6 +41,7 @@ func setDefaults() {
 	// General
 	viper.SetDefault("logLevel", "info")
 	viper.SetDefault("port", 8080)
+	viper.SetDefault("oldGolarisName", "horizon3-plunger")
 
 	// Processes
 	viper.SetDefault("circuitBreaker.openCheckInterval", "30s")
