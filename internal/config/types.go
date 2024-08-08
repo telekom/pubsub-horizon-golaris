@@ -21,6 +21,7 @@ type Configuration struct {
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
 	Handler        Handler        `mapstructure:"handler"`
+	Kubernetes     Kubernetes     `mapstructure:"kubernetes"`
 }
 
 type CircuitBreaker struct {
@@ -90,4 +91,8 @@ type Handler struct {
 	Delivering string `mapstructure:"delivering"`
 	Failed     string `mapstructure:"failed"`
 	Waiting    string `mapstructure:"waiting"`
+}
+
+type Kubernetes struct {
+	Namespace string `mapstructure:"namespace"`
 }

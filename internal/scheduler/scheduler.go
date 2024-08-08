@@ -22,6 +22,12 @@ import (
 var scheduler *gocron.Scheduler
 var HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
 var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
+var kubeconfig = "kubeconfig"
+var isQuasarPodRestarted bool
+
+func init() {
+	kubernetesPodWatcher()
+}
 
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
@@ -41,9 +47,13 @@ func StartScheduler() {
 
 		handler.CheckDeliveringEvents()
 		handler.CheckFailedEvents()
-		handler.CheckWaitingEvents()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
+	}
+
+	if isQuasarPodRestarted {
+		handler.CheckWaitingEvents()
+		isQuasarPodRestarted = false
 	}
 
 	// Start the scheduler asynchronously

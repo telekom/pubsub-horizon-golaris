@@ -71,6 +71,17 @@ func CheckWaitingEvents() {
 func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- ProcessResult) {
 	var subscriptionId = dbMessage.SubscriptionId
 
+	optionalSubscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+	if err != nil {
+		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
+		return
+	}
+
+	if optionalSubscription == nil {
+		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+		return
+	}
+
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
 		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
