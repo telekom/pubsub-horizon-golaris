@@ -23,7 +23,6 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 
 	if lastCursor != nil {
 		query["timestamp"] = bson.M{"$gt": lastCursor}
-		log.Debug().Msgf("Querying for messages with timestamp > %v", lastCursor)
 	}
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)

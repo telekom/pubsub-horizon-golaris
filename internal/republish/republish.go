@@ -108,8 +108,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
 	defer throttler.Release(context.Background())
-
-	var dbMessages []message.StatusMessage
+	
+  var dbMessages []message.StatusMessage
 	var lastCursor any
 	var err error
 
@@ -132,6 +132,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
+
+		log.Info().Msgf("Last cursor: %v", lastCursor)
 
 		if len(dbMessages) == 0 {
 			break

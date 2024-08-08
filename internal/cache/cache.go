@@ -126,6 +126,6 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 	if err != nil {
 		return fmt.Errorf("error initializing WaitingHandler: %v", err)
 	}
-
+  
 	return nil
 }

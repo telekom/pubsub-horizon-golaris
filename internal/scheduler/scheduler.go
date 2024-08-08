@@ -38,7 +38,6 @@ func StartScheduler() {
 	// Schedule the task for checking republishing entries
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
 		checkRepublishingEntries()
-
 		handler.CheckDeliveringEvents()
 		handler.CheckFailedEvents()
 	}); err != nil {

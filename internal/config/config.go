@@ -95,10 +95,8 @@ func setDefaults() {
 	viper.SetDefault("handler.delivering", "deliveringHandler")
 	viper.SetDefault("handler.failed", "failedHandler")
 	viper.SetDefault("handler.waiting", "waitingHandler")
-
-	// Kubernetes
+  
 	viper.SetDefault("kubernetes.namespace", "integration")
-
 }
 
 func readConfiguration() *Configuration {
