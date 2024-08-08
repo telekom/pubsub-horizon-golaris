@@ -126,7 +126,7 @@ func (connection Connection) FindUniqueWaitingMessages(timestamp time.Time, last
 		return nil, nil, nil
 	}
 
-	opts := options.Find().SetSort(bson.D{{Key: "timestamp", Value: 1}})
+	opts := options.Find().SetSort(bson.D{{Key: "timestamp", Value: 1}}).SetLimit(1)
 
 	var messages []message.StatusMessage
 	var newLastCursor any
