@@ -10,6 +10,7 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
+	"pubsub-horizon-golaris/internal/kubernetes"
 	"pubsub-horizon-golaris/internal/listener"
 	"pubsub-horizon-golaris/internal/log"
 	"pubsub-horizon-golaris/internal/mongo"
@@ -33,6 +34,8 @@ func initialize() {
 	kafka.Initialize()
 	listener.Initialize()
 	tracing.Initialize()
+
+	kubernetes.Initialize()
 }
 
 func startGolarisService(cmd *cobra.Command, args []string) {

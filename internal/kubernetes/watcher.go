@@ -1,6 +1,7 @@
-package scheduler
+package kubernetes
 
 import (
+	"flag"
 	"github.com/rs/zerolog/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -9,9 +10,19 @@ import (
 	kubeCache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/scheduler"
 	"strings"
 	"time"
 )
+
+var kubeconfig string
+
+func Initialize() {
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to the kubeconfig file")
+	flag.Parse()
+
+	kubernetesPodWatcher()
+}
 
 func kubernetesPodWatcher() {
 	kubeConfig, err := buildConfig(kubeconfig)
@@ -76,7 +87,7 @@ func handlePodEvent(obj any) {
 		if strings.Contains(pod.Name, "horizon-quasar") {
 			// Check if the pod is restarted
 			if pod.Status.Phase == v1.PodRunning {
-				isQuasarPodRestarted = true
+				scheduler.IsQuasarPodRestarted = true
 			}
 		}
 	}

@@ -6,7 +6,6 @@ package scheduler
 
 import (
 	"context"
-	"flag"
 	"github.com/go-co-op/gocron"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
@@ -23,15 +22,7 @@ import (
 var scheduler *gocron.Scheduler
 var HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
 var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
-var kubeconfig string
-var isQuasarPodRestarted bool
-
-func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
-	flag.Parse()
-
-	kubernetesPodWatcher()
-}
+var IsQuasarPodRestarted bool
 
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
@@ -55,9 +46,10 @@ func StartScheduler() {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
 	}
 
-	if isQuasarPodRestarted {
+	log.Info().Msgf("Quasar pod restarted: %v", IsQuasarPodRestarted)
+	if IsQuasarPodRestarted {
 		handler.CheckWaitingEvents()
-		isQuasarPodRestarted = false
+		IsQuasarPodRestarted = false
 	}
 
 	// Start the scheduler asynchronously
