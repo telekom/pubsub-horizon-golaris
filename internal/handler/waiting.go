@@ -69,21 +69,21 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	if err != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
-	log.Info().Msgf("Subscription found in SubscriptionCache: %s", optionalSubscription)
 
 	if optionalSubscription == nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
+	log.Info().Msgf("Optional "+subscriptionId+" found in SubscriptionCache", optionalSubscription)
 
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
-	log.Info().Msgf("Republishing entry found in RepublishingCache: %s", optionalRepublishingEntry)
 
 	if optionalRepublishingEntry != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
+	log.Info().Msgf("Optional republishing entry found in RepublishingCache: %s", optionalRepublishingEntry)
 
 	// 10 attempts to get the circuitBreakerMessage, because the Quasar needs some time to start up
 	var optionalCBEntry *message.CircuitBreakerMessage
@@ -93,11 +93,11 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 		}
-		log.Info().Msgf("CircuitBreaker entry found in CircuitBreakerCache: %s", optionalCBEntry)
 
 		if optionalCBEntry != nil {
 			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
+		log.Info().Msgf("Optional CircuitBreaker entry: %v", optionalCBEntry)
 
 		log.Info().Msgf("Attempt is: %d", attempt)
 		if attempt < 10 {
