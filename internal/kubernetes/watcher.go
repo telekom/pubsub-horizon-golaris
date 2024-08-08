@@ -25,17 +25,21 @@ func Initialize() {
 }
 
 func kubernetesPodWatcher() {
+	log.Info().Msg("Building kubeconfig...")
 	kubeConfig, err := buildConfig(kubeconfig)
 	if err != nil {
 		log.Error().Msgf("Error while building kubeconfig: %v", err)
 		return
 	}
+	log.Info().Msg("Kubeconfig built successfully.")
 
+	log.Info().Msg("Creating Kubernetes clientset...")
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Error().Msgf("Error while creating clientset: %v", err)
 		return
 	}
+	log.Info().Msg("Clientset created successfully.")
 
 	podWatcher := kubeCache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -57,8 +61,11 @@ func kubernetesPodWatcher() {
 		})
 
 	stopChannel := make(chan struct{})
-	defer close(stopChannel)
-	go controller.Run(stopChannel)
+	go func() {
+		log.Info().Msg("Starting controller...")
+		controller.Run(stopChannel)
+		log.Info().Msg("Controller stopped.")
+	}()
 }
 
 func buildConfig(kubeconfig string) (*rest.Config, error) {

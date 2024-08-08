@@ -22,7 +22,6 @@ import (
 var scheduler *gocron.Scheduler
 var HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
 var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
-var IsQuasarPodRestarted bool
 
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
