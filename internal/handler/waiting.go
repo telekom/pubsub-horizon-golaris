@@ -50,6 +50,7 @@ func CheckWaitingEvents() {
 		return
 	}
 
+	log.Info().Msgf("Found %d unique waiting messages", len(dbMessages))
 	for _, dbMessage := range dbMessages {
 		result := processWaitingMessages(dbMessage)
 		if result.Error != nil {
@@ -67,6 +68,7 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	}
 
 	if optionalSubscription == nil {
+		log.Debug().Msgf("Subscription not found for subscriptionId: %s. Skip processing", subscriptionId)
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
 
@@ -76,6 +78,7 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	}
 
 	if optionalRepublishingEntry != nil {
+		log.Debug().Msgf("Republishing entry found for subscriptionId: %s. Skip processing", subscriptionId)
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
 
@@ -88,6 +91,7 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 		}
 
 		if optionalCBEntry != nil && optionalCBEntry.SubscriptionId != "" {
+			log.Debug().Msgf("CircuitBreaker entry found for subscriptionId: %s. Skip processing", subscriptionId)
 			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
 
