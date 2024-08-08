@@ -65,15 +65,6 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	log.Info().Msgf("Processing waiting message for subscriptionId: %s", dbMessage.SubscriptionId)
 	var subscriptionId = dbMessage.SubscriptionId
 
-	optionalSubscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
-	if err != nil {
-		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
-	}
-
-	if optionalSubscription == nil {
-		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-	}
-
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
