@@ -65,10 +65,21 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	log.Info().Msgf("Processing waiting message for subscriptionId: %s", dbMessage.SubscriptionId)
 	var subscriptionId = dbMessage.SubscriptionId
 
+	optionalSubscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+	if err != nil {
+		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
+	}
+	log.Info().Msgf("Subscription found in SubscriptionCache: %s", optionalSubscription)
+
+	if optionalSubscription == nil {
+		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+	}
+
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
+	log.Info().Msgf("Republishing entry found in RepublishingCache: %s", optionalRepublishingEntry)
 
 	if optionalRepublishingEntry != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
@@ -82,6 +93,7 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 		}
+		log.Info().Msgf("CircuitBreaker entry found in CircuitBreakerCache: %s", optionalCBEntry)
 
 		if optionalCBEntry != nil {
 			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
