@@ -73,7 +73,6 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	if optionalSubscription == nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
-	log.Info().Msgf("Optional "+subscriptionId+" found in SubscriptionCache", optionalSubscription)
 
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
@@ -83,11 +82,12 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	if optionalRepublishingEntry != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
-	log.Info().Msgf("Optional republishing entry found in RepublishingCache: %s", optionalRepublishingEntry)
+	log.Info().Msgf("Optional Republishing entry: %v", optionalRepublishingEntry)
 
 	// 10 attempts to get the circuitBreakerMessage, because the Quasar needs some time to start up
 	var optionalCBEntry *message.CircuitBreakerMessage
 	for attempt := 1; attempt <= 10; attempt++ {
+		log.Info().Msgf("Fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 		optionalCBEntry, err = cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
@@ -95,6 +95,7 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 		}
 
 		if optionalCBEntry != nil {
+			log.Info().Msgf("Found CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
 		log.Info().Msgf("Optional CircuitBreaker entry: %v", optionalCBEntry)
