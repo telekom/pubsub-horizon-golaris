@@ -80,7 +80,7 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 func handlePodEvent(obj any) {
 	if pod, ok := obj.(*v1.Pod); ok {
 		if strings.Contains(pod.Name, "horizon-quasar") || strings.Contains(pod.Name, config.Current.OldGolarisName) {
-			log.Info().Msgf("Pod with name: %s was deleted", pod.Name)
+			log.Info().Msgf("Pod %s has been deleted", pod.Name)
 			handler.CheckWaitingEvents()
 		}
 	}

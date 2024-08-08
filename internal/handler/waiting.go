@@ -29,7 +29,6 @@ func CheckWaitingEvents() {
 		log.Debug().Msgf("Could not acquire lock for WaitingHandler entry: %s", cache.WaitingLockKey)
 		return
 	}
-	log.Info().Msgf("Acquired lock for WaitingHandler entry: %s", cache.WaitingLockKey)
 
 	defer func() {
 		if err := cache.WaitingHandler.Unlock(ctx, cache.WaitingLockKey); err != nil {
@@ -51,8 +50,6 @@ func CheckWaitingEvents() {
 		return
 	}
 
-	log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
-
 	for _, dbMessage := range dbMessages {
 		result := processWaitingMessages(dbMessage)
 		if result.Error != nil {
@@ -62,7 +59,6 @@ func CheckWaitingEvents() {
 }
 
 func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
-	log.Info().Msgf("Processing waiting message for subscriptionId: %s", dbMessage.SubscriptionId)
 	var subscriptionId = dbMessage.SubscriptionId
 
 	optionalSubscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
@@ -82,31 +78,24 @@ func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	if optionalRepublishingEntry != nil {
 		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
-	log.Info().Msgf("Optional Republishing entry: %v", optionalRepublishingEntry)
 
 	// 10 attempts to get the circuitBreakerMessage, because the Quasar needs some time to start up
-	var optionalCBEntry *message.CircuitBreakerMessage
 	for attempt := 1; attempt <= 10; attempt++ {
-		log.Info().Msgf("Fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
-		optionalCBEntry, err = cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+		optionalCBEntry, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 		}
 
-		if optionalCBEntry != nil {
-			log.Info().Msgf("Found CircuitBreaker entry for subscriptionId: %s", subscriptionId)
+		if optionalCBEntry != nil && optionalCBEntry.SubscriptionId != "" {
 			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
-		log.Info().Msgf("Optional CircuitBreaker entry: %v", optionalCBEntry)
 
-		log.Info().Msgf("Attempt is: %d", attempt)
 		if attempt < 10 {
-			log.Info().Msgf("Waiting for CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
 		}
 	}
-	log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
+	log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s. Set republishing entry of stuck WAITING events", subscriptionId)
 
 	err = cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId: subscriptionId,
