@@ -52,45 +52,38 @@ func CheckWaitingEvents() {
 	}
 
 	log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
-	resultChan := make(chan ProcessResult, len(dbMessages))
 
 	for _, dbMessage := range dbMessages {
-		go processWaitingMessages(dbMessage, resultChan)
+		processWaitingMessages(dbMessage)
 	}
 
-	for range dbMessages {
-		result := <-resultChan
+	for _, dbMessage := range dbMessages {
+		result := processWaitingMessages(dbMessage)
 		if result.Error != nil {
 			log.Error().Err(result.Error).Msgf("Error while processing waiting messages for subscriptionId: %s", result.SubscriptionId)
 		}
 	}
-
-	close(resultChan)
 }
 
-func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- ProcessResult) {
+func processWaitingMessages(dbMessage message.StatusMessage) ProcessResult {
 	var subscriptionId = dbMessage.SubscriptionId
 
 	optionalSubscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
 
 	if optionalSubscription == nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
 
 	optionalRepublishingEntry, err := cache.RepublishingCache.Get(context.Background(), subscriptionId)
 	if err != nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
 
 	if optionalRepublishingEntry != nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 	}
 
 	// 10 attempts to get the circuitBreakerMessage, because the Quasar needs some time to start up
@@ -99,20 +92,16 @@ func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- P
 		optionalCBEntry, err = cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching CircuitBreaker entry for subscriptionId: %s", subscriptionId)
-			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-			return
+			return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 		}
 
 		if optionalCBEntry != nil {
-			resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
-			return
+			return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 		}
 
-		log.Info().Msgf("Attempt is: %d", attempt)
 		if attempt < 10 {
 			log.Info().Msgf("Waiting for CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
-
 		}
 	}
 	log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
@@ -121,9 +110,8 @@ func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- P
 		SubscriptionId: subscriptionId,
 	})
 	if err != nil {
-		resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: err}
-		return
+		return ProcessResult{SubscriptionId: subscriptionId, Error: err}
 	}
 
-	resultChan <- ProcessResult{SubscriptionId: subscriptionId, Error: nil}
+	return ProcessResult{SubscriptionId: subscriptionId, Error: nil}
 }

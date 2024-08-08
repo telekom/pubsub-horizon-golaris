@@ -49,7 +49,7 @@ func kubernetesPodWatcher() {
 		&v1.Pod{},
 		time.Second*30,
 		kubeCache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj any) {
+			DeleteFunc: func(obj any) {
 				handlePodEvent(obj)
 			},
 		})
