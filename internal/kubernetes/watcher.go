@@ -10,7 +10,7 @@ import (
 	kubeCache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/scheduler"
+	"pubsub-horizon-golaris/internal/handler"
 	"strings"
 	"time"
 )
@@ -87,7 +87,7 @@ func handlePodEvent(obj any) {
 		if strings.Contains(pod.Name, "horizon-quasar") {
 			// Check if the pod is restarted
 			if pod.Status.Phase == v1.PodRunning {
-				scheduler.IsQuasarPodRestarted = true
+				handler.CheckWaitingEvents()
 			}
 		}
 	}

@@ -46,12 +46,6 @@ func StartScheduler() {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
 	}
 
-	log.Info().Msgf("Quasar pod restarted: %v", IsQuasarPodRestarted)
-	if IsQuasarPodRestarted {
-		handler.CheckWaitingEvents()
-		IsQuasarPodRestarted = false
-	}
-
 	// Start the scheduler asynchronously
 	scheduler.StartAsync()
 }
