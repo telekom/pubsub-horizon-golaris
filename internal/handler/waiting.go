@@ -97,7 +97,9 @@ func processWaitingMessages(dbMessage message.StatusMessage, resultChan chan<- P
 			return
 		}
 
+		log.Info().Msgf("Attempt is: %d", attempt)
 		if attempt <= 10 {
+			log.Info().Msgf("Waiting for CircuitBreaker entry for subscriptionId: %s", subscriptionId)
 			time.Sleep(config.Current.Republishing.WaitingStatesIntervalTime)
 		} else {
 			log.Debug().Msgf("No CircuitBreaker and no republishing entry found for subscriptionId: %s", subscriptionId)
