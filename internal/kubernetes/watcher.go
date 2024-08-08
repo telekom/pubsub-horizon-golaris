@@ -11,6 +11,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/handler"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -50,7 +51,9 @@ func kubernetesPodWatcher() {
 		time.Second*30,
 		kubeCache.ResourceEventHandlerFuncs{
 			UpdateFunc: func(oldObj any, newObj any) {
-				handlePodEvent(newObj)
+				if reflect.DeepEqual(oldObj, newObj) {
+					handlePodEvent(newObj)
+				}
 			},
 		})
 
