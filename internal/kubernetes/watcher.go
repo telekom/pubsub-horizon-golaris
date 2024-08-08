@@ -22,6 +22,7 @@ func Initialize() {
 	flag.Parse()
 
 	kubernetesPodWatcher()
+	log.Info().Msgf("Kubernetes watcher started")
 }
 
 func kubernetesPodWatcher() {
@@ -49,15 +50,19 @@ func kubernetesPodWatcher() {
 		&v1.Pod{},
 		time.Second*30,
 		kubeCache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj any) {
+				handlePodEvent(obj)
+			},
 			DeleteFunc: func(obj any) {
 				handlePodEvent(obj)
 			},
 		})
 
 	stopChannel := make(chan struct{})
-	defer close(stopChannel)
 	go func() {
+		log.Info().Msgf("Starting pod watcher")
 		controller.Run(stopChannel)
+		log.Info().Msgf("Pod watcher stopped")
 	}()
 }
 
