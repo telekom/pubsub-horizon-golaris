@@ -43,19 +43,16 @@ func kubernetesPodWatcher() {
 		config.Current.Kubernetes.Namespace,
 		fields.Everything(),
 	)
+	log.Info().Msgf("Watching pods in namespace: %v", config.Current.Kubernetes.Namespace)
 
 	_, controller := kubeCache.NewInformer(
 		podWatcher,
 		&v1.Pod{},
 		time.Second*30,
 		kubeCache.ResourceEventHandlerFuncs{
-			AddFunc: func(obj any) {
-				handlePodEvent(obj)
-				log.Info().Msgf("Pod added: %v", obj)
-			},
 			UpdateFunc: func(oldObj, newObj any) {
 				handlePodEvent(newObj)
-				log.Info().Msgf("Pod added: %v", newObj)
+				log.Info().Msgf("Pod updated: %v", newObj)
 			},
 		})
 
@@ -81,9 +78,11 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 }
 
 func handlePodEvent(obj any) {
+	log.Info().Msgf("Handling pod event: %v", obj)
 	// Check if the event is a pod event
 	if pod, ok := obj.(*v1.Pod); ok {
 		// Check if the pod is a Quasar pod
+		log.Info().Msgf("Pod name: %v", pod.Name)
 		if strings.Contains(pod.Name, "horizon-quasar") {
 			// Check if the pod is restarted
 			if pod.Status.Phase == v1.PodRunning {
