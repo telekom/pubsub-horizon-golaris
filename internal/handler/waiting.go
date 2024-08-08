@@ -54,10 +54,6 @@ func CheckWaitingEvents() {
 	log.Info().Msgf("Found %d unique WAITING messages in MongoDb", len(dbMessages))
 
 	for _, dbMessage := range dbMessages {
-		processWaitingMessages(dbMessage)
-	}
-
-	for _, dbMessage := range dbMessages {
 		result := processWaitingMessages(dbMessage)
 		if result.Error != nil {
 			log.Error().Err(result.Error).Msgf("Error while processing waiting messages for subscriptionId: %s", result.SubscriptionId)
