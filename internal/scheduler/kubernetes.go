@@ -39,12 +39,12 @@ func kubernetesPodWatcher() {
 		time.Second*30,
 		kubeCache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj any) {
-				log.Debug().Msgf("Pod added: %v", obj)
 				handlePodEvent(obj)
+				log.Info().Msgf("Pod added: %v", obj)
 			},
 			UpdateFunc: func(oldObj, newObj any) {
-				log.Debug().Msgf("Pod updated: %v", newObj)
 				handlePodEvent(newObj)
+				log.Info().Msgf("Pod added: %v", newObj)
 			},
 		})
 

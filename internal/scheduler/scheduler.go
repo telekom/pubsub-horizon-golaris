@@ -6,6 +6,7 @@ package scheduler
 
 import (
 	"context"
+	"flag"
 	"github.com/go-co-op/gocron"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/rs/zerolog/log"
@@ -22,10 +23,13 @@ import (
 var scheduler *gocron.Scheduler
 var HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
 var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
-var kubeconfig = "kubeconfig"
+var kubeconfig string
 var isQuasarPodRestarted bool
 
 func init() {
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	flag.Parse()
+
 	kubernetesPodWatcher()
 }
 
