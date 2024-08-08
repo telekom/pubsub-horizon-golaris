@@ -25,21 +25,17 @@ func Initialize() {
 }
 
 func kubernetesPodWatcher() {
-	log.Info().Msg("Building kubeconfig...")
 	kubeConfig, err := buildConfig(kubeconfig)
 	if err != nil {
 		log.Error().Msgf("Error while building kubeconfig: %v", err)
 		return
 	}
-	log.Info().Msg("Kubeconfig built successfully.")
 
-	log.Info().Msg("Creating Kubernetes clientset...")
 	clientset, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		log.Error().Msgf("Error while creating clientset: %v", err)
 		return
 	}
-	log.Info().Msg("Clientset created successfully.")
 
 	podWatcher := kubeCache.NewListWatchFromClient(
 		clientset.CoreV1().RESTClient(),
@@ -47,24 +43,20 @@ func kubernetesPodWatcher() {
 		config.Current.Kubernetes.Namespace,
 		fields.Everything(),
 	)
-	log.Info().Msgf("Watching pods in namespace: %v", config.Current.Kubernetes.Namespace)
 
 	_, controller := kubeCache.NewInformer(
 		podWatcher,
 		&v1.Pod{},
 		time.Second*30,
 		kubeCache.ResourceEventHandlerFuncs{
-			UpdateFunc: func(oldObj, newObj any) {
+			UpdateFunc: func(oldObj any, newObj any) {
 				handlePodEvent(newObj)
-				log.Info().Msgf("Pod updated: %v", newObj)
 			},
 		})
 
 	stopChannel := make(chan struct{})
 	go func() {
-		log.Info().Msg("Starting controller...")
 		controller.Run(stopChannel)
-		log.Info().Msg("Controller stopped.")
 	}()
 }
 
@@ -85,12 +77,11 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 }
 
 func handlePodEvent(obj any) {
-	log.Info().Msgf("Handling pod event: %v", obj)
 	// Check if the event is a pod event
 	if pod, ok := obj.(*v1.Pod); ok {
 		// Check if the pod is a Quasar pod
-		log.Info().Msgf("Pod name: %v", pod.Name)
 		if strings.Contains(pod.Name, "horizon-quasar") {
+			log.Info().Msgf("Pod name is: %s", pod.Name)
 			// Check if the pod is restarted
 			if pod.Status.Phase == v1.PodRunning {
 				handler.CheckWaitingEvents()
