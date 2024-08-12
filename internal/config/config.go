@@ -63,7 +63,6 @@ func setDefaults() {
 	// Hazelcast
 	viper.SetDefault("hazelcast.clusterName", "dev")
 	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
-	viper.SetDefault("hazelcast.customLoggerEnabled", false)
 
 	// Kafka
 	viper.SetDefault("kafka.brokers", "localhost:9092")
