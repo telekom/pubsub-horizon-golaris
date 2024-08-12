@@ -1,3 +1,7 @@
+// Copyright 2024 Deutsche Telekom IT GmbH
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package cmd
 
 import (
@@ -5,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golaris/config"
+	"pubsub-horizon-golaris/internal/config"
 )
 
 var initCmd = &cobra.Command{
@@ -15,7 +19,7 @@ var initCmd = &cobra.Command{
 }
 
 func initializeConfig(cmd *cobra.Command, args []string) {
-	if err := config.InitConfig(); err != nil {
+	if err := config.Initialize(); err != nil {
 		handleConfigInitErr(err)
 		return
 	}

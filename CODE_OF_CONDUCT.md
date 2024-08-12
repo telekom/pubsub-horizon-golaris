@@ -1,7 +1,7 @@
 <!--
-SPDX-FileCopyrightText: 2023 www.contributor-covenant.org
+Copyright 2024 Deutsche Telekom IT GmbH
 
-SPDX-License-Identifier: CC-BY-4.0
+SPDX-License-Identifier: Apache-2.0
 -->
 
 # Contributor Covenant Code of Conduct

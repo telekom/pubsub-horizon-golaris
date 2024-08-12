@@ -1,3 +1,7 @@
+// Copyright 2024 Deutsche Telekom IT GmbH
+//
+// SPDX-License-Identifier: Apache-2.0
+
 package cmd
 
 import "github.com/spf13/cobra"
@@ -8,5 +12,5 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Use:   "Golaris",
-	Short: "Our service for handling circuitBreakerMessages",
+	Short: "Our scheduler for handling circuitBreakerMessages",
 }
