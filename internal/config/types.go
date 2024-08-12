@@ -26,8 +26,8 @@ type Configuration struct {
 type CircuitBreaker struct {
 	OpenCheckInterval       time.Duration `mapstructure:"openCheckInterval"`
 	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
-	ExponentialBackoffBase    time.Duration `mapstructure:"exponentialBackoffBase"`
-	ExponentialBackoffMax     time.Duration `mapstructure:"exponentialBackoffMax"`
+	ExponentialBackoffBase  time.Duration `mapstructure:"exponentialBackoffBase"`
+	ExponentialBackoffMax   time.Duration `mapstructure:"exponentialBackoffMax"`
 }
 
 type HealthCheck struct {
@@ -43,10 +43,9 @@ type Republishing struct {
 }
 
 type Hazelcast struct {
-	ServiceDNS          string `mapstructure:"serviceDNS"`
-	ClusterName         string `mapstructure:"clusterName"`
-	Caches              Caches `mapstructure:"caches"`
-	CustomLoggerEnabled bool   `mapstructure:"customLoggerEnabled"`
+	ServiceDNS  string `mapstructure:"serviceDNS"`
+	ClusterName string `mapstructure:"clusterName"`
+	Caches      Caches `mapstructure:"caches"`
 }
 
 type Caches struct {

@@ -77,10 +77,7 @@ func createNewHazelcastConfig() hazelcast.Config {
 
 	cacheConfig.Cluster.Name = config.Current.Hazelcast.ClusterName
 	cacheConfig.Cluster.Network.SetAddresses(config.Current.Hazelcast.ServiceDNS)
-
-	if config.Current.Hazelcast.CustomLoggerEnabled {
-		cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
-	}
+	cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
 
 	return cacheConfig
 }
