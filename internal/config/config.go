@@ -44,7 +44,7 @@ func setDefaults() {
 
 	// Processes
 	viper.SetDefault("circuitBreaker.openCheckInterval", "30s")
-	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "300s")
+	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "75m")
 	viper.SetDefault("circuitBreaker.exponentialBackoffBase", "1000ms")
 	viper.SetDefault("circuitBreaker.exponentialBackoffMax", "60m")
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})

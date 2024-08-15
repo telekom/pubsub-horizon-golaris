@@ -32,6 +32,7 @@ type HazelcastMapInterface interface {
 	ContainsKey(ctx context.Context, key interface{}) (bool, error)
 	Clear(ctx context.Context) error
 	Lock(ctx context.Context, key interface{}) error
+	TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error)
 }
 
 var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
