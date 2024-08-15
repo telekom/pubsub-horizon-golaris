@@ -44,7 +44,7 @@ func setDefaults() {
 
 	// Processes
 	viper.SetDefault("circuitBreaker.openCheckInterval", "30s")
-	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "300s")
+	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "75m")
 	viper.SetDefault("circuitBreaker.exponentialBackoffBase", "1000ms")
 	viper.SetDefault("circuitBreaker.exponentialBackoffMax", "60m")
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
@@ -52,7 +52,7 @@ func setDefaults() {
 	viper.SetDefault("republishing.checkInterval", "30s")
 	viper.SetDefault("republishing.batchSize", 10)
 	viper.SetDefault("republishing.throttlingIntervalTime", "10s")
-	viper.SetDefault("republishing.deliveringStatesOffsetMins", 15)
+	viper.SetDefault("republishing.deliveringStatesOffset", "15m")
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")

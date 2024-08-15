@@ -31,8 +31,7 @@ func CheckDeliveringEvents() {
 
 	batchSize := config.Current.Republishing.BatchSize
 
-	deliveringStatesOffsetMins := config.Current.Republishing.DeliveringStatesOffsetMins
-	upperThresholdTimestamp := time.Now().Add(-time.Duration(deliveringStatesOffsetMins) * time.Minute)
+	upperThresholdTimestamp := time.Now().Add(-config.Current.Republishing.DeliveringStatesOffset)
 
 	for {
 		var lastCursor any
