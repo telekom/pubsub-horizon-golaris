@@ -26,8 +26,8 @@ type Configuration struct {
 type CircuitBreaker struct {
 	OpenCheckInterval       time.Duration `mapstructure:"openCheckInterval"`
 	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
-	ExponentialBackoffBase    time.Duration `mapstructure:"exponentialBackoffBase"`
-	ExponentialBackoffMax     time.Duration `mapstructure:"exponentialBackoffMax"`
+	ExponentialBackoffBase  time.Duration `mapstructure:"exponentialBackoffBase"`
+	ExponentialBackoffMax   time.Duration `mapstructure:"exponentialBackoffMax"`
 }
 
 type HealthCheck struct {
@@ -36,10 +36,10 @@ type HealthCheck struct {
 }
 
 type Republishing struct {
-	CheckInterval              time.Duration `mapstructure:"checkInterval"`
-	BatchSize                  int64         `mapstructure:"batchSize"`
-	ThrottlingIntervalTime     time.Duration `mapstructure:"throttlingIntervalTime"`
-	DeliveringStatesOffsetMins int           `mapstructure:"deliveringStatesOffsetMins"`
+	CheckInterval          time.Duration `mapstructure:"checkInterval"`
+	BatchSize              int64         `mapstructure:"batchSize"`
+	ThrottlingIntervalTime time.Duration `mapstructure:"throttlingIntervalTime"`
+	DeliveringStatesOffset time.Duration `mapstructure:"deliveringStatesOffset"`
 }
 
 type Hazelcast struct {
