@@ -156,7 +156,7 @@ func Test_ExecuteHealthRequestWithToken_ErrorCases(t *testing.T) {
 			expectedErrMsg := fmt.Sprintf("Failed to perform %s request to %s:", method, callbackUrl)
 			assertions.Contains(err.Error(), expectedErrMsg)
 
-			log.Info().Msgf("Error: %v", err)
+			log.Info().Err(err).Msgf("Error occured")
 			continue
 		}
 	}

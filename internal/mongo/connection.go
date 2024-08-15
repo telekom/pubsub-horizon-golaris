@@ -50,6 +50,6 @@ func pingMongoNode(connection *mongo.Client) error {
 		return err
 	}
 
-	log.Info().Msg("Connected to MongoDB established")
+	log.Info().Msg("Connection to MongoDB established")
 	return nil
 }

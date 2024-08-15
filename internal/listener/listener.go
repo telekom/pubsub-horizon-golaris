@@ -25,7 +25,7 @@ func Initialize() {
 		panic(err)
 	}
 
-	log.Info().Msgf("SubscriptionLister initialized")
+	log.Info().Msgf("SubscriptionListener initialized")
 }
 
 // OnAdd is not implemented for OnAdd event handling.
@@ -109,7 +109,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
@@ -151,7 +151,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
@@ -197,7 +197,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 		republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId)
 		log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", obj.Spec.Subscription.SubscriptionId)
 
-		log.Info().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		log.Debug().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)

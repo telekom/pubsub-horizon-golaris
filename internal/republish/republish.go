@@ -133,7 +133,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
 
-		log.Info().Msgf("Last cursor: %v", lastCursor)
+		log.Debug().Msgf("Last cursor: %v", lastCursor)
 
 		if len(dbMessages) == 0 {
 			break
