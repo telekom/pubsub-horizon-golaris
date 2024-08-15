@@ -104,6 +104,15 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
+	picker, err := kafka.NewPicker()
+	if err != nil {
+		log.Error().Err(err).Fields(map[string]any{
+			"subscriptionId": subscriptionId,
+		}).Msg("Could not create picker for subscription")
+		return
+	}
+	defer picker.Close()
+
 	batchSize := config.Current.Republishing.BatchSize
 
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
@@ -177,7 +186,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				continue
 			}
 
-			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
+			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
 				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
 				continue
