@@ -30,6 +30,11 @@ func (f *FailedMockHandler) TryLockWithTimeout(ctx context.Context, key interfac
 	return args.Bool(0), args.Error(1)
 }
 
+func (d *FailedMockHandler) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error) {
+	args := d.Called(ctx, key, timeout)
+	return args.Bool(0), args.Error(1)
+}
+
 func (f *FailedMockHandler) GetEntrySet(ctx context.Context) ([]types.Entry, error) {
 	args := f.Called(ctx)
 	return args.Get(0).([]types.Entry), args.Error(1)

@@ -15,6 +15,7 @@ import (
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
+	"time"
 )
 
 func TestCheckDeliveringEvents_Success(t *testing.T) {
@@ -35,7 +36,7 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
-	config.Current.Republishing.DeliveringStatesOffsetMins = 30
+	config.Current.Republishing.DeliveringStatesOffset = 30 * time.Minute
 
 	partitionValue1 := int32(1)
 	offsetValue1 := int64(100)
@@ -104,7 +105,7 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
-	config.Current.Republishing.DeliveringStatesOffsetMins = 30
+	config.Current.Republishing.DeliveringStatesOffset = 30 * time.Minute
 
 	mockMongo.On("FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything).Return([]message.StatusMessage{}, nil, nil)
 

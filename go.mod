@@ -5,6 +5,7 @@ go 1.22.3
 require (
 	github.com/1pkg/gohalt v0.10.0
 	github.com/IBM/sarama v1.43.2
+	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/fiber/v2 v2.52.5
 	github.com/hazelcast/hazelcast-go-client v1.4.1
@@ -33,7 +34,6 @@ require (
 	github.com/andybalholm/brotli v1.0.5 // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/continuity v0.4.3 // indirect
