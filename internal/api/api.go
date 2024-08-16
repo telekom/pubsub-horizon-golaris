@@ -30,6 +30,7 @@ func init() {
 	v1.Get("/circuit-breakers/:subscriptionId", getCircuitBreakerMessageById)
 	v1.Get("/circuit-breakers", getAllCircuitBreakerMessages)
 	v1.Put("/circuit-breakers/close/:subscriptionId", putCloseCircuitBreakerById)
+	v1.Get("/republishing-entries", getRepublishingEntries)
 }
 
 func Listen(port int) {
