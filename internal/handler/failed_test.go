@@ -32,6 +32,9 @@ func TestCheckFailedEvents(t *testing.T) {
 	failedHandler := new(test.FailedMockHandler)
 	cache.FailedHandler = failedHandler
 
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
 	failedHandler.On("NewLockContext", mock.Anything).Return(context.Background())
 	failedHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	failedHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
@@ -76,7 +79,7 @@ func TestCheckFailedEvents(t *testing.T) {
 		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
-	mockKafka.On("PickMessage", mock.AnythingOfType("message.StatusMessage")).Return(expectedKafkaMessage, nil)
+	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(expectedKafkaMessage, nil)
 	mockKafka.On("RepublishMessage", mock.Anything, "SERVER_SENT_EVENT", "").Return(nil)
 
 	CheckFailedEvents()
@@ -88,6 +91,6 @@ func TestCheckFailedEvents(t *testing.T) {
 	mockCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.SubscriptionCache, "sub123")
 
 	mockKafka.AssertExpectations(t)
-	mockKafka.AssertCalled(t, "PickMessage", mock.AnythingOfType("message.StatusMessage"))
 	mockKafka.AssertCalled(t, "RepublishMessage", expectedKafkaMessage, "SERVER_SENT_EVENT", "")
+	mockPicker.AssertCalled(t, "Pick", mock.AnythingOfType("*message.StatusMessage"))
 }

@@ -24,6 +24,9 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 	mockKafka := new(test.MockKafkaHandler)
 	kafka.CurrentHandler = mockKafka
 
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
 	deliveringHandler := new(test.DeliveringMockHandler)
 	cache.DeliveringHandler = deliveringHandler
 
@@ -70,7 +73,7 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
 	}
 
-	mockKafka.On("PickMessage", mock.AnythingOfType("message.StatusMessage")).Return(expectedKafkaMessage, nil)
+	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(expectedKafkaMessage, nil)
 	mockKafka.On("RepublishMessage", expectedKafkaMessage, "", "").Return(nil)
 
 	CheckDeliveringEvents()
@@ -79,8 +82,8 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 	mockMongo.AssertCalled(t, "FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything)
 
 	mockKafka.AssertExpectations(t)
-	mockKafka.AssertCalled(t, "PickMessage", mock.AnythingOfType("message.StatusMessage"))
 	mockKafka.AssertCalled(t, "RepublishMessage", expectedKafkaMessage, "", "")
+	mockPicker.AssertCalled(t, "Pick", mock.AnythingOfType("*message.StatusMessage"))
 }
 
 func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
@@ -93,6 +96,9 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 	deliveringHandler := new(test.DeliveringMockHandler)
 	cache.DeliveringHandler = deliveringHandler
 
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
 	deliveringHandler.On("NewLockContext", mock.Anything).Return(context.Background())
 	deliveringHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
@@ -104,8 +110,8 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 
 	CheckDeliveringEvents()
 
-	mockKafka.AssertNotCalled(t, "PickMessage", mock.AnythingOfType("message.StatusMessage"))
 	mockKafka.AssertNotCalled(t, "RepublishMessage", mock.Anything, "", "")
+	mockPicker.AssertNotCalled(t, "Pick", mock.AnythingOfType("*message.StatusMessage"))
 
 	mockMongo.AssertExpectations(t)
 	mockMongo.AssertCalled(t, "FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything)

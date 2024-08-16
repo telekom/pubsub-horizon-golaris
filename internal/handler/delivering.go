@@ -34,6 +34,13 @@ func CheckDeliveringEvents() {
 	deliveringStatesOffsetMins := config.Current.Republishing.DeliveringStatesOffsetMins
 	upperThresholdTimestamp := time.Now().Add(-time.Duration(deliveringStatesOffsetMins) * time.Minute)
 
+	picker, err := kafka.NewPicker()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not initialize picker for handling events in state DELIVERING")
+		return
+	}
+	defer picker.Close()
+
 	for {
 		var lastCursor any
 
@@ -55,13 +62,13 @@ func CheckDeliveringEvents() {
 				return
 			}
 
-			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
+			message, err := picker.Pick(&dbMessage)
 			if err != nil {
 				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", dbMessage.SubscriptionId, err)
 				return
 			}
 
-			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+			var b3Ctx = tracing.WithB3FromMessage(context.Background(), message)
 			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
 
 			traceCtx.StartSpan("republish delivering message")
@@ -69,9 +76,9 @@ func CheckDeliveringEvents() {
 			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
 			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
 			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
+			traceCtx.SetAttribute("uuid", string(message.Key))
 
-			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, "", "", false)
+			err = kafka.CurrentHandler.RepublishMessage(traceCtx, message, "", "", false)
 			if err != nil {
 				log.Printf("Error while republishing message for subscriptionId %s: %v", dbMessage.SubscriptionId, err)
 				return
