@@ -11,7 +11,12 @@ type Picker struct {
 	consumer sarama.Consumer
 }
 
-func NewPicker() (*Picker, error) {
+type MessagePicker interface {
+	Close()
+	Pick(status *message.StatusMessage) (*sarama.ConsumerMessage, error)
+}
+
+var NewPicker = func() (MessagePicker, error) {
 	var saramaConfig = sarama.NewConfig()
 	consumer, err := sarama.NewConsumer(config.Current.Kafka.Brokers, saramaConfig)
 	if err != nil {
