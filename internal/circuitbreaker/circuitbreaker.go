@@ -127,8 +127,6 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 		cbMessage.LoopCounter = 0
 		log.Debug().Msgf("Circuit breaker opened outside loop detection period. Reseted loop counter for subscription %s: %v", cbMessage.SubscriptionId, cbMessage.LoopCounter)
 	}
-	// set last opened for the next loop detection
-	cbMessage.LastOpened = cbMessage.LastModified
 	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
 
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
