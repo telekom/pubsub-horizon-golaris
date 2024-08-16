@@ -97,6 +97,9 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 		// Create republishing cache entry
 		republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now().Add(+exponentialBackoff)}
+
+		log.Info().Msgf("postponedUntil for subscriptionId %s set to %v", republishingCacheEntry.SubscriptionId, republishingCacheEntry.PostponedUntil)
+
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -193,5 +196,8 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 	if exponentialBackoff > exponentialBackoffMax {
 		exponentialBackoff = exponentialBackoffMax
 	}
+
+	log.Info().Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v", cbMessage.SubscriptionId, cbMessage.LoopCounter, exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
+
 	return exponentialBackoff
 }
