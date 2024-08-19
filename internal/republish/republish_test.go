@@ -99,6 +99,9 @@ func TestRepublishEvents(t *testing.T) {
 	mockMongo := new(test.MockMongoHandler)
 	mockKafka := new(test.MockKafkaHandler)
 
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
 	// Replace real handlers with mocks
 	mongo.CurrentConnection = mockMongo
 	kafka.CurrentHandler = mockKafka
@@ -123,7 +126,7 @@ func TestRepublishEvents(t *testing.T) {
 	// Expectations for the batch
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
 
-	mockKafka.On("PickMessage", mock.AnythingOfType("message.StatusMessage")).Return(&kafkaMessage, nil).Twice()
+	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Twice()
 	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()
 
 	// Call the function under test
@@ -145,6 +148,7 @@ func TestRepublishEvents(t *testing.T) {
 	// Assertions
 	mockMongo.AssertExpectations(t)
 	mockKafka.AssertExpectations(t)
+	mockPicker.AssertExpectations(t)
 }
 
 func Test_Unlock_RepublishingEntryLocked(t *testing.T) {

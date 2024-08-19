@@ -97,6 +97,9 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 		// Create republishing cache entry
 		republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now().Add(+exponentialBackoff)}
+
+		log.Debug().Msgf("postponedUntil for subscriptionId %s set to %v", republishingCacheEntry.SubscriptionId, republishingCacheEntry.PostponedUntil)
+
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -127,8 +130,6 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 		cbMessage.LoopCounter = 0
 		log.Debug().Msgf("Circuit breaker opened outside loop detection period. Reseted loop counter for subscription %s: %v", cbMessage.SubscriptionId, cbMessage.LoopCounter)
 	}
-	// set last opened for the next loop detection
-	cbMessage.LastOpened = cbMessage.LastModified
 	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
 
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
@@ -187,13 +188,23 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 		return 0
 	}
 
+	// Return max backoff if loop counter exceeds 17 to avoid overflow
+	if cbMessage.LoopCounter > 17 {
+		return exponentialBackoffMax
+	}
+
 	// Calculate the exponential backoff based on republishing count.
 	// If the circuit breaker counter is 2 it is the first retry, because the counter had  already been  incremented immediately before
 	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.LoopCounter-1)))
 
+	log.Debug().Msgf("Math.Pow: %v", math.Pow(2, float64(cbMessage.LoopCounter-1)))
+
 	// Limit the exponential backoff to the max backoff
-	if exponentialBackoff > exponentialBackoffMax {
+	if (exponentialBackoff > exponentialBackoffMax) || (exponentialBackoff < 0) {
 		exponentialBackoff = exponentialBackoffMax
 	}
+
+	log.Debug().Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v", cbMessage.SubscriptionId, cbMessage.LoopCounter, exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
+
 	return exponentialBackoff
 }

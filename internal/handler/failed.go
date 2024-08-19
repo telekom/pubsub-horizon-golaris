@@ -35,6 +35,13 @@ func CheckFailedEvents() {
 	var dbMessages []message.StatusMessage
 	var err error
 
+	picker, err := kafka.NewPicker()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not initialize picker for handling events in state DELIVERING")
+		return
+	}
+	defer picker.Close()
+
 	for {
 		var lastCursor any
 		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
@@ -65,7 +72,7 @@ func CheckFailedEvents() {
 						return
 					}
 
-					kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
+					kafkaMessage, err := picker.Pick(&dbMessage)
 					if err != nil {
 						log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
 						return

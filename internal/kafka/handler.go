@@ -11,7 +11,6 @@ import (
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/config"
 )
@@ -31,13 +30,6 @@ func Initialize() {
 func newKafkaHandler() (*Handler, error) {
 	kafkaConfig := sarama.NewConfig()
 
-	// Initialize the Kafka Consumer to read messages from Kafka
-	consumer, err := sarama.NewConsumer(config.Current.Kafka.Brokers, kafkaConfig)
-	if err != nil {
-		log.Error().Err(err).Msg("Could not create Kafka consumer")
-		return nil, err
-	}
-
 	// Initialize the Kafka Producer to send the updated messages back to Kafka (resetMessage)
 	kafkaConfig.Producer.Partitioner = kafkautil.NewJVMCompatiblePartitioner
 	kafkaConfig.Producer.Return.Successes = true
@@ -48,29 +40,8 @@ func newKafkaHandler() (*Handler, error) {
 	}
 
 	return &Handler{
-		Consumer: consumer,
 		Producer: producer,
 	}, nil
-}
-
-func (kafkaHandler Handler) PickMessage(message message.StatusMessage) (*sarama.ConsumerMessage, error) {
-	log.Debug().Msgf("Picking message at partition %d with offset %d", *message.Coordinates.Partition, *message.Coordinates.Offset)
-
-	consumer, err := kafkaHandler.Consumer.ConsumePartition(message.Topic, *message.Coordinates.Partition, *message.Coordinates.Offset)
-	if err != nil {
-		log.Debug().Msgf("KafkaPick for partition %d and topic %s and offset %d failed: %v", *message.Coordinates.Partition, message.Topic, *message.Coordinates.Offset, err)
-		return nil, err
-	}
-
-	defer func() {
-		err = consumer.Close()
-		if err != nil {
-			log.Error().Err(err).Msg("Could not close consumer")
-		}
-	}()
-
-	msg := <-consumer.Messages()
-	return msg, nil
 }
 
 func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error {
