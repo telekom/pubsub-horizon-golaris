@@ -188,9 +188,16 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 		return 0
 	}
 
+	// Return max backoff if loop counter exceeds 17 to avoid overflow
+	if cbMessage.LoopCounter > 17 {
+		return exponentialBackoffMax
+	}
+
 	// Calculate the exponential backoff based on republishing count.
 	// If the circuit breaker counter is 2 it is the first retry, because the counter had  already been  incremented immediately before
 	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.LoopCounter-1)))
+
+	log.Debug().Msgf("Math.Pow: %v", math.Pow(2, float64(cbMessage.LoopCounter-1)))
 
 	// Limit the exponential backoff to the max backoff
 	if (exponentialBackoff > exponentialBackoffMax) || (exponentialBackoff < 0) {
