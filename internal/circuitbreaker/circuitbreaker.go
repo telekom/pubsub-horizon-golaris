@@ -98,7 +98,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		// Create republishing cache entry
 		republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now().Add(+exponentialBackoff)}
 
-		log.Info().Msgf("postponedUntil for subscriptionId %s set to %v", republishingCacheEntry.SubscriptionId, republishingCacheEntry.PostponedUntil)
+		log.Debug().Msgf("postponedUntil for subscriptionId %s set to %v", republishingCacheEntry.SubscriptionId, republishingCacheEntry.PostponedUntil)
 
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, republishingCacheEntry)
 		if err != nil {
@@ -193,11 +193,11 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.LoopCounter-1)))
 
 	// Limit the exponential backoff to the max backoff
-	if exponentialBackoff > exponentialBackoffMax {
+	if (exponentialBackoff > exponentialBackoffMax) || (exponentialBackoff < 0) {
 		exponentialBackoff = exponentialBackoffMax
 	}
 
-	log.Info().Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v", cbMessage.SubscriptionId, cbMessage.LoopCounter, exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
+	log.Debug().Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v", cbMessage.SubscriptionId, cbMessage.LoopCounter, exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
 
 	return exponentialBackoff
 }

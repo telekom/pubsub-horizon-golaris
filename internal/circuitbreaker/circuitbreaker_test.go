@@ -570,6 +570,11 @@ func TestCalculateExponentialBackoff(t *testing.T) {
 			cbLoopCounter:   13,
 			expectedBackoff: backoffMax,
 		},
+		{
+			name:            "Max backoff 44 reached exponential backoff  = 2^43 * 1000ms",
+			cbLoopCounter:   44,
+			expectedBackoff: backoffMax,
+		},
 	}
 
 	for _, tc := range tests {
