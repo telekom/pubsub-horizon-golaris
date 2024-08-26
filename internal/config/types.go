@@ -40,6 +40,7 @@ type Republishing struct {
 	BatchSize              int64         `mapstructure:"batchSize"`
 	ThrottlingIntervalTime time.Duration `mapstructure:"throttlingIntervalTime"`
 	DeliveringStatesOffset time.Duration `mapstructure:"deliveringStatesOffset"`
+	ErrorThreshold         int           `mapstructure:"errorThreshold"`
 }
 
 type Hazelcast struct {

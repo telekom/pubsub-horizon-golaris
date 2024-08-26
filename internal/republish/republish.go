@@ -7,6 +7,7 @@ package republish
 import (
 	"context"
 	"encoding/gob"
+	"fmt"
 	"github.com/1pkg/gohalt"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -86,7 +87,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		}
 	}()
 
-	republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
+	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s", subscriptionId)
+		return
+	}
 
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
@@ -100,7 +105,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 // The function takes a subscriptionId as a parameter.
-func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {
+func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
@@ -109,7 +114,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		log.Error().Err(err).Fields(map[string]any{
 			"subscriptionId": subscriptionId,
 		}).Msg("Could not create picker for subscription")
-		return
+		return err
 	}
 	defer picker.Close()
 
@@ -119,10 +124,12 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	defer throttler.Release(context.Background())
 
 	var lastCursor any
+	messageCounter := 0
+	errorCounter := 0
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-			return
+			return nil
 		}
 
 		var dbMessages []message.StatusMessage
@@ -149,9 +156,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 
 		for _, dbMessage := range dbMessages {
+
 			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-				return
+				return nil
 			}
 
 			for {
@@ -161,7 +169,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
 						if cache.GetCancelStatus(subscriptionId) {
 							log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-							return
+							return nil
 						}
 
 						time.Sleep(sleepInterval)
@@ -186,9 +194,12 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				continue
 			}
 
+			messageCounter++
+
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
-				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
+				errorCounter++
+				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s errorCounter: %d", subscriptionId, errorCounter)
 				continue
 			}
 
@@ -216,6 +227,21 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			break
 		}
 	}
+	if calculateErrorPercentage(errorCounter, messageCounter) > config.Current.Republishing.ErrorThreshold {
+		return fmt.Errorf("errorThreshold exceeded for subscriptionId %s", subscriptionId)
+	}
+	return nil
+}
+
+func calculateErrorPercentage(errorCounter, messageCounter int) int {
+	if messageCounter == 0 {
+		log.Warn().Msg("Message counter is zero, cannot calculate percentage")
+		return 0
+	}
+
+	errorPercentage := float64(errorCounter) / float64(messageCounter) * 100
+
+	return int(errorPercentage)
 }
 
 // ForceDelete attempts to forcefully delete a RepublishingCacheEntry for a given subscriptionId.

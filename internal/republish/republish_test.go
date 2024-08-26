@@ -40,7 +40,9 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	var assertions = assert.New(t)
 
 	// Mock republishPendingEventsFunc
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {}
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+		return nil
+	}
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -69,7 +71,9 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {}
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+		return nil
+	}
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -221,4 +225,27 @@ func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 
 	// Assertions
 	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
+}
+
+func TestCalculateErrorPercentage(t *testing.T) {
+	tests := []struct {
+		name           string
+		errorCounter   int
+		messageCounter int
+		expected       int
+	}{
+		{"Normal case", 5, 100, 5},
+		{"Zero messageCounter", 5, 0, 0},
+		{"Zero errorCounter", 0, 100, 0},
+		{"Both zero", 0, 0, 0},
+		{"Half errors", 50, 100, 50},
+		{"Decimal case", 7, 11, 63},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := calculateErrorPercentage(tt.errorCounter, tt.messageCounter)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

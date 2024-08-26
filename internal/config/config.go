@@ -51,8 +51,9 @@ func setDefaults() {
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
 	viper.SetDefault("republishing.checkInterval", "30s")
 	viper.SetDefault("republishing.batchSize", 10)
-	viper.SetDefault("republishing.throttlingIntervalTime", "10s")
-	viper.SetDefault("republishing.deliveringStatesOffset", "15m")
+	viper.SetDefault("republishing.throttlingIntervalTime", "1s")
+	viper.SetDefault("republishing.deliveringStatesOffset", "75m")
+	viper.SetDefault("republishing.ErrorThreshold", 20)
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
