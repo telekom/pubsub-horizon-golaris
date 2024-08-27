@@ -9,11 +9,11 @@ import (
 	"encoding/gob"
 	"errors"
 	"github.com/1pkg/gohalt"
-	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/tracing"
+	"net"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -200,13 +200,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
 				log.Debug().Msgf("ErrorType: %T", err)
-				if kerr, ok := err.(sarama.KError); ok {
-					log.Debug().Msgf("Error is an kerr %+v", kerr)
-					if errors.Is(kerr, sarama.ErrBrokerNotAvailable) {
-						log.Debug().Msgf("Broker not available: %+v", kerr)
-						return err
-					}
+
+				var nErr *net.OpError
+				if errors.As(err, &nErr) {
+					log.Debug().Msgf("Kafka network error %+v", err)
+					return err
 				}
+
 				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
