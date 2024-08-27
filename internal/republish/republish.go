@@ -7,7 +7,9 @@ package republish
 import (
 	"context"
 	"encoding/gob"
+	"errors"
 	"github.com/1pkg/gohalt"
+	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
@@ -88,7 +90,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 
 	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s", subscriptionId)
+		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
 	}
 
@@ -197,6 +199,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
+				var kerr sarama.KError
+				if errors.As(err, &kerr) && errors.Is(kerr, sarama.ErrBrokerNotAvailable) {
+					return err
+				}
 				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
