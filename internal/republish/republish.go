@@ -192,10 +192,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				newCallbackUrl = subscription.Spec.Subscription.Callback
 			}
 
-			log.Debug().Msgf("Republishing is Sleeping for 120s")
-			time.Sleep(time.Second * 120)
-			log.Debug().Msgf("Sleeping finished...")
-
 			if dbMessage.Coordinates == nil {
 				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", subscriptionId, dbMessage)
 				continue
