@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"github.com/1pkg/gohalt"
+	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
@@ -111,6 +112,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
+
+	// Returning an error results in NOT deleting the republishingEntry from the cache
+	// so that the republishing job will get retried shortly
 	if err != nil {
 		log.Error().Err(err).Fields(map[string]any{
 			"subscriptionId": subscriptionId,
@@ -199,12 +203,26 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
-				log.Debug().Msgf("ErrorType: %T", err)
-
+				// Returning an error results in NOT deleting the republishingEntry from the cache
+				// so that the republishing job will get retried shortly
 				var nErr *net.OpError
 				if errors.As(err, &nErr) {
-					log.Debug().Msgf("Kafka network error %+v", err)
 					return err
+				}
+
+				var errorList = []error{
+					sarama.ErrEligibleLeadersNotAvailable,
+					sarama.ErrPreferredLeaderNotAvailable,
+					sarama.ErrUnknownLeaderEpoch,
+					sarama.ErrFencedLeaderEpoch,
+					sarama.ErrNotLeaderForPartition,
+					sarama.ErrLeaderNotAvailable,
+				}
+
+				for _, e := range errorList {
+					if errors.Is(err, e) {
+						return err
+					}
 				}
 
 				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
