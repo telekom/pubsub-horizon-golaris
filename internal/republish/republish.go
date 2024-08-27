@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"github.com/1pkg/gohalt"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
@@ -199,7 +200,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
+				log.Debug().Msgf("ErrorType: %T", err)
 				var kerr *sarama.KError
+				fmt.Sprintf("%T", err)
 				if errors.As(err, &kerr) {
 					log.Debug().Msgf("Error is an kerr %+v", kerr)
 					if errors.Is(kerr, sarama.ErrBrokerNotAvailable) {

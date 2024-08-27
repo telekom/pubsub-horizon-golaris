@@ -199,8 +199,6 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 	// If the circuit breaker counter is 2 it is the first retry, because the counter had  already been  incremented immediately before
 	exponentialBackoff := exponentialBackoffBase * time.Duration(math.Pow(2, float64(cbMessage.LoopCounter-1)))
 
-	log.Debug().Msgf("Math.Pow: %v", math.Pow(2, float64(cbMessage.LoopCounter-1)))
-
 	// Limit the exponential backoff to the max backoff
 	if (exponentialBackoff > exponentialBackoffMax) || (exponentialBackoff < 0) {
 		exponentialBackoff = exponentialBackoffMax
