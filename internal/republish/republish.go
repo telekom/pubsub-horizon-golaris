@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"github.com/1pkg/gohalt"
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
@@ -201,9 +200,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
 				log.Debug().Msgf("ErrorType: %T", err)
-				var kerr *sarama.KError
-				fmt.Sprintf("%T", err)
-				if errors.As(err, &kerr) {
+				if kerr, ok := err.(sarama.KError); ok {
 					log.Debug().Msgf("Error is an kerr %+v", kerr)
 					if errors.Is(kerr, sarama.ErrBrokerNotAvailable) {
 						log.Debug().Msgf("Broker not available: %+v", kerr)
@@ -239,17 +236,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 	}
 	return nil
-}
-
-func calculateErrorPercentage(errorCounter, messageCounter int) int {
-	if messageCounter == 0 {
-		log.Warn().Msg("Message counter is zero, cannot calculate percentage")
-		return 0
-	}
-
-	errorPercentage := float64(errorCounter) / float64(messageCounter) * 100
-
-	return int(errorPercentage)
 }
 
 // ForceDelete attempts to forcefully delete a RepublishingCacheEntry for a given subscriptionId.
