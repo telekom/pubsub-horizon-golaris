@@ -7,7 +7,6 @@ package republish
 import (
 	"context"
 	"encoding/gob"
-	"fmt"
 	"github.com/1pkg/gohalt"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -124,8 +123,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	defer throttler.Release(context.Background())
 
 	var lastCursor any
-	messageCounter := 0
-	errorCounter := 0
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
@@ -189,17 +186,18 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				newCallbackUrl = subscription.Spec.Subscription.Callback
 			}
 
+			log.Debug().Msgf("Republishing is Sleeping for 120s")
+			time.Sleep(time.Second * 120)
+			log.Debug().Msgf("Sleeping finished...")
+
 			if dbMessage.Coordinates == nil {
 				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", subscriptionId, dbMessage)
 				continue
 			}
 
-			messageCounter++
-
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
-				errorCounter++
-				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s errorCounter: %d", subscriptionId, errorCounter)
+				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
 
@@ -226,9 +224,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
-	}
-	if calculateErrorPercentage(errorCounter, messageCounter) > config.Current.Republishing.ErrorThreshold {
-		return fmt.Errorf("errorThreshold exceeded for subscriptionId %s", subscriptionId)
 	}
 	return nil
 }
