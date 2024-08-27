@@ -199,9 +199,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
-				var kerr sarama.KError
-				if errors.As(err, &kerr) && errors.Is(kerr, sarama.ErrBrokerNotAvailable) {
-					return err
+				var kerr *sarama.KError
+				if errors.As(err, &kerr) {
+					log.Debug().Msgf("Error is an kerr %+v", kerr)
+					if errors.Is(kerr, sarama.ErrBrokerNotAvailable) {
+						log.Debug().Msgf("Broker not available: %+v", kerr)
+						return err
+					}
 				}
 				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
