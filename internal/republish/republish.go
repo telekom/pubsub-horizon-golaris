@@ -7,11 +7,14 @@ package republish
 import (
 	"context"
 	"encoding/gob"
+	"errors"
 	"github.com/1pkg/gohalt"
+	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/tracing"
+	"net"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -86,7 +89,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		}
 	}()
 
-	republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
+	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
+		return
+	}
 
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
@@ -100,16 +107,19 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 // The function takes a subscriptionId as a parameter.
-func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {
+func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
+
+	// Returning an error results in NOT deleting the republishingEntry from the cache
+	// so that the republishing job will get retried shortly
 	if err != nil {
 		log.Error().Err(err).Fields(map[string]any{
 			"subscriptionId": subscriptionId,
 		}).Msg("Could not create picker for subscription")
-		return
+		return err
 	}
 	defer picker.Close()
 
@@ -122,7 +132,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-			return
+			return nil
 		}
 
 		var dbMessages []message.StatusMessage
@@ -149,9 +159,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 
 		for _, dbMessage := range dbMessages {
+
 			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-				return
+				return nil
 			}
 
 			for {
@@ -161,7 +172,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
 						if cache.GetCancelStatus(subscriptionId) {
 							log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-							return
+							return nil
 						}
 
 						time.Sleep(sleepInterval)
@@ -188,7 +199,29 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
-				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
+				// Returning an error results in NOT deleting the republishingEntry from the cache
+				// so that the republishing job will get retried shortly
+				var nErr *net.OpError
+				if errors.As(err, &nErr) {
+					return err
+				}
+
+				var errorList = []error{
+					sarama.ErrEligibleLeadersNotAvailable,
+					sarama.ErrPreferredLeaderNotAvailable,
+					sarama.ErrUnknownLeaderEpoch,
+					sarama.ErrFencedLeaderEpoch,
+					sarama.ErrNotLeaderForPartition,
+					sarama.ErrLeaderNotAvailable,
+				}
+
+				for _, e := range errorList {
+					if errors.Is(err, e) {
+						return err
+					}
+				}
+
+				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
 
@@ -216,6 +249,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			break
 		}
 	}
+	return nil
 }
 
 // ForceDelete attempts to forcefully delete a RepublishingCacheEntry for a given subscriptionId.

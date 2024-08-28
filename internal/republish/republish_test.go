@@ -40,7 +40,9 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	var assertions = assert.New(t)
 
 	// Mock republishPendingEventsFunc
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {}
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+		return nil
+	}
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -69,7 +71,9 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) {}
+	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+		return nil
+	}
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
