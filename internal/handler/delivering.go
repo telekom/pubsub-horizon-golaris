@@ -16,6 +16,8 @@ import (
 )
 
 func CheckDeliveringEvents() {
+	log.Info().Msgf("Republish messages in state DELIVERING")
+
 	var ctx = cache.DeliveringHandler.NewLockContext(context.Background())
 
 	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
@@ -45,7 +47,7 @@ func CheckDeliveringEvents() {
 
 		dbMessages, lastCursor, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, lastCursor)
 		if err != nil {
-			log.Error().Msgf("Error while fetching DELIVERING messages from MongoDb: %v", err)
+			log.Error().Err(err).Msgf("Error while fetching DELIVERING messages from MongoDb")
 			return
 		}
 
@@ -57,13 +59,13 @@ func CheckDeliveringEvents() {
 		for _, dbMessage := range dbMessages {
 
 			if dbMessage.Coordinates == nil {
-				log.Printf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
+				log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
 				return
 			}
 
 			message, err := picker.Pick(&dbMessage)
 			if err != nil {
-				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", dbMessage.SubscriptionId, err)
+				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", dbMessage.SubscriptionId)
 				return
 			}
 
@@ -79,10 +81,10 @@ func CheckDeliveringEvents() {
 
 			err = kafka.CurrentHandler.RepublishMessage(traceCtx, message, "", "", false)
 			if err != nil {
-				log.Printf("Error while republishing message for subscriptionId %s: %v", dbMessage.SubscriptionId, err)
+				log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
 				return
 			}
-			log.Printf("Successfully republished message for subscriptionId %s", dbMessage.SubscriptionId)
+			log.Debug().Msgf("Successfully republished message in state DELIVERING for subscriptionId %s", dbMessage.SubscriptionId)
 		}
 
 		if len(dbMessages) < int(batchSize) {

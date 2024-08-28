@@ -17,6 +17,8 @@ import (
 )
 
 func CheckFailedEvents() {
+	log.Info().Msgf("Republish messages in state FAILED")
+
 	var ctx = cache.FailedHandler.NewLockContext(context.Background())
 
 	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, cache.FailedLockKey, 10*time.Millisecond); !acquired {
@@ -37,7 +39,7 @@ func CheckFailedEvents() {
 
 	picker, err := kafka.NewPicker()
 	if err != nil {
-		log.Error().Err(err).Msg("Could not initialize picker for handling events in state DELIVERING")
+		log.Error().Err(err).Msg("Could not initialize picker for handling events in state FAILED")
 		return
 	}
 	defer picker.Close()
@@ -46,7 +48,7 @@ func CheckFailedEvents() {
 		var lastCursor any
 		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
+			log.Error().Err(err).Msgf("Error while fetching FAILED messages from MongoDb")
 			return
 		}
 
@@ -59,7 +61,7 @@ func CheckFailedEvents() {
 
 			subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 			if err != nil {
-				log.Printf("Error while fetching republishing entry for subscriptionId %s: %v", subscriptionId, err)
+				log.Error().Err(err).Msgf("Error while fetching republishing entry for subscriptionId %s", subscriptionId)
 				return
 			}
 
@@ -68,13 +70,13 @@ func CheckFailedEvents() {
 					var newDeliveryType = "SERVER_SENT_EVENT"
 
 					if dbMessage.Coordinates == nil {
-						log.Printf("Coordinates in message for subscriptionId %s are nil: %v", subscriptionId, dbMessage)
+						log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
 						return
 					}
 
 					kafkaMessage, err := picker.Pick(&dbMessage)
 					if err != nil {
-						log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", subscriptionId, err)
+						log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 						return
 					}
 
@@ -90,10 +92,10 @@ func CheckFailedEvents() {
 
 					err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, "", true)
 					if err != nil {
-						log.Printf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
+						log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
 						return
 					}
-					log.Printf("Successfully republished message for subscriptionId %s", subscriptionId)
+					log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", subscriptionId)
 
 				}
 			}
