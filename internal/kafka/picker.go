@@ -13,6 +13,7 @@ import (
 
 type Picker struct {
 	consumer sarama.Consumer
+	sarama.KError
 }
 
 type MessagePicker interface {

@@ -90,7 +90,8 @@ func CheckConsumerHealth(hcData *PreparedHealthCheckData, subscription *resource
 
 	resp, err := executeHealthRequestWithToken(hcData.HealthCheckEntry.CallbackUrl, hcData.HealthCheckEntry.Method, subscription, token)
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to perform http-request for callback-url %s", hcData.HealthCheckEntry.CallbackUrl)
+		log.Info().Err(err).Msgf("Failed to perform http-request for callback-url %s", hcData.HealthCheckEntry.CallbackUrl)
+		updateHealthCheckEntry(hcData.Ctx, hcData.HealthCheckKey, hcData.HealthCheckEntry, 0)
 		return err
 	}
 	log.Debug().Msgf("Received response for callback-url %s with http-status: %v", hcData.HealthCheckEntry.CallbackUrl, resp.StatusCode)
@@ -150,7 +151,7 @@ func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedH
 
 	// Attempt to acquire a lock for the health check key
 	//isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
-	isAcquired, _ := cache.HealthCheckCache.TryLockWithLeaseAndTimeout(ctx, healthCheckKey, 30000*time.Millisecond, 10*time.Millisecond)
+	isAcquired, _ := cache.HealthCheckCache.TryLockWithLeaseAndTimeout(ctx, healthCheckKey, 60000*time.Millisecond, 10*time.Millisecond)
 
 	castedHealthCheckEntry := healthCheckEntry.(HealthCheckCacheEntry)
 	return &PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}, nil
