@@ -43,10 +43,10 @@ type Republishing struct {
 }
 
 type Hazelcast struct {
-	ServiceDNS          string `mapstructure:"serviceDNS"`
-	ClusterName         string `mapstructure:"clusterName"`
-	Caches              Caches `mapstructure:"caches"`
-	CustomLoggerEnabled bool   `mapstructure:"customLoggerEnabled"`
+	ServiceDNS  string `mapstructure:"serviceDNS"`
+	ClusterName string `mapstructure:"clusterName"`
+	Caches      Caches `mapstructure:"caches"`
+	LogLevel    string `mapstructure:"logLevel"`
 }
 
 type Caches struct {

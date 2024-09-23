@@ -36,7 +36,6 @@ func BuildTestConfig() config.Configuration {
 				HealthCheckCache:    "hcCache",
 				RepublishingCache:   "repCache",
 			},
-			CustomLoggerEnabled: false,
 		},
 		Kafka: config.Kafka{
 			Brokers: []string{"broker1:9092", "broker2:9092"},

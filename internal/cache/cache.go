@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/types"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	c "github.com/telekom/pubsub-horizon-go/cache"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -78,12 +79,20 @@ func createNewHazelcastConfig() hazelcast.Config {
 
 	cacheConfig.Cluster.Name = config.Current.Hazelcast.ClusterName
 	cacheConfig.Cluster.Network.SetAddresses(config.Current.Hazelcast.ServiceDNS)
-
-	if config.Current.Hazelcast.CustomLoggerEnabled {
-		cacheConfig.Logger.CustomLogger = new(util.HazelcastZerologLogger)
-	}
+	cacheConfig.Logger.CustomLogger = util.NewHazelcastZerologLogger(parseHazelcastLogLevel(config.Current.Hazelcast.LogLevel))
 
 	return cacheConfig
+}
+
+func parseHazelcastLogLevel(logLevel string) zerolog.Level {
+	var hazelcastLogLevel, err = zerolog.ParseLevel(logLevel)
+	if err != nil {
+		log.Error().Err(err).Fields(map[string]any{
+			"logLevel": config.Current.Hazelcast.LogLevel,
+		}).Msg("Could not parse log-level for hazelcast logger. Falling back to INFO...")
+		return zerolog.InfoLevel
+	}
+	return hazelcastLogLevel
 }
 
 // initializeCaches sets up the Hazelcast caches used in the application.

@@ -9,12 +9,15 @@ import (
 	"github.com/rs/zerolog/log"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/republish"
 	"time"
 )
 
 func CheckFailedEvents() {
+	log.Info().Msgf("Republish messages in state FAILED")
+
 	var ctx = cache.FailedHandler.NewLockContext(context.Background())
 
 	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, cache.FailedLockKey, 10*time.Millisecond); !acquired {
@@ -28,12 +31,20 @@ func CheckFailedEvents() {
 		}
 	}()
 
+	picker, err := kafka.NewPicker()
+	if err != nil {
+		log.Error().Err(err).Msg("Could not initialize picker for handling events in state FAILED")
+
+		return
+	}
+	defer picker.Close()
+
 	for {
 		var lastCursor any
 
 		dbMessages, _, err := mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching messages for subscription from db")
+			log.Error().Err(err).Msgf("Error while fetching messages for subscription from database")
 			return
 		}
 
@@ -41,19 +52,25 @@ func CheckFailedEvents() {
 			return
 		}
 
-		log.Debug().Msgf("Found %d DELIVERING messages in MongoDb", len(dbMessages))
+		log.Debug().Msgf("Found %d DELIVERING messages in database", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
 			subscriptionId := dbMessage.SubscriptionId
 
 			subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 			if err != nil {
-				log.Printf("Error while fetching republishing entry for subscriptionId %s: %v", subscriptionId, err)
+				log.Error().Err(err).Msgf("Error while fetching subscription from cache for subscriptionId %s", subscriptionId)
 
 				return
 			}
 
-			republish.HandleRepublishingEntry(subscription)
+			if err := republish.RepublishEvent(picker, &dbMessage, subscription); err != nil {
+				log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
+
+				continue
+			}
+
+			log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", dbMessage.SubscriptionId)
 		}
 
 		if len(dbMessages) < int(config.Current.Republishing.BatchSize) {
