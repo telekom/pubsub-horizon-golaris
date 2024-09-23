@@ -55,13 +55,23 @@ func CheckFailedEvents() {
 		log.Debug().Msgf("Found %d FAILED messages in database", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
-			if err := republish.RepublishEvent(picker, &dbMessage, nil); err != nil {
-				log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
+			subscriptionId := dbMessage.SubscriptionId
 
-				continue
+			subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+			if err != nil {
+				log.Error().Err(err).Msgf("Error while fetching republishing entry for subscriptionId %s", subscriptionId)
+				return
 			}
 
-			log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", dbMessage.SubscriptionId)
+			if subscription != nil && (subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event") {
+				if err := republish.RepublishEvent(picker, &dbMessage, subscription); err != nil {
+					log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
+
+					continue
+				}
+
+				log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", dbMessage.SubscriptionId)
+			}
 		}
 
 		if len(dbMessages) < int(config.Current.Republishing.BatchSize) {
