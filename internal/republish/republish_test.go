@@ -147,7 +147,7 @@ func TestRepublishEvents(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	republishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
