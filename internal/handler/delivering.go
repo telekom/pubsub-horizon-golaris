@@ -58,16 +58,7 @@ func CheckDeliveringEvents() {
 		log.Debug().Msgf("Found %d DELIVERING messages in database", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
-			subscriptionId := dbMessage.SubscriptionId
-
-			subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while fetching subscription from cache for subscriptionId %s", subscriptionId)
-
-				return
-			}
-
-			if err := republish.RepublishEvent(picker, &dbMessage, subscription); err != nil {
+			if err := republish.RepublishEvent(picker, &dbMessage, nil); err != nil {
 				log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
 
 				continue

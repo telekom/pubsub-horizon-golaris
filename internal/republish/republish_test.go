@@ -29,6 +29,7 @@ func TestMain(m *testing.M) {
 	})
 	config.Current = test.BuildTestConfig()
 	cache.Initialize()
+
 	code := m.Run()
 
 	test.TeardownDocker()
