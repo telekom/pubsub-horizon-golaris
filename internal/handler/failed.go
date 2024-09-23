@@ -52,7 +52,7 @@ func CheckFailedEvents() {
 			return
 		}
 
-		log.Debug().Msgf("Found %d DELIVERING messages in database", len(dbMessages))
+		log.Debug().Msgf("Found %d FAILED messages in database", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
 			if err := republish.RepublishEvent(picker, &dbMessage, nil); err != nil {

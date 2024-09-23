@@ -49,7 +49,7 @@ func TestCheckFailedEvents(t *testing.T) {
 			Topic:          "test-topic",
 			Status:         "FAILED",
 			SubscriptionId: "sub123",
-			DeliveryType:   enum.DeliveryTypeSse,
+			DeliveryType:   enum.DeliveryTypeCallback,
 			Coordinates: &message.Coordinates{
 				Partition: &partitionValue,
 				Offset:    &offsetValue,

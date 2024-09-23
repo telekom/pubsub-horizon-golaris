@@ -8,7 +8,9 @@ import (
 	"context"
 	"github.com/IBM/sarama"
 	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -24,6 +26,9 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 
 	mockKafka := new(test.MockKafkaHandler)
 	kafka.CurrentHandler = mockKafka
+
+	mockCache := new(test.SubscriptionMockCache)
+	cache.SubscriptionCache = mockCache
 
 	mockPicker := new(test.MockPicker)
 	test.InjectMockPicker(mockPicker)
@@ -57,14 +62,27 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 			Topic:          "test-topic",
 			Status:         "DELIVERING",
 			SubscriptionId: "sub123",
-			DeliveryType:   "callback",
+			DeliveryType:   enum.DeliveryTypeCallback,
 			Coordinates: &message.Coordinates{
 				Partition: &partitionValue2,
 				Offset:    &offsetValue2,
 			}},
 	}
 
+	subscription := &resource.SubscriptionResource{
+		Spec: struct {
+			Subscription resource.Subscription `json:"subscription"`
+			Environment  string                `json:"environment"`
+		}{
+			Subscription: resource.Subscription{
+				SubscriptionId: "sub123",
+				DeliveryType:   enum.DeliveryTypeCallback,
+			},
+		},
+	}
+
 	mockMongo.On("FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything).Return(dbMessages, nil, nil)
+	mockCache.On("Get", config.Current.Hazelcast.Caches.SubscriptionCache, "sub123").Return(subscription, nil)
 
 	expectedKafkaMessage := &sarama.ConsumerMessage{
 		Topic:     "test-topic",
