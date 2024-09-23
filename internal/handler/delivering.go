@@ -7,11 +7,10 @@ package handler
 import (
 	"context"
 	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
+	"pubsub-horizon-golaris/internal/republish"
 	"time"
 )
 
@@ -29,8 +28,6 @@ func CheckDeliveringEvents() {
 		}
 	}()
 
-	batchSize := config.Current.Republishing.BatchSize
-
 	upperThresholdTimestamp := time.Now().Add(-config.Current.Republishing.DeliveringStatesOffset)
 
 	for {
@@ -45,40 +42,24 @@ func CheckDeliveringEvents() {
 		if len(dbMessages) == 0 {
 			return
 		}
+
 		log.Debug().Msgf("Found %d DELIVERING messages in MongoDb", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
+			subscriptionId := dbMessage.SubscriptionId
 
-			if dbMessage.Coordinates == nil {
-				log.Printf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
-				return
-			}
-
-			kafkaMessage, err := kafka.CurrentHandler.PickMessage(dbMessage)
+			subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 			if err != nil {
-				log.Printf("Error while fetching message from kafka for subscriptionId %s: %v", dbMessage.SubscriptionId, err)
+				log.Printf("Error while fetching republishing entry for subscriptionId %s: %v", subscriptionId, err)
+
 				return
 			}
 
-			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+			republish.HandleRepublishingEntry(subscription)
 
-			traceCtx.StartSpan("republish delivering message")
-			traceCtx.SetAttribute("component", "Horizon Golaris")
-			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
-			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
-			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
-
-			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, "", "", false)
-			if err != nil {
-				log.Printf("Error while republishing message for subscriptionId %s: %v", dbMessage.SubscriptionId, err)
-				return
-			}
-			log.Printf("Successfully republished message for subscriptionId %s", dbMessage.SubscriptionId)
 		}
 
-		if len(dbMessages) < int(batchSize) {
+		if len(dbMessages) < int(config.Current.Republishing.BatchSize) {
 			break
 		}
 	}

@@ -93,6 +93,7 @@ func CheckConsumerHealth(hcData *PreparedHealthCheckData, subscription *resource
 		log.Error().Err(err).Msgf("Failed to perform http-request for callback-url %s", hcData.HealthCheckEntry.CallbackUrl)
 		return err
 	}
+
 	log.Debug().Msgf("Received response for callback-url %s with http-status: %v", hcData.HealthCheckEntry.CallbackUrl, resp.StatusCode)
 
 	hcData.HealthCheckEntry.LastCheckedStatus = resp.StatusCode
