@@ -24,7 +24,6 @@ func CheckFailedEvents() {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler entry: %s", cache.FailedLockKey)
 		return
 	}
-
 	defer func() {
 		if err := cache.FailedHandler.Unlock(ctx, cache.FailedLockKey); err != nil {
 			log.Error().Err(err).Msg("Error unlocking FailedHandler")

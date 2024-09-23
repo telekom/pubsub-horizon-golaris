@@ -24,7 +24,6 @@ func CheckDeliveringEvents() {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", cache.DeliveringLockKey)
 		return
 	}
-
 	defer func() {
 		if err := cache.DeliveringHandler.Unlock(ctx, cache.DeliveringLockKey); err != nil {
 			log.Error().Err(err).Msg("Error unlocking DeliveringHandler")

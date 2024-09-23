@@ -41,17 +41,17 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		log.Debug().Msgf("Could not acquire lock for HealthCheckCacheEntry, skipping entry for subscriptionId %s", hcData.HealthCheckKey)
 		return
 	}
-	log.Debug().Msgf("Successfully locked HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
 
 	// Ensure that the lock is released when the function is ended
 	defer func() {
-		if hcData.IsAcquired == true {
-			if err := cache.HealthCheckCache.Unlock(hcData.Ctx, hcData.HealthCheckKey); err != nil {
-				log.Error().Err(err).Msgf("Error unlocking HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
-			}
-			log.Debug().Msgf("Successfully unlocked HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
+		if err := cache.HealthCheckCache.Unlock(hcData.Ctx, hcData.HealthCheckKey); err != nil {
+			log.Error().Err(err).Msgf("Error unlocking HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
 		}
+
+		log.Debug().Msgf("Successfully unlocked HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
 	}()
+
+	log.Debug().Msgf("Successfully locked HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
 
 	err = forceDeleteRepublishingEntry(cbMessage, hcData)
 	if err != nil {

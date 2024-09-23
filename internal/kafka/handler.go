@@ -59,6 +59,7 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 		defer traceCtx.EndCurrentSpan()
 	}
 
+	// TODO: Really required??
 	if errorParams == true {
 		optionalMetadataMessage, err := updateMetaData(message)
 		if err != nil {
