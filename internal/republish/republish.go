@@ -132,6 +132,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+			cache.SetCancelStatus(subscriptionId, false)
+
 			return nil
 		}
 
