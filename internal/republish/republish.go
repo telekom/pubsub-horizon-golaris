@@ -7,14 +7,10 @@ package republish
 import (
 	"context"
 	"encoding/gob"
-	"errors"
-	"github.com/1pkg/gohalt"
-	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/tracing"
-	"net"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -71,13 +67,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
-		if acquired {
-			err = Unlock(ctx, subscriptionId)
-			if err != nil {
-				log.Debug().Msgf("Failed to unlock RepublishingCacheEntry with subscriptionId %s and error %v", subscriptionId, err)
-			}
-			log.Debug().Msgf("Successfully unlocked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
+		err = Unlock(ctx, subscriptionId)
+		if err != nil {
+			log.Debug().Msgf("Failed to unlock RepublishingCacheEntry with subscriptionId %s and error %v", subscriptionId, err)
 		}
+		log.Debug().Msgf("Successfully unlocked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 	}()
 
 	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)

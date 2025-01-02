@@ -50,7 +50,7 @@ func setDefaults() {
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
 	viper.SetDefault("republishing.checkInterval", "30s")
-	viper.SetDefault("republishing.batchSize", 10)
+	viper.SetDefault("republishing.batchSize", 100)
 	viper.SetDefault("republishing.throttlingIntervalTime", "1s")
 	viper.SetDefault("republishing.deliveringStatesOffset", "70m")
 

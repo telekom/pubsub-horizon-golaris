@@ -24,6 +24,7 @@ func CheckDeliveringEvents() {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", cache.DeliveringLockKey)
 		return
 	}
+
 	defer func() {
 		if err := cache.DeliveringHandler.Unlock(ctx, cache.DeliveringLockKey); err != nil {
 			log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
@@ -64,10 +65,6 @@ func CheckDeliveringEvents() {
 			}
 
 			log.Debug().Msgf("Successfully republished message in state DELIVERING for subscriptionId %s", dbMessage.SubscriptionId)
-		}
-
-		if len(dbMessages) < int(config.Current.Republishing.BatchSize) {
-			break
 		}
 	}
 }
