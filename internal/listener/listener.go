@@ -72,9 +72,6 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 	if optionalEntry != nil {
 		republish.ForceDelete(context.Background(), key)
 		cache.SetCancelStatus(key, true)
-
-		time.Sleep(2 * time.Second)
-		cache.SetCancelStatus(key, false)
 	}
 }
 

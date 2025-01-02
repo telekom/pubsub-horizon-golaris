@@ -7,10 +7,14 @@ package republish
 import (
 	"context"
 	"encoding/gob"
+	"errors"
+	"github.com/1pkg/gohalt"
+	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/tracing"
+	"net"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -61,33 +65,30 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	// Attempt to acquire a lock on the republishing entry
 	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
-
 		return
 	}
-
 	log.Debug().Msgf("Successfully locked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 
 	// Ensure that the lock is released if acquired before when the function is ended
 	defer func() {
-		err = Unlock(ctx, subscriptionId)
-		if err != nil {
-			log.Debug().Msgf("Failed to unlock RepublishingCacheEntry with subscriptionId %s and error %v", subscriptionId, err)
+		if acquired {
+			err = Unlock(ctx, subscriptionId)
+			if err != nil {
+				log.Debug().Msgf("Failed to unlock RepublishingCacheEntry with subscriptionId %s and error %v", subscriptionId, err)
+			}
+			log.Debug().Msgf("Successfully unlocked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 		}
-
-		log.Debug().Msgf("Successfully unlocked RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 	}()
 
 	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
-
 		return // republishingEntry from the cache won't be deleted
 	}
 
 	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCacheEntry with subscriptionId %s", subscriptionId)
-
 		return
 	}
 
@@ -148,15 +149,16 @@ func RepublishEvent(picker kafka.MessagePicker, dbMessage *message.StatusMessage
 // - republishEntry: an entry of the republishing cache
 func republishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
-
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
+
+	// Returning an error results in NOT deleting the republishingEntry from the cache
+	// so that the republishing job will get retried shortly
 	if err != nil {
 		log.Error().Err(err).Fields(map[string]any{
 			"subscriptionId": subscriptionId,
 		}).Msg("Could not create picker for subscription")
-
 		return err
 	}
 	defer picker.Close()
@@ -164,11 +166,12 @@ func republishPendingEvents(subscription *resource.SubscriptionResource, republi
 	throttler := throttling.CreateSubscriptionAwareThrottler(subscription)
 	defer throttler.Release()
 
+	cache.SetCancelStatus(subscriptionId, false)
+
 	var cursor any
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-
 			return nil
 		}
 
@@ -184,7 +187,6 @@ func republishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-
 				return nil
 			}
 
@@ -193,10 +195,6 @@ func republishPendingEvents(subscription *resource.SubscriptionResource, republi
 				// so that the republishing job will get retried shortly
 				return err
 			}
-		}
-
-		if len(dbMessages) < int(config.Current.Republishing.BatchSize) {
-			break
 		}
 	}
 
@@ -242,7 +240,6 @@ func Unlock(ctx context.Context, subscriptionId string) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
