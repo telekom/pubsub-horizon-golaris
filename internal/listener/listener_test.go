@@ -246,7 +246,7 @@ func TestSubscriptionListener_OnDelete(t *testing.T) {
 	listener := &SubscriptionListener{}
 	listener.OnDelete(event)
 
-	assert.False(t, cache.GetCancelStatus(subscriptionId))
+	assert.True(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Get", mock.Anything, subscriptionId)
 	republishMockMap.AssertCalled(t, "Delete", mock.Anything, subscriptionId)

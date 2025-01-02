@@ -128,10 +128,13 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
 	defer throttler.Release(context.Background())
 
+	cache.SetCancelStatus(subscriptionId, false)
+
 	var lastCursor any
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
+
 			return nil
 		}
 
