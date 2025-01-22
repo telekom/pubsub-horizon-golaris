@@ -18,7 +18,13 @@ type MockKafkaHandler struct {
 	mock.Mock
 }
 
-func (m *MockKafkaHandler) RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error {
-	args := m.Called(message, newDeliveryType, newCallbackUrl)
+func (m *MockKafkaHandler) RepublishMessage(
+	traceCtx *tracing.TraceContext,
+	message *sarama.ConsumerMessage,
+	newDeliveryType string,
+	newCallbackUrl string,
+	errorParams bool,
+) error {
+	args := m.Called(traceCtx, message, newDeliveryType, newCallbackUrl, errorParams)
 	return args.Error(0)
 }

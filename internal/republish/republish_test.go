@@ -99,63 +99,6 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer cache.RepublishingCache.Unlock(ctx, testSubscriptionId)
 }
 
-func TestRepublishEvents(t *testing.T) {
-	// Initialize mocks
-	mockMongo := new(test.MockMongoHandler)
-	mockKafka := new(test.MockKafkaHandler)
-
-	mockPicker := new(test.MockPicker)
-	test.InjectMockPicker(mockPicker)
-
-	// Replace real handlers with mocks
-	mongo.CurrentConnection = mockMongo
-	kafka.CurrentHandler = mockKafka
-
-	// Set configurations for the test
-	config.Current.Republishing.BatchSize = 10
-
-	// Mock data
-	subscriptionId := "sub123"
-
-	partitionValue1 := int32(1)
-	offsetValue1 := int64(100)
-	partitionValue2 := int32(1)
-	offsetValue2 := int64(101)
-	dbMessages := []message.StatusMessage{
-		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue1, Offset: &offsetValue1}},
-		{Topic: "test-topic", Coordinates: &message.Coordinates{Partition: &partitionValue2, Offset: &offsetValue2}},
-	}
-
-	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
-
-	// Expectations for the batch
-	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
-
-	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Twice()
-	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()
-
-	// Call the function under test
-	subscription := &resource.SubscriptionResource{
-		Spec: struct {
-			Subscription resource.Subscription `json:"subscription"`
-			Environment  string                `json:"environment"`
-		}{
-			Subscription: resource.Subscription{
-				SubscriptionId: "sub123",
-				DeliveryType:   enum.DeliveryTypeCallback,
-				Callback:       "http://new-callbackUrl/callback",
-			},
-		},
-	}
-
-	republishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
-
-	// Assertions
-	mockMongo.AssertExpectations(t)
-	mockKafka.AssertExpectations(t)
-	mockPicker.AssertExpectations(t)
-}
-
 func Test_Unlock_RepublishingEntryLocked(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
@@ -226,4 +169,241 @@ func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 
 	// Assertions
 	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
+}
+
+// mockStep beschreibt ein "Paging-Ergebnis" für FindWaitingMessages.
+type mockStep struct {
+	OutMessages   []message.StatusMessage
+	OutNextCursor any
+	OutError      error
+}
+
+// republishTestCase enthält die Test-Daten für unser Table-Driven-Testverfahren.
+type republishTestCase struct {
+	name            string
+	subscriptionId  string
+	mongoSteps      []mockStep
+	dbMessages      []message.StatusMessage
+	kafkaMessages   []sarama.ConsumerMessage
+	republishErrors []error
+	expectedError   bool
+}
+
+// Helper
+func intPtr(i int32) *int32   { return &i }
+func int64Ptr(i int64) *int64 { return &i }
+
+func TestRepublishPendingEvents_TableDriven(t *testing.T) {
+	config.Current.Republishing.BatchSize = 10
+	config.Current.Tracing.Enabled = true
+
+	cache.Initialize()
+	defer test.ClearCaches()
+
+	// Test Case
+	testCases := []republishTestCase{
+		{
+			name:           "Successful republish with multi-page fetch",
+			subscriptionId: "success_multi_page",
+			/*
+			 * Important: We need 4 calls (the 4th call returns 0 messages => break).
+			 *   1) 2 messages
+			 *   2) 2 messages
+			 *   3) 1 message
+			 *   4) 0 messages => break
+			 */
+			mongoSteps: []mockStep{
+				{
+					OutMessages: []message.StatusMessage{
+						{
+							Topic: "test-topic",
+							Coordinates: &message.Coordinates{
+								Partition: intPtr(1),
+								Offset:    int64Ptr(100),
+							},
+						},
+						{
+							Topic: "test-topic",
+							Coordinates: &message.Coordinates{
+								Partition: intPtr(1),
+								Offset:    int64Ptr(101),
+							},
+						},
+					},
+					OutNextCursor: "success_multi_page_cursor_1",
+					OutError:      nil,
+				},
+				{
+					OutMessages: []message.StatusMessage{
+						{
+							Topic: "test-topic",
+							Coordinates: &message.Coordinates{
+								Partition: intPtr(1),
+								Offset:    int64Ptr(102),
+							},
+						},
+						{
+							Topic: "test-topic",
+							Coordinates: &message.Coordinates{
+								Partition: intPtr(1),
+								Offset:    int64Ptr(103),
+							},
+						},
+					},
+					OutNextCursor: "success_multi_page_cursor_2",
+					OutError:      nil,
+				},
+				{
+					OutMessages: []message.StatusMessage{
+						{
+							Topic: "test-topic",
+							Coordinates: &message.Coordinates{
+								Partition: intPtr(1),
+								Offset:    int64Ptr(104),
+							},
+						},
+					},
+					OutNextCursor: nil,
+					OutError:      nil,
+				},
+				{
+					// 4th call: no messages => len(...) == 0 => break
+					OutMessages:   []message.StatusMessage{},
+					OutNextCursor: nil,
+					OutError:      nil,
+				},
+			},
+
+			// 2+2+1 = 5 messages in MongoDB
+			dbMessages: []message.StatusMessage{
+				{
+					Topic: "test-topic",
+					Coordinates: &message.Coordinates{
+						Partition: intPtr(1),
+						Offset:    int64Ptr(100),
+					},
+				},
+				{
+					Topic: "test-topic",
+					Coordinates: &message.Coordinates{
+						Partition: intPtr(1),
+						Offset:    int64Ptr(101),
+					},
+				},
+				{
+					Topic: "test-topic",
+					Coordinates: &message.Coordinates{
+						Partition: intPtr(1),
+						Offset:    int64Ptr(102),
+					},
+				},
+				{
+					Topic: "test-topic",
+					Coordinates: &message.Coordinates{
+						Partition: intPtr(1),
+						Offset:    int64Ptr(103),
+					},
+				},
+				{
+					Topic: "test-topic",
+					Coordinates: &message.Coordinates{
+						Partition: intPtr(1),
+						Offset:    int64Ptr(104),
+					},
+				},
+			},
+
+			// 5 corresponding Kafka messages
+			kafkaMessages: []sarama.ConsumerMessage{
+				{Value: []byte("test-content-1")},
+				{Value: []byte("test-content-2")},
+				{Value: []byte("test-content-3")},
+				{Value: []byte("test-content-4")},
+				{Value: []byte("test-content-5")},
+			},
+
+			// No republishing errors in this testcase
+			republishErrors: []error{nil, nil, nil, nil, nil},
+			expectedError:   false,
+		},
+	}
+
+	// Test execution
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// 1) Prepare mocks
+			mockMongo := new(test.MockMongoHandler)
+			mockKafka := new(test.MockKafkaHandler)
+			mockPicker := new(test.MockPicker)
+
+			mongo.CurrentConnection = mockMongo
+			kafka.CurrentHandler = mockKafka
+			test.InjectMockPicker(mockPicker)
+
+			// 2) Configure Mongo mock: as many "On()" calls as in tc.mongoSteps
+			for _, step := range tc.mongoSteps {
+				mockMongo.
+					On("FindWaitingMessages", mock.Anything, mock.Anything, tc.subscriptionId).
+					Return(step.OutMessages, step.OutNextCursor, step.OutError).
+					Once()
+			}
+
+			// 3) Picker mock: For each dbMessage, there is one "Pick" call
+			for i, dbMsg := range tc.dbMessages {
+				mockPicker.
+					On("Pick", &dbMsg).
+					Return(&tc.kafkaMessages[i], nil).
+					Once()
+			}
+
+			// 4) Kafka mock: RepublishMessage with the new interface signature,
+			// expecting one "On()" call per Kafka message.
+			for i, kafkaMsg := range tc.kafkaMessages {
+				errVal := tc.republishErrors[i]
+
+				mockKafka.On(
+					"RepublishMessage",
+					mock.Anything,                 // context.Context
+					&kafkaMsg,                     // *sarama.ConsumerMessage
+					mock.AnythingOfType("string"), // newDeliveryType
+					mock.AnythingOfType("string"), // newCallbackUrl
+					false,                         // skipTopicSuffix
+				).Return(errVal).Once()
+
+			}
+
+			// 5) Subscription Resource
+			subscription := &resource.SubscriptionResource{
+				Spec: struct {
+					Subscription resource.Subscription `json:"subscription"`
+					Environment  string                `json:"environment"`
+				}{
+					Subscription: resource.Subscription{
+						SubscriptionId: tc.subscriptionId,
+						DeliveryType:   enum.DeliveryTypeCallback,
+						Callback:       "http://test-callback.com",
+					},
+				},
+			}
+
+			// 6) Entry
+			entry := RepublishingCacheEntry{
+				SubscriptionId: tc.subscriptionId,
+			}
+
+			// 7) Run test
+			err := republishPendingEvents(subscription, entry)
+
+			// 8) Assertions
+			if tc.expectedError {
+				assert.Error(t, err, "Expected an error, but got none for test %s", tc.name)
+			} else {
+				assert.NoError(t, err, "Did not expect an error, but got one for test %s", tc.name)
+			}
+
+			mockMongo.AssertExpectations(t)
+			mockKafka.AssertExpectations(t)
+			mockPicker.AssertExpectations(t)
+		})
+	}
 }
