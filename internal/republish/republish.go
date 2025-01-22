@@ -157,7 +157,7 @@ func republishPendingEvents(subscription *resource.SubscriptionResource, republi
 	}
 	defer picker.Close()
 
-	throttler := throttling.CreateSubscriptionAwareThrottler(subscription)
+	throttler := throttling.NewSubscriptionAwareThrottler(subscription)
 	defer throttler.Release()
 
 	cache.SetCancelStatus(subscriptionId, false)

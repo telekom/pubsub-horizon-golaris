@@ -19,7 +19,7 @@ type SubscriptionAwareThrottler struct {
 	subscription *resource.SubscriptionResource
 }
 
-func CreateSubscriptionAwareThrottler(subscription *resource.SubscriptionResource) SubscriptionAwareThrottler {
+func NewSubscriptionAwareThrottler(subscription *resource.SubscriptionResource) SubscriptionAwareThrottler {
 	deliveryType := string(subscription.Spec.Subscription.DeliveryType)
 	redeliveriesPerSecond := subscription.Spec.Subscription.RedeliveriesPerSecond
 
@@ -48,7 +48,7 @@ func (t SubscriptionAwareThrottler) Throttle() {
 			totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 			for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
 				if cache.GetCancelStatus(subscriptionId) {
-					break
+					return
 				}
 
 				time.Sleep(sleepInterval)
