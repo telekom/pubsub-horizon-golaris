@@ -7,12 +7,11 @@ package handler
 import (
 	"context"
 	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
+	"pubsub-horizon-golaris/internal/republish"
 	"time"
 )
 
@@ -32,29 +31,30 @@ func CheckFailedEvents() {
 		}
 	}()
 
-	batchSize := config.Current.Republishing.BatchSize
-
-	var dbMessages []message.StatusMessage
-	var err error
-
 	picker, err := kafka.NewPicker()
 	if err != nil {
 		log.Error().Err(err).Msg("Could not initialize picker for handling events in state FAILED")
+
 		return
 	}
 	defer picker.Close()
 
+	var cursor any
 	for {
-		var lastCursor any
-		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
+		
+		dbMessages, c, err := mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), cursor)
+		cursor = c
+
 		if err != nil {
-			log.Error().Err(err).Msgf("Error while fetching FAILED messages from MongoDb")
+			log.Error().Err(err).Msgf("Error while fetching messages for subscription from database")
 			return
 		}
 
 		if len(dbMessages) == 0 {
 			return
 		}
+
+		log.Debug().Msgf("Found %d FAILED messages in database", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
 			subscriptionId := dbMessage.SubscriptionId
@@ -65,44 +65,15 @@ func CheckFailedEvents() {
 				return
 			}
 
-			if subscription != nil {
-				if subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
-					var newDeliveryType = "SERVER_SENT_EVENT"
+			if subscription != nil && (subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event") {
+				if err := republish.RepublishEvent(picker, &dbMessage, subscription); err != nil {
+					log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
 
-					if dbMessage.Coordinates == nil {
-						log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
-						return
-					}
-
-					kafkaMessage, err := picker.Pick(&dbMessage)
-					if err != nil {
-						log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
-						return
-					}
-
-					var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-					var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
-
-					traceCtx.StartSpan("republish failed message")
-					traceCtx.SetAttribute("component", "Horizon Golaris")
-					traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
-					traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
-					traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-					traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
-
-					err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, "", true)
-					if err != nil {
-						log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
-						return
-					}
-					log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", subscriptionId)
-
+					continue
 				}
-			}
-		}
 
-		if len(dbMessages) < int(batchSize) {
-			break
+				log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", dbMessage.SubscriptionId)
+			}
 		}
 	}
 }

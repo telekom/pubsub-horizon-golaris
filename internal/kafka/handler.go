@@ -60,7 +60,7 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 	}
 
 	if errorParams == true {
-		optionalMetadataMessage, err := updateMetaData(message)
+		optionalMetadataMessage, err := resetMessageErrorFields(message)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not update message metadata")
 			return err
@@ -155,7 +155,7 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 	return msg, nil
 }
 
-func updateMetaData(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, error) {
+func resetMessageErrorFields(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
