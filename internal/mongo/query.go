@@ -59,6 +59,39 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 	return messages, newLastCursor, nil
 }
 
+func (connection Connection) findSubscriptionsByQuery(query bson.M) ([]string, error) {
+
+	opts := options.Distinct()
+
+	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
+
+	subscriptions, err := collection.Distinct(context.Background(), "subscriptionId", query, opts)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error finding documents: %v", err)
+		return nil, err
+	}
+
+	// Cast subscriptions to []string
+	subscriptionsStr := make([]string, len(subscriptions))
+	for i, v := range subscriptions {
+		subscriptionsStr[i] = v.(string)
+	}
+
+	return subscriptionsStr, nil
+}
+
+func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error) {
+	query := bson.M{
+		"status": "WAITING",
+		"modified": bson.M{
+			"$gte": beginTimestamp,
+			"$lte": endTimestamp,
+		},
+	}
+
+	return connection.findSubscriptionsByQuery(query)
+}
+
 func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "WAITING",

@@ -18,15 +18,15 @@ import (
 func CheckDeliveringEvents() {
 	log.Info().Msgf("Republish messages in state DELIVERING")
 
-	var ctx = cache.DeliveringHandler.NewLockContext(context.Background())
+	var ctx = cache.HandlerCache.NewLockContext(context.Background())
 
-	if acquired, _ := cache.DeliveringHandler.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
+	if acquired, _ := cache.HandlerCache.TryLockWithTimeout(ctx, cache.DeliveringLockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for DeliveringHandler entry: %s", cache.DeliveringLockKey)
 		return
 	}
 
 	defer func() {
-		if err := cache.DeliveringHandler.Unlock(ctx, cache.DeliveringLockKey); err != nil {
+		if err := cache.HandlerCache.Unlock(ctx, cache.DeliveringLockKey); err != nil {
 			log.Error().Err(err).Msg("Error unlocking DeliveringHandler")
 		}
 	}()
