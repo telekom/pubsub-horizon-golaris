@@ -41,10 +41,12 @@ func CheckDeliveringEvents() {
 	}
 	defer picker.Close()
 
+	var cursor any
 	for {
-		var lastCursor any
 
-		dbMessages, lastCursor, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, lastCursor)
+		dbMessages, c, err := mongo.CurrentConnection.FindDeliveringMessagesByDeliveryType(upperThresholdTimestamp, cursor)
+		cursor = c
+
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching DELIVERING messages from database")
 
