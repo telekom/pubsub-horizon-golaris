@@ -19,78 +19,190 @@ import (
 	"testing"
 )
 
-func TestCheckFailedEvents(t *testing.T) {
-	mockMongo := new(test.MockMongoHandler)
-	mongo.CurrentConnection = mockMongo
+// failedTestCase holds the data for table-driven tests of CheckFailedEvents.
+type failedTestCase struct {
+	name            string
+	mongoSteps      []mockStep
+	dbMessages      []message.StatusMessage
+	kafkaMessages   []sarama.ConsumerMessage
+	republishErrors []error
+	subscription    *resource.SubscriptionResource
+}
 
-	mockKafka := new(test.MockKafkaHandler)
-	kafka.CurrentHandler = mockKafka
-
-	mockCache := new(test.SubscriptionMockCache)
-	cache.SubscriptionCache = mockCache
-
-	failedHandler := new(test.FailedMockHandler)
-	cache.FailedHandler = failedHandler
-
-	mockPicker := new(test.MockPicker)
-	test.InjectMockPicker(mockPicker)
-
-	failedHandler.On("NewLockContext", mock.Anything).Return(context.Background())
-	failedHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-	failedHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
-
+func TestCheckFailedEvents_TableDriven(t *testing.T) {
+	// Global republishing settings.
 	config.Current.Republishing.BatchSize = 5
 
-	partitionValue := int32(1)
-	offsetValue := int64(100)
-
-	dbMessage := []message.StatusMessage{
+	// Table of test cases.
+	testCases := []failedTestCase{
 		{
-			Topic:          "test-topic",
-			Status:         "FAILED",
-			SubscriptionId: "sub123",
-			DeliveryType:   enum.DeliveryTypeCallback,
-			Coordinates: &message.Coordinates{
-				Partition: &partitionValue,
-				Offset:    &offsetValue,
-			}},
-	}
-
-	subscription := &resource.SubscriptionResource{
-		Spec: struct {
-			Subscription resource.Subscription `json:"subscription"`
-			Environment  string                `json:"environment"`
-		}{
-			Subscription: resource.Subscription{
-				SubscriptionId: "sub123",
-				DeliveryType:   enum.DeliveryTypeSse,
+			name: "No events -> no republish",
+			// Only one step returning an empty slice to simulate no messages.
+			mongoSteps: []mockStep{
+				{
+					OutMessages:   []message.StatusMessage{},
+					OutNextCursor: nil,
+					OutError:      nil,
+				},
+			},
+			// No messages, so no Kafka or subscription data needed.
+			dbMessages:      []message.StatusMessage{},
+			kafkaMessages:   []sarama.ConsumerMessage{},
+			republishErrors: []error{},
+			subscription:    nil, // No subscription needed for zero messages
+		},
+		{
+			name: "One FAILED SSE event -> republish",
+			// Two steps: first returns one message, second returns an empty slice.
+			mongoSteps: []mockStep{
+				{
+					OutMessages: []message.StatusMessage{
+						{
+							Topic:          "test-topic",
+							Status:         "FAILED",
+							SubscriptionId: "sub123",
+							DeliveryType:   enum.DeliveryTypeCallback,
+							Coordinates: &message.Coordinates{
+								Partition: intPtr(1),
+								Offset:    int64Ptr(100),
+							},
+						},
+					},
+					OutNextCursor: nil,
+					OutError:      nil,
+				},
+				{
+					// Second step returns zero messages, causing the loop to exit.
+					OutMessages:   []message.StatusMessage{},
+					OutNextCursor: nil,
+					OutError:      nil,
+				},
+			},
+			dbMessages: []message.StatusMessage{
+				{
+					Topic:          "test-topic",
+					Status:         "FAILED",
+					SubscriptionId: "sub123",
+					DeliveryType:   enum.DeliveryTypeCallback,
+					Coordinates: &message.Coordinates{
+						Partition: intPtr(1),
+						Offset:    int64Ptr(100),
+					},
+				},
+			},
+			kafkaMessages: []sarama.ConsumerMessage{
+				{
+					Topic:     "test-topic",
+					Partition: 1,
+					Offset:    100,
+					Key:       []byte("test-key"),
+					Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
+				},
+			},
+			republishErrors: []error{nil},
+			subscription: &resource.SubscriptionResource{
+				Spec: struct {
+					Subscription resource.Subscription `json:"subscription"`
+					Environment  string                `json:"environment"`
+				}{
+					Subscription: resource.Subscription{
+						SubscriptionId: "sub123",
+						DeliveryType:   enum.DeliveryTypeSse,
+					},
+				},
 			},
 		},
+		// Additional scenarios can be added here if desired.
 	}
 
-	mockMongo.On("FindFailedMessagesWithCallbackUrlNotFoundException", mock.Anything, mock.Anything).Return(dbMessage, nil, nil)
-	mockCache.On("Get", config.Current.Hazelcast.Caches.SubscriptionCache, "sub123").Return(subscription, nil)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Mocks for locking.
+			failedHandler := new(test.FailedMockHandler)
+			cache.FailedHandler = failedHandler
 
-	expectedKafkaMessage := &sarama.ConsumerMessage{
-		Topic:     "test-topic",
-		Partition: 1,
-		Offset:    100,
-		Key:       []byte("test-key"),
-		Value:     []byte(`{"uuid": "12345", "event": {"id": "67890"}}`),
+			failedHandler.
+				On("NewLockContext", mock.Anything).
+				Return(context.Background()).
+				Once()
+			failedHandler.
+				On("TryLockWithTimeout", mock.Anything, cache.FailedLockKey, mock.Anything).
+				Return(true, nil).
+				Once()
+			failedHandler.
+				On("Unlock", mock.Anything, cache.FailedLockKey).
+				Return(nil).
+				Once()
+
+			// Mongo mock to simulate multiple paging steps.
+			mockMongo := new(test.MockMongoHandler)
+			mongo.CurrentConnection = mockMongo
+
+			for _, step := range tc.mongoSteps {
+				mockMongo.
+					On("FindFailedMessagesWithCallbackUrlNotFoundException",
+						mock.Anything, // time.Time
+						mock.Anything, // cursor
+					).
+					Return(step.OutMessages, step.OutNextCursor, step.OutError).
+					Once()
+			}
+
+			// Subscription cache mock for SSE subscriptions.
+			mockCache := new(test.SubscriptionMockCache)
+			cache.SubscriptionCache = mockCache
+
+			if tc.subscription != nil && len(tc.dbMessages) > 0 {
+				subId := tc.subscription.Spec.Subscription.SubscriptionId
+				mockCache.
+					On("Get", config.Current.Hazelcast.Caches.SubscriptionCache, subId).
+					Return(tc.subscription, nil).
+					Maybe()
+			}
+
+			// Picker mock and Kafka mock for republishing messages.
+			mockPicker := new(test.MockPicker)
+			test.InjectMockPicker(mockPicker)
+
+			mockKafka := new(test.MockKafkaHandler)
+			kafka.CurrentHandler = mockKafka
+
+			for i, dbMsg := range tc.dbMessages {
+				mockPicker.
+					On("Pick", &dbMsg).
+					Return(&tc.kafkaMessages[i], nil).
+					Once()
+
+				errVal := tc.republishErrors[i]
+				// SSE is republished as "SERVER_SENT_EVENT" with an empty callback URL
+				// according to the original unit test expectations. Adjust if needed.
+				mockKafka.
+					On("RepublishMessage",
+						mock.Anything,
+						&tc.kafkaMessages[i],
+						"SERVER_SENT_EVENT",
+						"",
+						false,
+					).
+					Return(errVal).
+					Once()
+			}
+
+			// Calls the function under test.
+			CheckFailedEvents()
+
+			// Assertions to ensure all mocks were triggered as expected.
+			failedHandler.AssertExpectations(t)
+			mockMongo.AssertExpectations(t)
+			mockPicker.AssertExpectations(t)
+			mockKafka.AssertExpectations(t)
+			mockCache.AssertExpectations(t)
+
+			// If no messages were given, verifies that none of the Picker/Kafka methods were called.
+			if len(tc.dbMessages) == 0 {
+				mockPicker.AssertNotCalled(t, "Pick", mock.Anything)
+				mockKafka.AssertNotCalled(t, "RepublishMessage", mock.Anything)
+			}
+		})
 	}
-
-	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(expectedKafkaMessage, nil)
-	mockKafka.On("RepublishMessage", mock.Anything, "SERVER_SENT_EVENT", "").Return(nil)
-
-	CheckFailedEvents()
-
-	mockMongo.AssertExpectations(t)
-	mockMongo.AssertCalled(t, "FindFailedMessagesWithCallbackUrlNotFoundException", mock.Anything, mock.Anything)
-
-	mockCache.AssertExpectations(t)
-	mockCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.SubscriptionCache, "sub123")
-
-	mockKafka.AssertExpectations(t)
-	mockKafka.AssertCalled(t, "RepublishMessage", expectedKafkaMessage, "SERVER_SENT_EVENT", "")
-	mockPicker.AssertCalled(t, "Pick", mock.AnythingOfType("*message.StatusMessage"))
 }
