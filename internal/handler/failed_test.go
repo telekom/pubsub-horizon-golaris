@@ -30,7 +30,7 @@ func TestCheckFailedEvents(t *testing.T) {
 	cache.SubscriptionCache = mockCache
 
 	failedHandler := new(test.FailedMockHandler)
-	cache.FailedHandler = failedHandler
+	cache.HandlerCache = failedHandler
 
 	mockPicker := new(test.MockPicker)
 	test.InjectMockPicker(mockPicker)

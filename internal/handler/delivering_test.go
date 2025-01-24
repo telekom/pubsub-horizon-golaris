@@ -29,7 +29,7 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 	test.InjectMockPicker(mockPicker)
 
 	deliveringHandler := new(test.DeliveringMockHandler)
-	cache.DeliveringHandler = deliveringHandler
+	cache.HandlerCache = deliveringHandler
 
 	deliveringHandler.On("NewLockContext", mock.Anything).Return(context.Background())
 	deliveringHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
@@ -95,7 +95,7 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 	kafka.CurrentHandler = mockKafka
 
 	deliveringHandler := new(test.DeliveringMockHandler)
-	cache.DeliveringHandler = deliveringHandler
+	cache.HandlerCache = deliveringHandler
 
 	mockPicker := new(test.MockPicker)
 	test.InjectMockPicker(mockPicker)
