@@ -70,9 +70,9 @@ func Initialize() {
 		log.Panic().Err(err).Msg("error while initializing caches")
 	}
 
-	DeliveringLockKey = "delivering"
-	FailedLockKey = "failed"
-	WaitingLockKey = "waiting"
+	DeliveringLockKey = "deliveringHandlerLockEntry"
+	FailedLockKey = "failedHandlerLockEntry"
+	WaitingLockKey = "waitingHandlerLockEntry"
 }
 
 func createNewHazelcastConfig() hazelcast.Config {

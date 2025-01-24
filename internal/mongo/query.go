@@ -59,37 +59,42 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 	return messages, newLastCursor, nil
 }
 
-func (connection Connection) findSubscriptionsByQuery(query bson.M) ([]string, error) {
+func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string) ([]interface{}, error) {
 
 	opts := options.Distinct()
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
-	subscriptions, err := collection.Distinct(context.Background(), "subscriptionId", query, opts)
+	subscriptions, err := collection.Distinct(context.Background(), fieldName, query, opts)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error finding documents: %v", err)
+		log.Error().Err(err).Msgf("Error finding distinct field %s in db", fieldName)
 		return nil, err
 	}
 
-	// Cast subscriptions to []string
-	subscriptionsStr := make([]string, len(subscriptions))
-	for i, v := range subscriptions {
-		subscriptionsStr[i] = v.(string)
-	}
-
-	return subscriptionsStr, nil
+	return subscriptions, nil
 }
 
 func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error) {
 	query := bson.M{
-		"status": "WAITING",
+		"status":       "WAITING",
+		"deliveryType": "CALLBACK",
 		"modified": bson.M{
 			"$gte": beginTimestamp,
 			"$lte": endTimestamp,
 		},
 	}
 
-	return connection.findSubscriptionsByQuery(query)
+	subscriptions, err := connection.distinctFieldByQuery(query, "subscriptionId")
+	if err != nil {
+		return nil, err
+	}
+
+	castedSubscriptions := make([]string, len(subscriptions))
+	for i, subscription := range subscriptions {
+		castedSubscriptions[i] = subscription.(string)
+	}
+
+	return castedSubscriptions, err
 }
 
 func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {

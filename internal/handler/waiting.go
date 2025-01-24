@@ -36,32 +36,32 @@ func CheckWaitingEvents() {
 		}
 	}()
 
-	// Get all subscriptions (distinct) for messages in state WAITING
-	subscriptionIdsForWaitingMsgs, err := mongo.CurrentConnection.FindDistinctSubscriptionsForWaitingEvents(time.Now().Add(-maxMessageAge), time.Now().Add(-minMessageAge))
+	// Get all subscriptions (distinct) for messages in state WAITING from db
+	dbSubscriptionsForWaitingEvents, err := mongo.CurrentConnection.FindDistinctSubscriptionsForWaitingEvents(time.Now().Add(-maxMessageAge), time.Now().Add(-minMessageAge))
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching distinct subscriptions for events stucked in state WAITING from db")
 		return
 	}
 
 	// Get all republishing cache entries
-	republishingMap, err := getRepublishingCacheMap()
+	republishingSubscriptionMap, err := getRepublishingCacheMap()
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching rebublishing cache entries for events stucked in state WAITING")
 		return
 	}
 
-	// Get all CircuitBreaker entries with status OPEN
-	circuitBreakerMap, err := getCircuitBreakerCacheMap()
+	// Get all circuit-breaker entries with status OPEN
+	circuitBreakerSubscriptionMap, err := getCircuitBreakerCacheMap()
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching circuit breaker cache entries for events stucked in state WAITING")
 		return
 	}
 
-	// Check if subscription is in republishing cache or circuit breaker cache, if not create a republishing cache entry
-	for _, subscriptionId := range subscriptionIdsForWaitingMsgs {
+	// Check if subscription is in republishing cache or in circuit breaker cache. If not create a republishing cache entry
+	for _, subscriptionId := range dbSubscriptionsForWaitingEvents {
 		log.Debug().Msgf("Checking subscription for events stucked in state WAITING. subscription: %v", subscriptionId)
-		if _, contains := republishingMap[subscriptionId]; !contains {
-			if _, contains := circuitBreakerMap[subscriptionId]; !contains {
+		if _, inRepublishing := republishingSubscriptionMap[subscriptionId]; !inRepublishing {
+			if _, inCircuitBreaker := circuitBreakerSubscriptionMap[subscriptionId]; !inCircuitBreaker {
 				log.Warn().Msgf("Subscription %v has waiting messages and no circuitbreaker entry or republishing entry. Events stucked in state WAITING", subscriptionId)
 
 				// Create republishing cache entry for subscription with stuck waiting events
@@ -80,9 +80,9 @@ func CheckWaitingEvents() {
 	}
 
 	// ToDo Only for testing
-	log.Info().Msgf("Found republishing entries: %v", republishingMap)
-	log.Info().Msgf("Found circuitbreaker entries: %v", circuitBreakerMap)
-	log.Info().Msgf("Found waiting messages: %v", subscriptionIdsForWaitingMsgs)
+	log.Info().Msgf("Found republishing entries: %v", republishingSubscriptionMap)
+	log.Info().Msgf("Found circuitbreaker entries: %v", circuitBreakerSubscriptionMap)
+	log.Info().Msgf("Found waiting messages: %v", dbSubscriptionsForWaitingEvents)
 }
 
 func getCircuitBreakerCacheMap() (map[string]struct{}, error) {
@@ -109,12 +109,11 @@ func getRepublishingCacheMap() (map[string]struct{}, error) {
 
 	republishingMap := make(map[string]struct{})
 	for _, entry := range cacheRepublishingEntries {
-		castedEntry, ok := entry.Value.(republish.RepublishingCacheEntry)
-		if !ok {
+		if castedEntry, ok := entry.Value.(republish.RepublishingCacheEntry); ok {
+			republishingMap[castedEntry.SubscriptionId] = struct{}{}
+		} else {
 			log.Error().Msgf("Error casting republishing entry: %v", entry)
-			continue
 		}
-		republishingMap[castedEntry.SubscriptionId] = struct{}{}
 	}
 	return republishingMap, nil
 }
