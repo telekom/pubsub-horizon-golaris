@@ -16,6 +16,9 @@ import (
 	"time"
 )
 
+var funcGetRepublishingCacheMap = getRepublishingCacheMap
+var funcGetCircuitBreakerCacheMap = getCircuitBreakerCacheMap
+
 func CheckWaitingEvents() {
 	log.Info().Msgf("Republish messages stucked in state WAITING")
 
@@ -44,14 +47,14 @@ func CheckWaitingEvents() {
 	}
 
 	// Get all republishing cache entries
-	republishingSubscriptionMap, err := getRepublishingCacheMap()
+	republishingSubscriptionMap, err := funcGetRepublishingCacheMap()
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching rebublishing cache entries for events stucked in state WAITING")
 		return
 	}
 
 	// Get all circuit-breaker entries with status OPEN
-	circuitBreakerSubscriptionMap, err := getCircuitBreakerCacheMap()
+	circuitBreakerSubscriptionMap, err := funcGetCircuitBreakerCacheMap()
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while fetching circuit breaker cache entries for events stucked in state WAITING")
 		return
