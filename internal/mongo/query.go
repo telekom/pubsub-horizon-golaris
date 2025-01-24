@@ -65,13 +65,13 @@ func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
-	subscriptions, err := collection.Distinct(context.Background(), fieldName, query, opts)
+	fields, err := collection.Distinct(context.Background(), fieldName, query, opts)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error finding distinct field %s in db", fieldName)
 		return nil, err
 	}
 
-	return subscriptions, nil
+	return fields, nil
 }
 
 func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error) {
