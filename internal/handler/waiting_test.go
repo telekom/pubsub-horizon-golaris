@@ -13,17 +13,13 @@ import (
 	"testing"
 )
 
-var Mock = mock.Mock{}
-
-//func getCircuitBreakerCacheMap() (map[string]struct{}, error) {
-//	args := Mock.Called()
-//	return args.Get(0).(map[string]struct{}), args.Error(1)
-//}
-
 func TestCheckWaitingEvents(t *testing.T) {
 
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
+
+	mockWaitingHandler := new(test.MockWaitingHandler)
+	WaitingHandlerService = mockWaitingHandler
 
 	mockCircuitBreakerCache := new(test.CircuitBreakerMockCache)
 	cache.CircuitBreakerCache = mockCircuitBreakerCache
@@ -34,27 +30,23 @@ func TestCheckWaitingEvents(t *testing.T) {
 	mockHandlerCache := new(test.MockHandlerCache)
 	cache.HandlerCache = mockHandlerCache
 
-	// Testdata
+	// Prepare testdata
 	var mockedDbSubscriptionIds = []string{"subscription-1", "subscription-2"}
 	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{"subscription-1": struct{}{}, "subscription-2": struct{}{}}
 
-	// Mocks
+	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
 	mockHandlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return(mockedDbSubscriptionIds, nil)
 
-	funcGetCircuitBreakerCacheMap = func() (map[string]struct{}, error) {
-		return mockedCircuitBreakerSubscriptionsMap, nil
-	}
+	mockWaitingHandler.On("GetCircuitBreakerSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
+	mockWaitingHandler.On("GetRepublishingSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
 
-	funcGetRepublishingCacheMap = func() (map[string]struct{}, error) {
-		return nil, nil
-	}
-
-	// Call the function to test
-	CheckWaitingEvents()
+	// Call function to test
+	waitingHandler := new(waitingHandler)
+	waitingHandler.CheckWaitingEvents()
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
