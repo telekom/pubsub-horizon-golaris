@@ -6,7 +6,9 @@ package handler
 
 import (
 	"context"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/test"
@@ -183,4 +185,31 @@ func TestCheckWaitingEvents_ActionNeededForSubsetOfSubscriptions(t *testing.T) {
 		// Ensure that one republishing entry is created for this scenario
 		mockRepublishingCache.AssertNumberOfCalls(t, "Set", 1)
 	})
+}
+
+func TestGetCircuitBreakerSubscriptionsMap_ReturnsCorrectSubscriptions(t *testing.T) {
+
+	// CircuitBreakerCache is needed for this test
+	mockCircuitBreakerCache := new(test.CircuitBreakerMockCache)
+	cache.CircuitBreakerCache = mockCircuitBreakerCache
+
+	// Create test data []message.CircuitBreakerMessage
+	circuitBreakerEntries := []message.CircuitBreakerMessage{
+		{
+			SubscriptionId: "subscriptionId-1",
+		},
+		{
+			SubscriptionId: "subscriptionId-2",
+		},
+	}
+	// Mock function call GetQuery
+	mockCircuitBreakerCache.On("GetQuery", mock.Anything, mock.Anything).Return(circuitBreakerEntries, nil)
+
+	// Call function to test
+	waitingHandler := new(waitingHandler)
+	subscriptions, err := waitingHandler.GetCircuitBreakerSubscriptionsMap()
+
+	// Assertions
+	assert.Equal(t, map[string]struct{}{"subscriptionId-1": {}, "subscriptionId-2": {}}, subscriptions)
+	assert.Nil(t, err)
 }
