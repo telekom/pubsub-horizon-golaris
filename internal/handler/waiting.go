@@ -71,22 +71,22 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	// Check if subscription is in republishing cache or in circuit breaker cache. If not create a republishing cache entry
 	for _, subscriptionId := range dbSubscriptionsForWaitingEvents {
 		log.Debug().Msgf("Checking subscription for events stucked in state WAITING. subscription: %v", subscriptionId)
-		if _, inRepublishing := republishingSubscriptionsMap[subscriptionId]; !inRepublishing {
-			if _, inCircuitBreaker := circuitBreakerSubscriptionsMap[subscriptionId]; !inCircuitBreaker {
-				log.Warn().Msgf("Subscription %v has waiting messages and no circuitbreaker entry or republishing entry. Events stucked in state WAITING", subscriptionId)
+		_, inRepublishing := republishingSubscriptionsMap[subscriptionId]
+		_, inCircuitBreaker := circuitBreakerSubscriptionsMap[subscriptionId]
+		if !inRepublishing && !inCircuitBreaker {
+			log.Warn().Msgf("Subscription %v has waiting messages and no circuitbreaker entry or republishing entry. Events stucked in state WAITING", subscriptionId)
 
-				// Create republishing cache entry for subscription with stuck waiting events
-				republishingCacheEntry := republish.RepublishingCacheEntry{
-					SubscriptionId:   subscriptionId,
-					RepublishingUpTo: time.Now(),
-					PostponedUntil:   time.Now(),
-				}
-				if err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republishingCacheEntry); err != nil {
-					log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for events stucked in state WAITING. subscriptionId: %s", subscriptionId)
-					continue
-				}
-				log.Debug().Msgf("Successfully created RepublishingCacheEntry entry for for events stucked in state WAITING. subscriptionId: %s republishingEntry: %+v", subscriptionId, republishingCacheEntry)
+			// Create republishing cache entry for subscription with stuck waiting events
+			republishingCacheEntry := republish.RepublishingCacheEntry{
+				SubscriptionId:   subscriptionId,
+				RepublishingUpTo: time.Now(),
+				PostponedUntil:   time.Now(),
 			}
+			if err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republishingCacheEntry); err != nil {
+				log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for events stucked in state WAITING. subscriptionId: %s", subscriptionId)
+				continue
+			}
+			log.Debug().Msgf("Successfully created RepublishingCacheEntry entry for for events stucked in state WAITING. subscriptionId: %s republishingEntry: %+v", subscriptionId, republishingCacheEntry)
 		}
 	}
 
