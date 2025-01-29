@@ -54,6 +54,11 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 		return
 	}
 
+	// If no subscriptions found, return
+	if len(dbSubscriptionsForWaitingEvents) == 0 {
+		return
+	}
+
 	// Get all republishing cache entries
 	republishingSubscriptionsMap, err := WaitingHandlerService.GetRepublishingSubscriptionsMap()
 	if err != nil {
