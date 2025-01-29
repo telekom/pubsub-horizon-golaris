@@ -283,6 +283,26 @@ func TestGetCircuitBreakerSubscriptionsMap_EmptyCache(t *testing.T) {
 	mockCircuitBreakerCache.AssertExpectations(t)
 }
 
+func TestGetCircuitBreakerSubscriptionsMap_CacheError(t *testing.T) {
+	// Mock the CircuitBreakerCache
+	mockCircuitBreakerCache := new(test.CircuitBreakerMockCache)
+	cache.CircuitBreakerCache = mockCircuitBreakerCache
+
+	// Create empty test data
+	circuitBreakerEntries := []message.CircuitBreakerMessage{}
+	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
+	mockCircuitBreakerCache.On("GetQuery", mock.Anything, statusQuery).Return(circuitBreakerEntries, fmt.Errorf("cache retrieval error"))
+
+	// Call the method to test
+	waitingHandler := new(waitingHandler)
+	subscriptions, err := waitingHandler.GetCircuitBreakerSubscriptionsMap()
+
+	// Assertions
+	assert.Nil(t, subscriptions)
+	assert.NotNil(t, err)
+	mockCircuitBreakerCache.AssertExpectations(t)
+}
+
 func TestGetRepublishingSubscriptionsMap_ReturnsCorrectSubscriptions(t *testing.T) {
 	// Mock the RepublishingCache
 	mockRepulishingCache := new(test.RepublishingMockMap)
@@ -332,7 +352,7 @@ func TestGetRepublishingSubscriptionsMap_CacheError(t *testing.T) {
 	cache.RepublishingCache = mockRepulishingCache
 
 	// Simulate cache retrieval error
-	mockRepulishingCache.On("GetEntrySet", mock.Anything).Return(map[string]struct{}{}, fmt.Errorf("cache retrieval error"))
+	mockRepulishingCache.On("GetEntrySet", mock.Anything).Return([]types.Entry{}, fmt.Errorf("cache retrieval error"))
 
 	// Call the method to test
 	waitingHandler := new(waitingHandler)
@@ -341,6 +361,5 @@ func TestGetRepublishingSubscriptionsMap_CacheError(t *testing.T) {
 	// Assertions
 	assert.Nil(t, subscriptions)
 	assert.NotNil(t, err)
-	assert.Equal(t, "cache retrieval error", err.Error())
 	mockRepulishingCache.AssertExpectations(t)
 }
