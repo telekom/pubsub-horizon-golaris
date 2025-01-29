@@ -55,7 +55,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	}
 
 	// If no subscriptions found, return
-	log.Debug().Msgf("Found %i subscriptions with waiting messages: %v", len(dbSubscriptionsForWaitingEvents), dbSubscriptionsForWaitingEvents)
+	log.Debug().Msgf("Found %d subscriptions with waiting messages: %v", len(dbSubscriptionsForWaitingEvents), dbSubscriptionsForWaitingEvents)
 	if len(dbSubscriptionsForWaitingEvents) == 0 {
 		return
 	}
@@ -66,7 +66,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 		log.Error().Err(err).Msgf("Error while fetching rebublishing cache entries for events stucked in state WAITING")
 		return
 	}
-	log.Debug().Msgf("Found %i rebublishing entries: %v", len(republishingSubscriptionsMap), republishingSubscriptionsMap)
+	log.Debug().Msgf("Found %d rebublishing entries: %v", len(republishingSubscriptionsMap), republishingSubscriptionsMap)
 
 	// Get all circuit-breaker entries with status OPEN
 	circuitBreakerSubscriptionsMap, err := WaitingHandlerService.GetCircuitBreakerSubscriptionsMap()
@@ -74,7 +74,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 		log.Error().Err(err).Msgf("Error while fetching circuit breaker cache entries for events stucked in state WAITING")
 		return
 	}
-	log.Debug().Msgf("Found %i circuitbreaker entries in state OPEN: %v", len(circuitBreakerSubscriptionsMap), circuitBreakerSubscriptionsMap)
+	log.Debug().Msgf("Found %d circuitbreaker entries in state OPEN: %v", len(circuitBreakerSubscriptionsMap), circuitBreakerSubscriptionsMap)
 
 	// Check if subscription is in republishing cache or in circuit breaker cache. If not create a republishing cache entry
 	for _, subscriptionId := range dbSubscriptionsForWaitingEvents {

@@ -28,12 +28,12 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 	mockPicker := new(test.MockPicker)
 	test.InjectMockPicker(mockPicker)
 
-	deliveringHandler := new(test.DeliveringMockHandler)
-	cache.HandlerCache = deliveringHandler
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
 
-	deliveringHandler.On("NewLockContext", mock.Anything).Return(context.Background())
-	deliveringHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
 	config.Current.Republishing.DeliveringStatesOffset = 30 * time.Minute
@@ -94,15 +94,15 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 	mockKafka := new(test.MockKafkaHandler)
 	kafka.CurrentHandler = mockKafka
 
-	deliveringHandler := new(test.DeliveringMockHandler)
-	cache.HandlerCache = deliveringHandler
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
 
 	mockPicker := new(test.MockPicker)
 	test.InjectMockPicker(mockPicker)
 
-	deliveringHandler.On("NewLockContext", mock.Anything).Return(context.Background())
-	deliveringHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-	deliveringHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
 	config.Current.Republishing.DeliveringStatesOffset = 30 * time.Minute
