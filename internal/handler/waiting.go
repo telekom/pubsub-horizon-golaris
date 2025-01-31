@@ -27,6 +27,7 @@ type (
 
 var WaitingHandlerService WaitingHandlerInterface = new(waitingHandler)
 
+// CheckWaitingEvents checks for events stuck in the WAITING state and creates a republishing entry if necessary.
 func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	log.Info().Msgf("WaitingHandler: Republish messages stucked in state WAITING")
 
@@ -100,6 +101,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	log.Info().Msgf("WaitingHandler: Finished republishing messages stucked in state WAITING")
 }
 
+// GetCircuitBreakerSubscriptionsMap returns a map of subscriptions with open circuit breaker entries.
 func (waitingHandler *waitingHandler) GetCircuitBreakerSubscriptionsMap() (map[string]struct{}, error) {
 
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
@@ -115,6 +117,7 @@ func (waitingHandler *waitingHandler) GetCircuitBreakerSubscriptionsMap() (map[s
 	return circuitBreakerMap, nil
 }
 
+// GetRepublishingSubscriptionsMap returns a map of subscriptions with republishing entries.
 func (waitingHandler *waitingHandler) GetRepublishingSubscriptionsMap() (map[string]struct{}, error) {
 
 	cacheRepublishingEntries, err := cache.RepublishingCache.GetEntrySet(context.Background())
