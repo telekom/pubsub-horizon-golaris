@@ -18,6 +18,11 @@ type MockMongoHandler struct {
 	mock.Mock
 }
 
+func (m *MockMongoHandler) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error) {
+	args := m.Called(beginTimestamp, endTimestamp)
+	return args.Get(0).([]string), args.Error(1)
+}
+
 func (m *MockMongoHandler) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	args := m.Called(timestamp, lastCursor, subscriptionId)
 	return args.Get(0).([]message.StatusMessage), args.Get(1), args.Error(2)

@@ -59,6 +59,44 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 	return messages, newLastCursor, nil
 }
 
+func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string) ([]interface{}, error) {
+
+	opts := options.Distinct()
+
+	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
+
+	fields, err := collection.Distinct(context.Background(), fieldName, query, opts)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error finding distinct field %s in db", fieldName)
+		return nil, err
+	}
+
+	return fields, nil
+}
+
+func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error) {
+	query := bson.M{
+		"status":       "WAITING",
+		"deliveryType": "CALLBACK",
+		"modified": bson.M{
+			"$gte": beginTimestamp,
+			"$lte": endTimestamp,
+		},
+	}
+
+	subscriptions, err := connection.distinctFieldByQuery(query, "subscriptionId")
+	if err != nil {
+		return nil, err
+	}
+
+	castedSubscriptions := make([]string, len(subscriptions))
+	for i, subscription := range subscriptions {
+		castedSubscriptions[i] = subscription.(string)
+	}
+
+	return castedSubscriptions, err
+}
+
 func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "WAITING",

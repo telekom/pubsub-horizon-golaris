@@ -44,6 +44,13 @@ func StartScheduler() {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
 	}
 
+	// Schedule the task for checking for stuck waiting events
+	if _, err := scheduler.Every(config.Current.WaitingHandler.CheckInterval).Do(func() {
+		handler.WaitingHandlerService.CheckWaitingEvents()
+	}); err != nil {
+		log.Error().Err(err).Msgf("Error while scheduling WAITING-Handler: %v", err)
+	}
+
 	// Start the scheduler asynchronously
 	scheduler.StartAsync()
 }

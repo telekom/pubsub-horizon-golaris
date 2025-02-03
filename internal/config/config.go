@@ -53,12 +53,16 @@ func setDefaults() {
 	viper.SetDefault("republishing.batchSize", 10)
 	viper.SetDefault("republishing.throttlingIntervalTime", "1s")
 	viper.SetDefault("republishing.deliveringStatesOffset", "70m")
+	viper.SetDefault("waitingHandler.checkInterval", "5m")
+	viper.SetDefault("waitingHandler.minMessageAge", "1m")
+	viper.SetDefault("waitingHandler.maxMessageAge", "24h")
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
 	viper.SetDefault("hazelcast.caches.circuitBreakerCache", "circuit-breakers")
 	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-check-cache")
 	viper.SetDefault("hazelcast.caches.republishingCache", "republishing-cache")
+	viper.SetDefault("hazelcast.caches.handlerCache", "handler-cache")
 
 	// Hazelcast
 	viper.SetDefault("hazelcast.clusterName", "dev")
@@ -88,11 +92,6 @@ func setDefaults() {
 	viper.SetDefault("tracing.enabled", true)
 	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
 	viper.SetDefault("tracing.debugEnabled", false)
-
-	// Handler
-	viper.SetDefault("handler.delivering", "deliveringHandler")
-	viper.SetDefault("handler.failed", "failedHandler")
-
 }
 
 func readConfiguration() *Configuration {
