@@ -4,31 +4,31 @@ go 1.25.0
 
 require (
 	github.com/1pkg/gohalt v0.10.0
-	github.com/IBM/sarama v1.43.2
+	github.com/IBM/sarama v1.45.0
 	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
-	github.com/gofiber/fiber/v2 v2.52.12
-	github.com/google/uuid v1.6.0
-	github.com/hazelcast/hazelcast-go-client v1.4.3
-	github.com/jarcoal/httpmock v1.4.0
-	github.com/ory/dockertest/v3 v3.12.0
-	github.com/prometheus/client_golang v1.23.0
-	github.com/rs/zerolog v1.35.0
-	github.com/spf13/cobra v1.10.2
-	github.com/spf13/viper v1.21.0
-	github.com/stretchr/testify v1.11.1
-	github.com/telekom/pubsub-horizon-go v0.0.0-20240819134043-281686d5002b
-	go.mongodb.org/mongo-driver v1.17.9
-	go.opentelemetry.io/contrib/propagators/b3 v1.43.0
-	go.opentelemetry.io/otel v1.43.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0
-	go.opentelemetry.io/otel/sdk v1.43.0
+	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/hazelcast/hazelcast-go-client v1.4.2
+	github.com/jarcoal/httpmock v1.3.1
+	github.com/ory/dockertest/v3 v3.11.0
+	github.com/prometheus/client_golang v1.19.1
+	github.com/rs/zerolog v1.33.0
+	github.com/spf13/cobra v1.8.1
+	github.com/spf13/viper v1.19.0
+	github.com/stretchr/testify v1.10.0
+	github.com/telekom/pubsub-horizon-go v0.0.0-20250207133013-0b141e137944
+	go.mongodb.org/mongo-driver v1.16.0
+	go.opentelemetry.io/contrib/propagators/b3 v1.34.0
+	go.opentelemetry.io/otel v1.34.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.28.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.28.0
+	go.opentelemetry.io/otel/sdk v1.34.0
 )
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
-	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
+	eni.telekom.de/galileo/client v1.0.0-20252301142548-5697c112 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
@@ -46,7 +46,7 @@ require (
 	github.com/docker/cli v29.2.0+incompatible // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
-	github.com/eapache/go-resiliency v1.6.0 // indirect
+	github.com/eapache/go-resiliency v1.7.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
@@ -89,7 +89,7 @@ require (
 	github.com/opencontainers/runc v1.2.8 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
-	github.com/pierrec/lz4/v4 v4.1.21 // indirect
+	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
