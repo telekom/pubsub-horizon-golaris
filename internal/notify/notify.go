@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	notificationType = "MESSAGE"
+	resolver = "TEAMS"
 )
 
 type RetryConfig struct {
@@ -220,7 +220,7 @@ func (h *NotificationHandler) sendNotificationRequest(payload NotificationPayloa
 		SetData(payload.Data)
 
 	log.Debug().Msg("Sending notification request to Notification Service")
-	res, err := h.client.Notify(notificationType, notifyOpts)
+	res, err := h.client.Notify(resolver, notifyOpts)
 	if err != nil {
 		log.Error().Err(err).Msg("Error sending notification request")
 		return fmt.Errorf("error sending notification: %w", err)
