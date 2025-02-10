@@ -5,6 +5,7 @@ go 1.23.4
 toolchain go1.23.6
 
 require (
+	eni.telekom.de/galileo/client v1.0.0-20252301142548-5697c112
 	github.com/1pkg/gohalt v0.10.0
 	github.com/IBM/sarama v1.45.0
 	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
@@ -29,7 +30,6 @@ require (
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
-	eni.telekom.de/galileo/client v1.0.0-20252301142548-5697c112 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
@@ -135,6 +135,7 @@ require (
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
 	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
