@@ -24,14 +24,6 @@ type RetryConfig struct {
 	MaxBackoff  time.Duration // MaxBackoff is the maximum allowed backoff duration.
 }
 
-type NotificationPayload struct {
-	Params   []string       `json:"params"`
-	Sender   string         `json:"sender"`
-	Template string         `json:"template"`
-	Subject  string         `json:"subject"`
-	Data     map[string]any `json:"data"`
-}
-
 // NotificationHandler encapsulates the Galileo client and logic for sending notifications.
 type NotificationHandler struct {
 	client      *galileo.Client
@@ -106,14 +98,14 @@ func wait(ctx context.Context, d time.Duration) error {
 //
 // Parameters:
 // - ctx: The context for managing request deadlines and cancellations.
-// - payload: The NotificationPayload containing all necessary data for sending the notifications.
+// - opts: The options applied to the notification request that is being sent to Galileo.
 //
 // Returns:
 // - An error if the notification could not be sent after all retries; nil otherwise.
 // Note: It will retry sending the notification upon failure using exponential backoff with jitter.
 // Jitter is used to avoid the “Thundering Herd” effect when calling the Notification Service,
 // which could occur in certain operating states.
-func (h *NotificationHandler) SendNotification(ctx context.Context, payload NotificationPayload) error {
+func (h *NotificationHandler) SendNotification(ctx context.Context, opts *options.NotifyOptions) error {
 	log.Debug().Msg("Starting SendNotification process")
 	cfg := h.retryConfig
 
@@ -128,7 +120,7 @@ func (h *NotificationHandler) SendNotification(ctx context.Context, payload Noti
 	// Retry loop: total of MaxRetries+1 attempts.
 	for i := 0; i <= cfg.MaxRetries; i++ {
 		log.Debug().Int("attempt", i+1).Msg("Attempting to send notification")
-		err := h.sendNotificationRequest(payload)
+		err := h.sendNotificationRequest(opts)
 		if err == nil {
 			log.Debug().Msg("Notification sent successfully")
 			return nil
@@ -205,19 +197,19 @@ func (h *NotificationHandler) calculateBackoff(attempt int, backoffBase float64,
 //
 // Parameters:
 // - ctx: The context for managing request deadlines and cancellations.
-// - payload: The NotificationPayload containing all necessary data for sending the notification.
+// - opts: The options applied to the notification request that is being sent to Galileo.
 //
 // Returns:
 // - An error if the request failed; nil otherwise.
-func (h *NotificationHandler) sendNotificationRequest(payload NotificationPayload) error {
-	log.Debug().Interface("payload", payload).Msg("Preparing to send notification request")
+func (h *NotificationHandler) sendNotificationRequest(opts *options.NotifyOptions) error {
+	log.Debug().Interface("opts", opts).Msg("Preparing to send notification request")
 
 	notifyOpts := options.Notify().
-		SetParameters(payload.Params).
-		SetSender(payload.Sender).
-		SetTemplate(payload.Template).
-		SetSubject(payload.Subject).
-		SetData(payload.Data)
+		SetParameters(opts.Parameters).
+		SetSender(opts.Sender).
+		SetTemplate(opts.Template).
+		SetSubject(opts.Subject).
+		SetData(opts.Data)
 
 	log.Debug().Msg("Sending notification request to Notification Service")
 	res, err := h.client.Notify(resolver, notifyOpts)
