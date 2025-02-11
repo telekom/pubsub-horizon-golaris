@@ -93,6 +93,19 @@ func setDefaults() {
 	viper.SetDefault("handler.delivering", "deliveringHandler")
 	viper.SetDefault("handler.failed", "failedHandler")
 
+	// Notifications
+	viper.SetDefault("notifications.enabled", false)
+	viper.SetDefault("notifications.baseUrl", "https://galileo.example.com")
+
+	viper.SetDefault("notifications.mail.subject", "Open circuit-breaker")
+	viper.SetDefault("notifications.mail.senderName", "Golaris")
+	viper.SetDefault("notifications.mail.sender", "golaris@horizon.example.com")
+	viper.SetDefault("notifications.mail.template", "golaris_circuit_breaker.tmpl")
+
+	viper.SetDefault("notifications.auth.enabled", true)
+	viper.SetDefault("notifications.auth.issuer", "https://idp.example.com/token")
+	viper.SetDefault("notifications.auth.clientId", "clientId")
+	viper.SetDefault("notifications.auth.clientSecret", "clientSecret")
 }
 
 func readConfiguration() *Configuration {

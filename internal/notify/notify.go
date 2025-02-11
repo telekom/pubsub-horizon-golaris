@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"pubsub-horizon-golaris/internal/config"
 	"time"
 
 	"eni.telekom.de/galileo/client/galileo"
 	"eni.telekom.de/galileo/client/options"
 	"github.com/rs/zerolog/log"
 )
+
+var CurrentHandler = getHandler()
 
 const (
 	resolver = "TEAMS"
@@ -39,21 +42,8 @@ type NotificationHandler struct {
 // - clientSecret: The client secret for OAuth2 authentication.
 // Returns:
 // - A pointer to an initialized NotificationHandler.
-func NewNotificationHandler(baseURL, issuer, clientID, clientSecret string) *NotificationHandler {
+func NewNotificationHandler(clientOpts *options.ClientOptions) *NotificationHandler {
 	log.Debug().Msg("Initializing new NotificationHandler")
-
-	clientOpts := options.Client().
-		SetDebug(false).
-		SetDryRun(false).
-		SetBaseUrl(baseURL).
-		SetTimeout(30 * time.Second).
-		WithAuth(
-			options.Auth().
-				SetEnabled(true).
-				SetIssuer(issuer).
-				SetClientId(clientID).
-				SetClientSecret(clientSecret),
-		)
 	client := galileo.NewClient(clientOpts)
 	log.Debug().Msg("NotificationHandler initialized")
 
@@ -208,4 +198,13 @@ func (h *NotificationHandler) sendNotificationRequest(opts *options.NotifyOption
 
 	log.Info().Str("response", res.Message).Msg("Notification sent successfully")
 	return nil
+}
+
+func getHandler() *NotificationHandler {
+	var handler *NotificationHandler
+	if cfg := config.Current.Notifications; cfg.Enabled {
+		handler = NewNotificationHandler(cfg.Options())
+	}
+
+	return handler
 }
