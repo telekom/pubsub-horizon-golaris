@@ -6,10 +6,17 @@ package circuitbreaker
 
 import (
 	"context"
+	"eni.telekom.de/galileo/client/options"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/types"
 	"math"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/healthcheck"
+	"pubsub-horizon-golaris/internal/notify"
 	"pubsub-horizon-golaris/internal/republish"
 	"slices"
 	"time"
@@ -140,6 +147,37 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s with loop detection result: %v", cbMessage.SubscriptionId, err)
 		return err
 	}
+
+	// send notification if loop counter is 0 and circuit-breaker has been written to cache
+	if notificationHandler := notify.CurrentHandler; notificationHandler != nil && cbMessage.LoopCounter == 0 {
+		log.Debug().Fields(map[string]any{
+			"subscriptionId": cbMessage.SubscriptionId,
+		}).Msg("Sending notification for open circuit-breaker")
+		subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, cbMessage.SubscriptionId)
+		if err != nil {
+			return err
+		}
+
+		if subscription != nil {
+			label, ok := subscription.Metadata.Annotations["ei.telekom.de/origin.namespace"].(string)
+
+			if ok {
+				if label != "eni--pandora" {
+					return nil
+				}
+
+				notifyOpts := options.Notify().
+					SetParameters([]string{label}).
+					SetData(map[string]any{})
+
+				config.Current.Notifications.ApplyToNotifyOptions(notifyOpts)
+				if err := notificationHandler.SendNotification(context.Background(), notifyOpts); err != nil {
+					log.Error().Err(err).Msg("Could not send notification")
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
