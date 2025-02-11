@@ -202,17 +202,8 @@ func (h *NotificationHandler) calculateBackoff(attempt int, backoffBase float64,
 // Returns:
 // - An error if the request failed; nil otherwise.
 func (h *NotificationHandler) sendNotificationRequest(opts *options.NotifyOptions) error {
-	log.Debug().Interface("opts", opts).Msg("Preparing to send notification request")
-
-	notifyOpts := options.Notify().
-		SetParameters(opts.Parameters).
-		SetSender(opts.Sender).
-		SetTemplate(opts.Template).
-		SetSubject(opts.Subject).
-		SetData(opts.Data)
-
 	log.Debug().Msg("Sending notification request to Notification Service")
-	res, err := h.client.Notify(resolver, notifyOpts)
+	res, err := h.client.Notify(resolver, opts)
 	if err != nil {
 		log.Error().Err(err).Msg("Error sending notification request")
 		return fmt.Errorf("error sending notification: %w", err)
