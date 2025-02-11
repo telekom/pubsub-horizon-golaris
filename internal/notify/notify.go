@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"time"
 
@@ -14,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var CurrentHandler = getHandler()
+var CurrentHandler *NotificationHandler
 
 const (
 	resolver = "TEAMS"
@@ -43,9 +44,7 @@ type NotificationHandler struct {
 // Returns:
 // - A pointer to an initialized NotificationHandler.
 func NewNotificationHandler(clientOpts *options.ClientOptions) *NotificationHandler {
-	log.Debug().Msg("Initializing new NotificationHandler")
 	client := galileo.NewClient(clientOpts)
-	log.Debug().Msg("NotificationHandler initialized")
 
 	// Set default values for the retry configuration.
 	defaultRetryConfig := RetryConfig{
@@ -200,12 +199,17 @@ func (h *NotificationHandler) sendNotificationRequest(opts *options.NotifyOption
 	return nil
 }
 
-func getHandler() *NotificationHandler {
+func Initialize() {
 	var handler *NotificationHandler
 	if cfg := config.Current.Notifications; cfg.Enabled {
 		handler = NewNotificationHandler(cfg.Options())
 		log.Info().Msg("Notification handler initialized")
+
+		circuitBreakerCache := config.Current.Hazelcast.Caches.CircuitBreakerCache
+		if err := cache.CircuitBreakerCache.AddListener(circuitBreakerCache, new(NotificationListener)); err != nil {
+			log.Error().Err(err).Msg("Failed to add circuit breaker cache listener for sending notifications")
+		}
 	}
 
-	return handler
+	CurrentHandler = handler
 }

@@ -13,6 +13,7 @@ import (
 	"pubsub-horizon-golaris/internal/listener"
 	"pubsub-horizon-golaris/internal/log"
 	"pubsub-horizon-golaris/internal/mongo"
+	"pubsub-horizon-golaris/internal/notify"
 	"pubsub-horizon-golaris/internal/scheduler"
 	"pubsub-horizon-golaris/internal/tracing"
 )
@@ -31,6 +32,7 @@ func initialize() {
 	cache.Initialize()
 	mongo.Initialize()
 	kafka.Initialize()
+	notify.Initialize()
 	listener.Initialize()
 	tracing.Initialize()
 }

@@ -5,8 +5,6 @@
 package circuitbreaker
 
 import (
-	"context"
-	"eni.telekom.de/galileo/client/options"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -16,7 +14,6 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/healthcheck"
-	"pubsub-horizon-golaris/internal/notify"
 	"pubsub-horizon-golaris/internal/republish"
 	"slices"
 	"time"
@@ -110,10 +107,6 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		}
 		log.Debug().Msgf("Successfully created RepublishingCacheEntry entry for subscriptionId %s: %+v", cbMessage.SubscriptionId, republishingCacheEntry)
 		CloseCircuitBreaker(&cbMessage)
-	}
-
-	if err := notifyConsumer(&cbMessage); err != nil {
-		log.Debug().Err(err).Msgf("Error while notifying consumer with subscriptionId %s", cbMessage.SubscriptionId)
 	}
 
 	log.Debug().Msgf("Successfully processed open CircuitBreaker entry for subscriptionId %s", cbMessage.SubscriptionId)
@@ -216,45 +209,4 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 	log.Debug().Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v", cbMessage.SubscriptionId, cbMessage.LoopCounter, exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
 
 	return exponentialBackoff
-}
-
-func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
-	// send notification if loop counter is 0 and circuit-breaker has been written to cache
-	if notificationHandler := notify.CurrentHandler; notificationHandler != nil && cbMessage.LoopCounter == 0 {
-		log.Debug().Fields(map[string]any{
-			"subscriptionId": cbMessage.SubscriptionId,
-		}).Msg("Sending notification for open circuit-breaker")
-		subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, cbMessage.SubscriptionId)
-		if err != nil {
-			return err
-		}
-
-		if subscription != nil {
-			label, ok := subscription.Metadata.Annotations["ei.telekom.de/origin.namespace"].(string)
-
-			if ok {
-				if label != "eni--pandora" {
-					return nil
-				}
-
-				notifyOpts := options.Notify().
-					SetParameters([]string{label}).
-					SetData(map[string]any{
-						"cb": map[string]any{
-							"environment": subscription.Spec.Environment,
-							"callbackUrl": subscription.Spec.Subscription.Callback,
-							"eventType":   subscription.Spec.Subscription.Type,
-							"lastOpened":  cbMessage.LastOpened.ToTime().Format(time.RFC3339),
-							"status":      cbMessage.Status.String(),
-						},
-					})
-
-				config.Current.Notifications.ApplyToNotifyOptions(notifyOpts)
-				if err := notificationHandler.SendNotification(context.Background(), notifyOpts); err != nil {
-					log.Error().Err(err).Msg("Could not send notification")
-				}
-			}
-		}
-	}
-	return nil
 }

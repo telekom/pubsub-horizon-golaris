@@ -127,10 +127,3 @@ func (n Notifications) Options() *options.ClientOptions {
 
 	return opts
 }
-
-func (n Notifications) ApplyToNotifyOptions(opts *options.NotifyOptions) {
-	opts.SetSender(n.Mail.Sender).
-		SetSenderName(n.Mail.SenderName).
-		SetSubject(n.Mail.Subject).
-		SetTemplate(n.Mail.Template)
-}
