@@ -163,7 +163,15 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 
 				notifyOpts := options.Notify().
 					SetParameters([]string{label}).
-					SetData(map[string]any{})
+					SetData(map[string]any{
+						"cb": map[string]any{
+							"environment": subscription.Spec.Environment,
+							"callbackUrl": subscription.Spec.Subscription.Callback,
+							"eventType":   subscription.Spec.Subscription.Type,
+							"lastOpened":  cbMessage.LastOpened.ToTime().Format(time.RFC3339),
+							"status":      cbMessage.Status.String(),
+						},
+					})
 
 				config.Current.Notifications.ApplyToNotifyOptions(notifyOpts)
 				if err := notificationHandler.SendNotification(context.Background(), notifyOpts); err != nil {
