@@ -204,6 +204,7 @@ func getHandler() *NotificationHandler {
 	var handler *NotificationHandler
 	if cfg := config.Current.Notifications; cfg.Enabled {
 		handler = NewNotificationHandler(cfg.Options())
+		log.Info().Msg("Notification handler initialized")
 	}
 
 	return handler
