@@ -5,6 +5,9 @@
 package config
 
 import (
+	"eni.telekom.de/galileo/client/options"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
@@ -21,6 +24,8 @@ type Configuration struct {
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
 	Handlers       Handlers       `mapstructure:"handlers"`
+	Handler        Handler        `mapstructure:"handler"`
+	Notifications  Notifications  `mapstructure:"notifications"`
 }
 
 type CircuitBreaker struct {
@@ -105,4 +110,45 @@ type WaitingHandler struct {
 	InitialDelay  time.Duration `mapstructure:"initialDelay"`
 	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
 	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
+}
+
+type Notifications struct {
+	Enabled bool   `mapstructure:"enabled"`
+	BaseUrl string `mapstructure:"baseUrl"`
+	Mail    struct {
+		Subject    string `mapstructure:"subject"`
+		Sender     string `mapstructure:"sender"`
+		SenderName string `mapstructure:"senderName"`
+		Template   string `mapstructure:"template"`
+	} `mapstructure:"mail"`
+	Auth struct {
+		Enabled      bool   `mapstructure:"enabled"`
+		Issuer       string `mapstructure:"issuer"`
+		ClientId     string `mapstructure:"clientId"`
+		ClientSecret string `mapstructure:"clientSecret"`
+	} `mapstructure:"auth"`
+}
+
+func (n Notifications) Options() *options.ClientOptions {
+	var opts = options.Client().
+		SetBaseUrl(n.BaseUrl).
+		SetDebug(log.Logger.GetLevel() == zerolog.DebugLevel).
+		SetDryRun(false).
+		SetTimeout(30 * time.Second).
+		WithAuth(
+			options.Auth().
+				SetEnabled(n.Auth.Enabled).
+				SetIssuer(n.Auth.Issuer).
+				SetClientId(n.Auth.ClientId).
+				SetClientSecret(n.Auth.ClientSecret),
+		)
+
+	return opts
+}
+
+func (n Notifications) ApplyToNotifyOptions(opts *options.NotifyOptions) {
+	opts.SetSender(n.Mail.Sender).
+		SetSenderName(n.Mail.SenderName).
+		SetSubject(n.Mail.Subject).
+		SetTemplate(n.Mail.Template)
 }
