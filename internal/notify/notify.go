@@ -83,11 +83,8 @@ func (h *NotificationHandler) SetRetryConfig(cfg RetryConfig) {
 // wait is a utility function which pauses execution for the specified duration or returns earlier if the context is canceled.
 // This function is used to avoid an implementation with direct time.Sleep calls and reacts to ctx.Done().
 func wait(ctx context.Context, d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-
 	select {
-	case <-timer.C:
+	case <-time.After(d):
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
