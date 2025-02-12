@@ -9,6 +9,7 @@ import (
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/utils"
+	"strings"
 	"time"
 )
 
@@ -59,14 +60,14 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
 		label, ok := subscription.Metadata.Annotations["ei.telekom.de/origin.namespace"].(string)
 
 		if ok {
-			if label != "eni--jfi" {
-				return nil
-			}
-
 			mailConfig := config.Current.Notifications.Mail
+
+			callbackUrlParts := strings.SplitN(subscription.Spec.Subscription.Callback, "url=", 2)
+			callbackUrl := utils.IfThenElse(len(callbackUrlParts) > 1, callbackUrlParts[1], callbackUrlParts[0])
+
 			subject := utils.ReplaceWithMap(mailConfig.Subject, map[string]string{
-				"$environment":  cbMessage.Environment,
-				"$subscriberId": subscription.Spec.Subscription.SubscriberId,
+				"$environment": cbMessage.Environment,
+				"$application": strings.Replace(subscription.Spec.Subscription.SubscriberId, label+"--", "", 1),
 			})
 
 			notifyOpts := options.Notify().
@@ -78,7 +79,7 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
 					},
 					"cb": map[string]any{
 						"environment": cbMessage.Environment,
-						"callbackUrl": subscription.Spec.Subscription.Callback,
+						"callbackUrl": callbackUrl,
 						"eventType":   subscription.Spec.Subscription.Type,
 						"lastOpened":  cbMessage.LastOpened.ToTime().Format(time.RFC3339),
 						"status":      cbMessage.Status.String(),
