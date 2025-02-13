@@ -90,7 +90,7 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
 				SetTemplate(mailConfig.Template).
 				SetSubject(subject)
 
-			if err := CurrentHandler.SendNotification(context.Background(), notifyOpts); err != nil {
+			if err := CurrentSender.SendNotification(context.Background(), notifyOpts); err != nil {
 				log.Error().Err(err).Msg("Could not send notification")
 			}
 		}

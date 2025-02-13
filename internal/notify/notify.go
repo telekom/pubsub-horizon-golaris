@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var CurrentHandler *NotificationHandler
+var CurrentSender *NotificationSender
 
 const (
 	resolver = "TEAMS"
@@ -28,25 +28,16 @@ type RetryConfig struct {
 	MaxBackoff  time.Duration // MaxBackoff is the maximum allowed backoff duration.
 }
 
-// NotificationHandler encapsulates the Galileo client and logic for sending notifications.
-type NotificationHandler struct {
+// NotificationSender encapsulates the Galileo client and logic for sending notifications.
+type NotificationSender struct {
 	client      *galileo.Client
 	retryConfig RetryConfig
 	rand        *rand.Rand
 }
 
-// NewNotificationHandler creates a new NotificationHandler with a configured Galileo client.
-// Parameters:
-// - baseURL: The base URL of the Galileo service.
-// - issuer: The token issuer URL for authentication.
-// - clientID: The client ID for OAuth2 authentication.
-// - clientSecret: The client secret for OAuth2 authentication.
-// Returns:
-// - A pointer to an initialized NotificationHandler.
-func NewNotificationHandler(clientOpts *options.ClientOptions) *NotificationHandler {
+func newNotificationSender(clientOpts *options.ClientOptions) *NotificationSender {
 	client := galileo.NewClient(clientOpts)
 
-	// Set default values for the retry configuration.
 	defaultRetryConfig := RetryConfig{
 		MaxRetries:  5,
 		Cooldown:    2 * time.Second,
@@ -54,23 +45,19 @@ func NewNotificationHandler(clientOpts *options.ClientOptions) *NotificationHand
 		MaxBackoff:  1 * time.Minute,
 	}
 
-	// Create a new random generator seeded with the current time.
 	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	return &NotificationHandler{
+	return &NotificationSender{
 		client:      client,
 		retryConfig: defaultRetryConfig,
 		rand:        seededRand,
 	}
 }
 
-// SetRetryConfig allows adjusting the retry parameters.
-func (h *NotificationHandler) SetRetryConfig(cfg RetryConfig) {
+func (h *NotificationSender) SetRetryConfig(cfg RetryConfig) {
 	h.retryConfig = cfg
 }
 
-// wait is a utility function which pauses execution for the specified duration or returns earlier if the context is canceled.
-// This function is used to avoid an implementation with direct time.Sleep calls and reacts to ctx.Done().
 func wait(ctx context.Context, d time.Duration) error {
 	select {
 	case <-time.After(d):
@@ -91,7 +78,7 @@ func wait(ctx context.Context, d time.Duration) error {
 // Note: It will retry sending the notification upon failure using exponential backoff with jitter.
 // Jitter is used to avoid the “Thundering Herd” effect when calling the Notification Service,
 // which could occur in certain operating states.
-func (h *NotificationHandler) SendNotification(ctx context.Context, opts *options.NotifyOptions) error {
+func (h *NotificationSender) SendNotification(ctx context.Context, opts *options.NotifyOptions) error {
 	log.Debug().Msg("Starting SendNotification process")
 	cfg := h.retryConfig
 
@@ -151,7 +138,7 @@ func (h *NotificationHandler) SendNotification(ctx context.Context, opts *option
 //
 // Note:
 // - The jitter is applied as a random percentage between -25% and +25% of the base backoff duration.
-func (h *NotificationHandler) calculateBackoff(attempt int, backoffBase float64, maxBackoff time.Duration) time.Duration {
+func (h *NotificationSender) calculateBackoff(attempt int, backoffBase float64, maxBackoff time.Duration) time.Duration {
 	log.Debug().
 		Int("attempt", attempt).
 		Float64("backoffBase", backoffBase).
@@ -187,7 +174,7 @@ func (h *NotificationHandler) calculateBackoff(attempt int, backoffBase float64,
 //
 // Returns:
 // - An error if the request failed; nil otherwise.
-func (h *NotificationHandler) sendNotificationRequest(opts *options.NotifyOptions) error {
+func (h *NotificationSender) sendNotificationRequest(opts *options.NotifyOptions) error {
 	log.Debug().Msg("Sending notification request to Notification Service")
 	res, err := h.client.Notify(resolver, opts)
 	if err != nil {
@@ -200,9 +187,9 @@ func (h *NotificationHandler) sendNotificationRequest(opts *options.NotifyOption
 }
 
 func Initialize() {
-	var handler *NotificationHandler
+	var handler *NotificationSender
 	if cfg := config.Current.Notifications; cfg.Enabled {
-		handler = NewNotificationHandler(cfg.Options())
+		handler = newNotificationSender(cfg.Options())
 		log.Info().Msg("Notification handler initialized")
 
 		circuitBreakerCache := config.Current.Hazelcast.Caches.CircuitBreakerCache
@@ -211,5 +198,5 @@ func Initialize() {
 		}
 	}
 
-	CurrentHandler = handler
+	CurrentSender = handler
 }
