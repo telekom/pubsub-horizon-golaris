@@ -96,11 +96,14 @@ func setDefaults() {
 	// Notifications
 	viper.SetDefault("notifications.enabled", false)
 	viper.SetDefault("notifications.baseUrl", "https://galileo.example.com")
+	viper.SetDefault("notifications.loopModulo", 25)
 
-	viper.SetDefault("notifications.mail.subject", "Open circuit-breaker")
+	viper.SetDefault("notifications.mail.subject.openCircuitBreaker", "Open circuit-breaker")
+	viper.SetDefault("notifications.mail.subject.loopDetected", "Loop detected")
 	viper.SetDefault("notifications.mail.senderName", "Golaris")
 	viper.SetDefault("notifications.mail.sender", "golaris@horizon.example.com")
-	viper.SetDefault("notifications.mail.template", "golaris_circuit_breaker.tmpl")
+	viper.SetDefault("notifications.mail.templates.openCircuitBreaker", "golaris_circuit_breaker.tmpl")
+	viper.SetDefault("notifications.mail.templates.loopDetected", "golaris_loop.tmpl")
 
 	viper.SetDefault("notifications.auth.enabled", true)
 	viper.SetDefault("notifications.auth.issuer", "https://idp.example.com/token")

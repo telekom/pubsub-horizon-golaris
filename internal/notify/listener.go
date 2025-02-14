@@ -5,6 +5,7 @@ import (
 	"eni.telekom.de/galileo/client/options"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -16,8 +17,13 @@ import (
 type NotificationListener struct{}
 
 func (n NotificationListener) OnAdd(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage) {
-	if obj.LoopCounter == 0 {
-		if err := notifyConsumer(&obj); err != nil {
+	notificationConfig := config.Current.Notifications
+	circuitBreakerOpen := obj.Status == enum.CircuitBreakerStatusOpen
+
+	// Circuit breaker initialized
+	if obj.LoopCounter == 0 && circuitBreakerOpen {
+		template := notificationConfig.Mail.Templates.OpenCircuitBreaker
+		if err := notifyConsumer(&obj, notificationConfig.Mail.Subject.OpenCircuitBreaker, template); err != nil {
 			log.Error().
 				Str("subscriptionId", obj.SubscriptionId).
 				Err(err).
@@ -27,9 +33,27 @@ func (n NotificationListener) OnAdd(event *hazelcast.EntryNotified, obj message.
 }
 
 func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage, oldObj message.CircuitBreakerMessage) {
-	if obj.LoopCounter == 0 && oldObj.LoopCounter > 0 {
-		if err := notifyConsumer(&obj); err != nil {
+	notificationConfig := config.Current.Notifications
+	circuitBreakerOpen := obj.Status == enum.CircuitBreakerStatusOpen
+
+	// Circuit-breaker reset
+	if circuitBreakerOpen && (obj.LoopCounter == 0 && oldObj.LoopCounter > 0) {
+		template := notificationConfig.Mail.Templates.OpenCircuitBreaker
+		if err := notifyConsumer(&obj, notificationConfig.Mail.Subject.OpenCircuitBreaker, template); err != nil {
 			log.Error().
+				Str("event", "openCircuitBreaker").
+				Str("subscriptionId", obj.SubscriptionId).
+				Err(err).
+				Msg("Failed to send notification when circuit-breaker was updated")
+		}
+	}
+
+	// Loop detected
+	if circuitBreakerOpen && (obj.LoopCounter > oldObj.LoopCounter && obj.LoopCounter%notificationConfig.LoopModulo == 0) {
+		template := notificationConfig.Mail.Templates.LoopDetected
+		if err := notifyConsumer(&obj, notificationConfig.Mail.Subject.LoopDetected, template); err != nil {
+			log.Error().
+				Str("event", "loop").
 				Str("subscriptionId", obj.SubscriptionId).
 				Err(err).
 				Msg("Failed to send notification when circuit-breaker was updated")
@@ -47,7 +71,7 @@ func (n NotificationListener) OnError(event *hazelcast.EntryNotified, err error)
 		Msg("Could not listen for circuit breaker changes")
 }
 
-func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
+func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, template string) error {
 	log.Debug().
 		Str("subscriptionId", cbMessage.SubscriptionId).
 		Msg("Sending notification for open circuit-breaker")
@@ -65,7 +89,7 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
 			callbackUrlParts := strings.SplitN(subscription.Spec.Subscription.Callback, "url=", 2)
 			callbackUrl := utils.IfThenElse(len(callbackUrlParts) > 1, callbackUrlParts[1], callbackUrlParts[0])
 
-			subject := utils.ReplaceWithMap(mailConfig.Subject, map[string]string{
+			subject := utils.ReplaceWithMap(subject, map[string]string{
 				"$environment": cbMessage.Environment,
 				"$application": strings.Replace(subscription.Spec.Subscription.SubscriberId, label+"--", "", 1),
 			})
@@ -82,12 +106,13 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage) error {
 						"callbackUrl": callbackUrl,
 						"eventType":   subscription.Spec.Subscription.Type,
 						"lastOpened":  cbMessage.LastOpened.ToTime().Format(time.RFC3339),
+						"loopCounter": cbMessage.LoopCounter,
 						"status":      cbMessage.Status.String(),
 					},
 				}).
 				SetSender(mailConfig.Sender).
 				SetSenderName(mailConfig.SenderName).
-				SetTemplate(mailConfig.Template).
+				SetTemplate(template).
 				SetSubject(subject)
 
 			if err := CurrentSender.SendNotification(context.Background(), notifyOpts); err != nil {

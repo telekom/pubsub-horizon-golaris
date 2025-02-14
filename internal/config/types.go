@@ -95,13 +95,20 @@ type Handler struct {
 }
 
 type Notifications struct {
-	Enabled bool   `mapstructure:"enabled"`
-	BaseUrl string `mapstructure:"baseUrl"`
-	Mail    struct {
-		Subject    string `mapstructure:"subject"`
+	Enabled    bool   `mapstructure:"enabled"`
+	BaseUrl    string `mapstructure:"baseUrl"`
+	LoopModulo int    `mapstructure:"loopModulo"`
+	Mail       struct {
+		Subject struct {
+			OpenCircuitBreaker string `mapstructure:"openCircuitBreaker"`
+			LoopDetected       string `mapstructure:"loopDetected"`
+		} `mapstructure:"subject"`
 		Sender     string `mapstructure:"sender"`
 		SenderName string `mapstructure:"senderName"`
-		Template   string `mapstructure:"template"`
+		Templates  struct {
+			OpenCircuitBreaker string `mapstructure:"openCircuitBreaker"`
+			LoopDetected       string `mapstructure:"loopDetected"`
+		} `mapstructure:"templates"`
 	} `mapstructure:"mail"`
 	Auth struct {
 		Enabled      bool   `mapstructure:"enabled"`
