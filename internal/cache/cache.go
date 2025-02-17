@@ -34,6 +34,7 @@ type HazelcastMapInterface interface {
 	Clear(ctx context.Context) error
 	Lock(ctx context.Context, key interface{}) error
 	TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error)
+	TryLockWithLease(ctx context.Context, key interface{}, duration time.Duration) (bool, error)
 }
 
 var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
@@ -47,6 +48,7 @@ var cancelMapMutex sync.RWMutex
 
 var DeliveringHandler HazelcastMapInterface
 var FailedHandler HazelcastMapInterface
+var NotificationSender HazelcastMapInterface
 
 var DeliveringLockKey string
 var FailedLockKey string
@@ -127,6 +129,11 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 	FailedHandler, err = hazelcastClient.GetMap(context.Background(), config.Current.Handler.Failed)
 	if err != nil {
 		return fmt.Errorf("error initializing FailedHandler: %v", err)
+	}
+
+	NotificationSender, err = hazelcastClient.GetMap(context.Background(), "notificationSender")
+	if err != nil {
+		return fmt.Errorf("error initializing lock-cache for notification-sender")
 	}
 
 	return nil
