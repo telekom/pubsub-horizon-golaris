@@ -30,6 +30,11 @@ func (r *RepublishingMockMap) TryLockWithTimeout(ctx context.Context, key interf
 	return args.Bool(0), args.Error(1)
 }
 
+func (r *RepublishingMockMap) TryLockWithLease(ctx context.Context, key interface{}, duration time.Duration) (bool, error) {
+	args := r.Called(ctx, key, duration)
+	return args.Bool(0), args.Error(1)
+}
+
 func (d *RepublishingMockMap) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error) {
 	args := d.Called(ctx, key, timeout)
 	return args.Bool(0), args.Error(1)
