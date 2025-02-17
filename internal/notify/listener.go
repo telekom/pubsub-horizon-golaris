@@ -26,6 +26,12 @@ func (n NotificationListener) OnAdd(event *hazelcast.EntryNotified, obj message.
 
 	// Circuit breaker initialized
 	if obj.LoopCounter == 0 && circuitBreakerOpen {
+		lockAcquired, unlock := n.lockKey(event.Key, "add", 30*time.Second)
+		if !lockAcquired {
+			return
+		}
+		defer unlock()
+
 		template := notificationConfig.Mail.Templates.OpenCircuitBreaker
 		if err := notifyConsumer(&obj, notificationConfig.Mail.Subject.OpenCircuitBreaker, template); err != nil {
 			log.Error().
@@ -42,6 +48,12 @@ func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj messa
 
 	// Circuit-breaker reset
 	if circuitBreakerOpen && (obj.LoopCounter == 0 && oldObj.LoopCounter > 0) {
+		lockAcquired, unlock := n.lockKey(event.Key, "update", 30*time.Second)
+		if !lockAcquired {
+			return
+		}
+		defer unlock()
+
 		template := notificationConfig.Mail.Templates.OpenCircuitBreaker
 		if err := notifyConsumer(&obj, notificationConfig.Mail.Subject.OpenCircuitBreaker, template); err != nil {
 			log.Error().
@@ -50,10 +62,18 @@ func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj messa
 				Err(err).
 				Msg("Failed to send notification when circuit-breaker was updated")
 		}
+
+		return
 	}
 
 	// Loop detected
 	if circuitBreakerOpen && (obj.LoopCounter > oldObj.LoopCounter && obj.LoopCounter%notificationConfig.LoopModulo == 0) {
+		lockAcquired, unlock := n.lockKey(event.Key, "update", 30*time.Second)
+		if !lockAcquired {
+			return
+		}
+		defer unlock()
+
 		template := notificationConfig.Mail.Templates.LoopDetected
 		if err := notifyConsumer(&obj, notificationConfig.Mail.Subject.LoopDetected, template); err != nil {
 			log.Error().
@@ -73,6 +93,21 @@ func (n NotificationListener) OnError(event *hazelcast.EntryNotified, err error)
 	log.Error().
 		Err(err).
 		Msg("Could not listen for circuit breaker changes")
+}
+
+func (n NotificationListener) lockKey(key any, action string, leaseDuration time.Duration) (bool, func()) {
+	lockCache := cache.NotificationSender
+	lockCtx := lockCache.NewLockContext(context.Background())
+	acquired, _ := lockCache.TryLockWithLease(lockCtx, key, leaseDuration)
+	if !acquired {
+		log.Debug().Str("subscriptionId", key.(string)).Str("trigger", action).Msg("Could not acquire notification-lock")
+		return false, nil
+	}
+	log.Debug().Str("subscriptionId", key.(string)).Str("trigger", action).Msg("Acquired notification-lock")
+
+	return true, func() {
+		_ = lockCache.Unlock(lockCtx, key)
+	}
 }
 
 func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, template string) error {
