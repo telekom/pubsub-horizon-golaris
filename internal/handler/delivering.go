@@ -16,7 +16,7 @@ import (
 )
 
 func CheckDeliveringEvents() {
-	log.Info().Msgf("Republish messages in state DELIVERING")
+	log.Debug().Msgf("Republish messages in state DELIVERING")
 
 	var ctx = cache.HandlerCache.NewLockContext(context.Background())
 

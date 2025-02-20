@@ -17,7 +17,7 @@ import (
 )
 
 func CheckFailedEvents() {
-	log.Info().Msgf("Republish messages in state FAILED")
+	log.Debug().Msgf("Republish messages in state FAILED")
 
 	var ctx = cache.HandlerCache.NewLockContext(context.Background())
 

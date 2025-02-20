@@ -29,7 +29,7 @@ var WaitingHandlerService WaitingHandlerInterface = new(waitingHandler)
 
 // CheckWaitingEvents checks for events stuck in the WAITING state and creates a republishing entry if necessary.
 func (waitingHandler *waitingHandler) CheckWaitingEvents() {
-	log.Info().Msgf("WaitingHandler: Republish messages stucked in state WAITING")
+	log.Debug().Msgf("WaitingHandler: Republish messages stucked in state WAITING")
 
 	minMessageAge := config.Current.WaitingHandler.MinMessageAge
 	maxMessageAge := config.Current.WaitingHandler.MaxMessageAge
@@ -98,7 +98,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 			log.Debug().Msgf("WaitingHandler: Successfully created RepublishingCacheEntry entry for for events stucked in state WAITING. subscriptionId: %s republishingEntry: %+v", subscriptionId, republishingCacheEntry)
 		}
 	}
-	log.Info().Msgf("WaitingHandler: Finished republishing messages stucked in state WAITING")
+	log.Debug().Msgf("WaitingHandler: Finished republishing messages stucked in state WAITING")
 }
 
 // GetCircuitBreakerSubscriptionsMap returns a map of subscriptions with open circuit breaker entries.
