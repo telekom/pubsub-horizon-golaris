@@ -29,15 +29,15 @@ func TestCheckFailedEvents(t *testing.T) {
 	mockCache := new(test.SubscriptionMockCache)
 	cache.SubscriptionCache = mockCache
 
-	failedHandler := new(test.FailedMockHandler)
-	cache.FailedHandler = failedHandler
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
 
 	mockPicker := new(test.MockPicker)
 	test.InjectMockPicker(mockPicker)
 
-	failedHandler.On("NewLockContext", mock.Anything).Return(context.Background())
-	failedHandler.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
-	failedHandler.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
 

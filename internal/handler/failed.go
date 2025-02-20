@@ -19,15 +19,15 @@ import (
 func CheckFailedEvents() {
 	log.Info().Msgf("Republish messages in state FAILED")
 
-	var ctx = cache.FailedHandler.NewLockContext(context.Background())
+	var ctx = cache.HandlerCache.NewLockContext(context.Background())
 
-	if acquired, _ := cache.FailedHandler.TryLockWithTimeout(ctx, cache.FailedLockKey, 10*time.Millisecond); !acquired {
+	if acquired, _ := cache.HandlerCache.TryLockWithTimeout(ctx, cache.FailedLockKey, 10*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler entry: %s", cache.FailedLockKey)
 		return
 	}
 
 	defer func() {
-		if err := cache.FailedHandler.Unlock(ctx, cache.FailedLockKey); err != nil {
+		if err := cache.HandlerCache.Unlock(ctx, cache.FailedLockKey); err != nil {
 			log.Error().Err(err).Msg("Error unlocking FailedHandler")
 		}
 	}()

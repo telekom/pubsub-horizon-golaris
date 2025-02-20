@@ -17,6 +17,7 @@ type Configuration struct {
 	CircuitBreaker CircuitBreaker `mapstructure:"circuitBreaker"`
 	HealthCheck    HealthCheck    `mapstructure:"healthCheck"`
 	Republishing   Republishing   `mapstructure:"republishing"`
+	WaitingHandler WaitingHandler `mapstructure:"waitingHandler"`
 	Hazelcast      Hazelcast      `mapstructure:"hazelcast"`
 	Kafka          Kafka          `mapstructure:"kafka"`
 	Metrics        Metrics        `mapstructure:"metrics"`
@@ -32,6 +33,12 @@ type CircuitBreaker struct {
 	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
 	ExponentialBackoffBase  time.Duration `mapstructure:"exponentialBackoffBase"`
 	ExponentialBackoffMax   time.Duration `mapstructure:"exponentialBackoffMax"`
+}
+
+type WaitingHandler struct {
+	CheckInterval time.Duration `mapstructure:"checkInterval"`
+	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
+	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
 }
 
 type HealthCheck struct {
@@ -58,6 +65,7 @@ type Caches struct {
 	CircuitBreakerCache string `mapstructure:"circuitBreakerCache"`
 	HealthCheckCache    string `mapstructure:"healthCheckCache"`
 	RepublishingCache   string `mapstructure:"republishingCache"`
+	HandlerCache        string `mapstructure:"handlerCache"`
 }
 
 type Kafka struct {
