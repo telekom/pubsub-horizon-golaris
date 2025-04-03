@@ -27,18 +27,19 @@ func init() {
 		Name:      "open_circuit_breakers",
 		Help:      "The amount of open circuit-breakers.",
 		Namespace: namespace,
-	}, []string{"subscriptionId", "eventType"})
+	}, []string{"subscriptionId", "eventType", "environment"})
 
 	registry = prometheus.NewRegistry()
 	registry.MustRegister(openCircuitBreakers)
 }
 
-func recordCircuitBreaker(subscriptionId string, eventType string, open bool) {
+func recordCircuitBreaker(subscriptionId string, eventType string, environment string, open bool) {
 	if config.Current.Metrics.Enabled {
 		var value = float64(utils.IfThenElse(open, 1, 0))
 		openCircuitBreakers.With(map[string]string{
 			"subscriptionId": subscriptionId,
 			"eventType":      eventType,
+			"environment":    environment,
 		}).Set(value)
 	}
 }
@@ -52,7 +53,7 @@ func PopulateFromCache() {
 
 	for _, circuitBreaker := range circuitBreakers {
 		var open = circuitBreaker.Status == enum.CircuitBreakerStatusOpen
-		recordCircuitBreaker(circuitBreaker.SubscriptionId, circuitBreaker.EventType, open)
+		recordCircuitBreaker(circuitBreaker.SubscriptionId, circuitBreaker.EventType, circuitBreaker.Environment, open)
 	}
 }
 
