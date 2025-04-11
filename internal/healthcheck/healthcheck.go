@@ -151,7 +151,7 @@ func PrepareHealthCheck(subscription *resource.SubscriptionResource) (*PreparedH
 
 	// Attempt to acquire a lock for the health check key
 	//isAcquired, _ := cache.HealthCheckCache.TryLockWithTimeout(ctx, healthCheckKey, 10*time.Millisecond)
-	isAcquired, _ := cache.HealthCheckCache.TryLockWithLeaseAndTimeout(ctx, healthCheckKey, 60000*time.Millisecond, 10*time.Millisecond)
+	isAcquired, _ := cache.HealthCheckCache.TryLockWithLeaseAndTimeout(ctx, healthCheckKey, 60000*time.Millisecond, 100*time.Millisecond)
 
 	castedHealthCheckEntry := healthCheckEntry.(HealthCheckCacheEntry)
 	return &PreparedHealthCheckData{Ctx: ctx, HealthCheckKey: healthCheckKey, HealthCheckEntry: castedHealthCheckEntry, IsAcquired: isAcquired}, nil
