@@ -7,6 +7,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/types"
 	"github.com/rs/zerolog"
@@ -15,6 +16,7 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/util"
+	"os"
 	"pubsub-horizon-golaris/internal/config"
 	"sync"
 	"time"
@@ -80,9 +82,14 @@ func Initialize() {
 func createNewHazelcastConfig() hazelcast.Config {
 	cacheConfig := hazelcast.NewConfig()
 
+	instanceName := os.Getenv("POD_NAME")
+	if instanceName == "" {
+		instanceName = "golaris-" + uuid.New().String()
+	}
 	cacheConfig.Cluster.Name = config.Current.Hazelcast.ClusterName
 	cacheConfig.Cluster.Network.SetAddresses(config.Current.Hazelcast.ServiceDNS)
 	cacheConfig.Logger.CustomLogger = util.NewHazelcastZerologLogger(parseHazelcastLogLevel(config.Current.Hazelcast.LogLevel))
+	cacheConfig.ClientName = instanceName
 
 	return cacheConfig
 }
