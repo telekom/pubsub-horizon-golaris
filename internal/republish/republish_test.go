@@ -248,7 +248,7 @@ func TestRepublishEventsThrottled(t *testing.T) {
 	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
 	config.Current.Republishing.ThrottlingIntervalTime = 1 * time.Second
 
-	dbMessages := test.GenerateMessages("test-topic", 1, 100, numDbMessages)
+	dbMessages := test.GenerateStatusMessages("test-topic", 1, 100, numDbMessages)
 
 	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
 
@@ -302,7 +302,7 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
 	config.Current.Republishing.ThrottlingIntervalTime = 1 * time.Second
 
-	dbMessages := test.GenerateMessages("test-topic", 1, 100, numDbMessages)
+	dbMessages := test.GenerateStatusMessages("test-topic", 1, 100, numDbMessages)
 
 	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
 

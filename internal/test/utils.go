@@ -46,11 +46,7 @@ func ClearCaches() {
 	}
 }
 
-// GenerateMessages generates `count` StatusMessages
-// - all with the same topic
-// - Partition startPartition
-// - Offsets from startOffset ascending
-func GenerateMessages(topic string, startPartition int32, startOffset int64, count int) []message.StatusMessage {
+func GenerateStatusMessages(topic string, startPartition int32, startOffset int64, count int) []message.StatusMessage {
 	msgs := make([]message.StatusMessage, count)
 	for i := 0; i < count; i++ {
 		p := startPartition
