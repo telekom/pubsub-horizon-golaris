@@ -8,6 +8,7 @@ package test
 
 import (
 	"context"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -43,4 +44,25 @@ func ClearCaches() {
 	if err != nil {
 		return
 	}
+}
+
+// GenerateMessages generates `count` StatusMessages
+// - all with the same topic
+// - Partition startPartition
+// - Offsets from startOffset ascending
+func GenerateMessages(topic string, startPartition int32, startOffset int64, count int) []message.StatusMessage {
+	msgs := make([]message.StatusMessage, count)
+	for i := 0; i < count; i++ {
+		p := startPartition
+		o := startOffset + int64(i)
+
+		msgs[i] = message.StatusMessage{
+			Topic: topic,
+			Coordinates: &message.Coordinates{
+				Partition: &p,
+				Offset:    &o,
+			},
+		}
+	}
+	return msgs
 }
