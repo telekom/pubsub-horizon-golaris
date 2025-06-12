@@ -226,3 +226,111 @@ func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 	// Assertions
 	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
 }
+
+func TestRepublishEventsThrottled(t *testing.T) {
+	// Initialize mocks
+	mockMongo := new(test.MockMongoHandler)
+	mockKafka := new(test.MockKafkaHandler)
+
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
+	// Replace real handlers with mocks
+	mongo.CurrentConnection = mockMongo
+	kafka.CurrentHandler = mockKafka
+
+	// Mock data
+	subscriptionId := "sub123"
+	numDbMessages := 50
+	redeliveriesPerSecond := 10
+
+	// Set configurations for the test
+	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
+	config.Current.Republishing.ThrottlingIntervalTime = 1 * time.Second
+
+	dbMessages := test.GenerateStatusMessages("test-topic", 1, 100, numDbMessages)
+
+	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
+
+	// Expectations for the batch
+	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
+
+	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Times(len(dbMessages))
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Times(len(dbMessages))
+
+	// Call the function under test
+	subscription := &resource.SubscriptionResource{
+		Spec: struct {
+			Subscription resource.Subscription `json:"subscription"`
+			Environment  string                `json:"environment"`
+		}{
+			Subscription: resource.Subscription{
+				SubscriptionId:        "sub123",
+				DeliveryType:          enum.DeliveryTypeCallback,
+				Callback:              "http://new-callbackUrl/callback",
+				RedeliveriesPerSecond: redeliveriesPerSecond,
+			},
+		},
+	}
+
+	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+
+	// Assertions
+	mockMongo.AssertExpectations(t)
+	mockKafka.AssertExpectations(t)
+	mockPicker.AssertExpectations(t)
+}
+
+func TestRepublishEventsUnThrottled(t *testing.T) {
+	// Initialize mocks
+	mockMongo := new(test.MockMongoHandler)
+	mockKafka := new(test.MockKafkaHandler)
+
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
+	// Replace real handlers with mocks
+	mongo.CurrentConnection = mockMongo
+	kafka.CurrentHandler = mockKafka
+
+	// Mock data
+	subscriptionId := "sub124"
+	numDbMessages := 50
+	redeliveriesPerSecond := 0
+
+	// Set configurations for the test
+	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
+	config.Current.Republishing.ThrottlingIntervalTime = 1 * time.Second
+
+	dbMessages := test.GenerateStatusMessages("test-topic", 1, 100, numDbMessages)
+
+	kafkaMessage := sarama.ConsumerMessage{Value: []byte("test-content")}
+
+	// Expectations for the batch
+	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
+
+	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Times(len(dbMessages))
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Times(len(dbMessages))
+
+	// Call the function under test
+	subscription := &resource.SubscriptionResource{
+		Spec: struct {
+			Subscription resource.Subscription `json:"subscription"`
+			Environment  string                `json:"environment"`
+		}{
+			Subscription: resource.Subscription{
+				SubscriptionId:        "sub124",
+				DeliveryType:          enum.DeliveryTypeCallback,
+				Callback:              "http://new-callbackUrl/callback",
+				RedeliveriesPerSecond: redeliveriesPerSecond,
+			},
+		},
+	}
+
+	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+
+	// Assertions
+	mockMongo.AssertExpectations(t)
+	mockKafka.AssertExpectations(t)
+	mockPicker.AssertExpectations(t)
+}

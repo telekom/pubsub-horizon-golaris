@@ -24,19 +24,18 @@ import (
 )
 
 var republishPendingEventsFunc = RepublishPendingEvents
-var throttler gohalt.Throttler
 
 // register the data type RepublishingCacheEntry to gob for encoding and decoding of binary data
 func init() {
 	gob.Register(RepublishingCacheEntry{})
 }
 
-func createThrottler(redeliveriesPerSecond int, deliveryType string) gohalt.Throttler {
+func createThrottler(redeliveriesPerSecond int, deliveryType string, subscriptionId string) gohalt.Throttler {
 	if deliveryType == "sse" || deliveryType == "server_sent_event" || redeliveriesPerSecond <= 0 {
+		log.Debug().Msgf("Throttling disabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
 		return gohalt.NewThrottlerEcho(nil)
 	}
-
-	log.Info().Msgf("Creating throttler with %d redeliveries", redeliveriesPerSecond)
+	log.Info().Msgf("Throttling enabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
 	return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), config.Current.Republishing.ThrottlingIntervalTime, 0)
 }
 
@@ -125,7 +124,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	batchSize := config.Current.Republishing.BatchSize
 
-	throttler = createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType))
+	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
 	defer throttler.Release(context.Background())
 
 	cache.SetCancelStatus(subscriptionId, false)
