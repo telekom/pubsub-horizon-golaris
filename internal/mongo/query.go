@@ -16,6 +16,7 @@ import (
 
 func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) ([]message.StatusMessage, any, error) {
 	var batchSize = config.Current.Republishing.BatchSize
+	var ctx = context.Background()
 
 	opts := options.Find().
 		SetBatchSize(int32(batchSize)).
@@ -28,16 +29,17 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
-	cursor, err := collection.Find(context.Background(), query, opts)
+	cursor, err := collection.Find(ctx, query, opts)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error finding documents: %v", err)
 		return nil, nil, err
 	}
+	defer cursor.Close(ctx)
 
 	var messages []message.StatusMessage
 	var newLastCursor any
 	// Iterate through the results in the cursor.
-	for cursor.Next(context.Background()) {
+	for cursor.Next(ctx) {
 		var msg message.StatusMessage
 		if err = cursor.Decode(&msg); err != nil {
 			log.Error().Err(err).Msgf("Error decoding document: %v", err)
