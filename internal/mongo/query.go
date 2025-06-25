@@ -90,7 +90,7 @@ func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTime
 	return castedSubscriptions, err
 }
 
-func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindWaitingMessages(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "WAITING",
 		"subscriptionId": subscriptionId,
@@ -99,10 +99,10 @@ func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "PROCESSED",
 		"deliveryType":   "SERVER_SENT_EVENT",
@@ -112,10 +112,10 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp ti
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status": "DELIVERING",
 		"modified": bson.M{
@@ -123,10 +123,10 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":    "FAILED",
 		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",
@@ -135,5 +135,5 @@ func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }

@@ -129,7 +129,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	cache.SetCancelStatus(subscriptionId, false)
 
-	var lastCursor any
+	var lastTimestamp any
 	for {
 		if cache.GetCancelStatus(subscriptionId) {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
@@ -141,20 +141,20 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		var err error
 
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
-			dbMessages, lastCursor, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastCursor, subscriptionId)
+			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastTimestamp, subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
 		} else {
-			dbMessages, lastCursor, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), lastCursor, subscriptionId)
+			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), lastTimestamp, subscriptionId)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
 			}
 			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
 
-		log.Debug().Msgf("Last cursor: %v", lastCursor)
+		log.Debug().Msgf("Last cursor: %v", lastTimestamp)
 
 		if len(dbMessages) == 0 {
 			break

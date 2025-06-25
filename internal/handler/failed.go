@@ -45,8 +45,8 @@ func CheckFailedEvents() {
 	defer picker.Close()
 
 	for {
-		var lastCursor any
-		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastCursor)
+		var lastTimestamp any
+		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastTimestamp)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching FAILED messages from MongoDb")
 			return
