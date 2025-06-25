@@ -37,7 +37,7 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any
 	}
 
 	var messages []message.StatusMessage
-	if err := cursor.All(ctx, messages); err != nil {
+	if err := cursor.All(ctx, &messages); err != nil {
 		log.Error().
 			Err(err).
 			Str("query", fmt.Sprintf("%+v", query)).
