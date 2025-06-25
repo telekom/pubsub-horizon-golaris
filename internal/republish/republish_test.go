@@ -204,10 +204,11 @@ func Test_ForceDelete_RepublishingEntryLocked(t *testing.T) {
 	cache.RepublishingCache.Lock(ctx, testSubscriptionId)
 
 	// call the function under test
-	ForceDelete(ctx, testSubscriptionId)
+	err := ForceDelete(ctx, testSubscriptionId)
 
 	// Assertions
 	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
+	assertions.NoError(err, "error should be nil when deleting a locked republishing entry")
 }
 
 func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
@@ -221,10 +222,11 @@ func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 	cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
 
 	// call the function under test
-	ForceDelete(ctx, testSubscriptionId)
+	err := ForceDelete(ctx, testSubscriptionId)
 
 	// Assertions
 	assertions.False(cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId))
+	assertions.NoError(err, "error should be nil when deleting an unlocked republishing entry")
 }
 
 func TestRepublishEventsThrottled(t *testing.T) {

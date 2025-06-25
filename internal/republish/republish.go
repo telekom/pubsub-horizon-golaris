@@ -258,29 +258,36 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 // The function takes two parameters:
 // - subscriptionId: a string representing the subscriptionId of the cache entry to be deleted.
 // - ctx: a context.Context object for managing timeouts and cancellation signals.
-func ForceDelete(ctx context.Context, subscriptionId string) {
+func ForceDelete(ctx context.Context, subscriptionId string) error {
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	lockCtx := cache.RepublishingCache.NewLockContext(ctxWithTimeout)
+
 	// Check if the entry is locked
-	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	isLocked, err := cache.RepublishingCache.IsLocked(lockCtx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error checking if RepublishingCacheEntry is locked for subscriptionId %s", subscriptionId)
+		return err
 	}
 
 	// If locked, unlock it
 	if isLocked {
-		err = cache.RepublishingCache.ForceUnlock(ctx, subscriptionId)
+		err = cache.RepublishingCache.ForceUnlock(lockCtx, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error force-unlocking RepublishingCacheEntry for subscriptionId %s", subscriptionId)
+			return err
 		}
 	}
 
 	// Delete the entry
-	err = cache.RepublishingCache.Delete(ctx, subscriptionId)
+	err = cache.RepublishingCache.Delete(lockCtx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCacheEntry for subscriptionId %s", subscriptionId)
+		return err
 	}
 
 	log.Debug().Msgf("Successfully deleted RepublishingCacheEntry for subscriptionId %s", subscriptionId)
-	return
+	return nil
 }
 
 func Unlock(ctx context.Context, subscriptionId string) error {
