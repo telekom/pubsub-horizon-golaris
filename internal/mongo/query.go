@@ -6,6 +6,7 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	var batchSize = config.Current.Republishing.BatchSize
 	var ctx = context.Background()
 
@@ -22,9 +23,9 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 		SetBatchSize(int32(batchSize)).
 		SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
-	if lastCursor != nil {
-		query["timestamp"] = bson.M{"$gt": lastCursor}
-		log.Debug().Msgf("Querying for messages with timestamp > %v", lastCursor)
+	if lastTimestamp != nil {
+		query["timestamp"] = bson.M{"$gt": lastTimestamp}
+		log.Debug().Msgf("Querying for messages with timestamp > %v", lastTimestamp)
 	}
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
@@ -34,31 +35,21 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) (
 		log.Error().Err(err).Msgf("Error finding documents: %v", err)
 		return nil, nil, err
 	}
-	defer cursor.Close(ctx)
 
 	var messages []message.StatusMessage
-	var newLastCursor any
-	// Iterate through the results in the cursor.
-	for cursor.Next(ctx) {
-		var msg message.StatusMessage
-		if err = cursor.Decode(&msg); err != nil {
-			log.Error().Err(err).Msgf("Error decoding document: %v", err)
-			return nil, nil, err
-		}
-		messages = append(messages, msg)
-		newLastCursor = msg.Timestamp
-
-		if len(messages) >= int(batchSize) {
-			break
-		}
+	if err := cursor.All(ctx, messages); err != nil {
+		log.Error().
+			Err(err).
+			Str("query", fmt.Sprintf("%+v", query)).
+			Msg("Error decoding messages from cursor")
 	}
 
-	if err := cursor.Err(); err != nil {
-		log.Error().Err(err).Msgf("Error iterating cursor: %v", err)
-		return nil, nil, err
+	var lastTimestampOfBatch any
+	if len(messages) > 0 {
+		lastTimestampOfBatch = messages[len(messages)-1].Timestamp
 	}
 
-	return messages, newLastCursor, nil
+	return messages, lastTimestampOfBatch, nil
 }
 
 func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string) ([]interface{}, error) {
