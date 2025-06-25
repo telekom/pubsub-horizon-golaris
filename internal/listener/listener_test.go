@@ -158,6 +158,7 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    "",
@@ -218,6 +219,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
 	republishMockMap.On("Set", mock.Anything, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		SubscriptionChange: true,
@@ -243,6 +245,7 @@ func TestSubscriptionListener_OnDelete(t *testing.T) {
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
 	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
 
 	event := &hazelcast.EntryNotified{Key: subscriptionId}
 	listener := &SubscriptionListener{}
