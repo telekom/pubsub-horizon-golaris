@@ -6,6 +6,7 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,49 +15,41 @@ import (
 	"time"
 )
 
-func (connection Connection) findMessagesByQuery(query bson.M, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	var batchSize = config.Current.Republishing.BatchSize
+	var ctx = context.Background()
 
 	opts := options.Find().
 		SetBatchSize(int32(batchSize)).
 		SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
-	if lastCursor != nil {
-		query["timestamp"] = bson.M{"$gt": lastCursor}
-		log.Debug().Msgf("Querying for messages with timestamp > %v", lastCursor)
+	if lastTimestamp != nil {
+		query["timestamp"] = bson.M{"$gt": lastTimestamp}
+		log.Debug().Msgf("Querying for messages with timestamp > %v", lastTimestamp)
 	}
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
 
-	cursor, err := collection.Find(context.Background(), query, opts)
+	cursor, err := collection.Find(ctx, query, opts)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error finding documents: %v", err)
 		return nil, nil, err
 	}
 
 	var messages []message.StatusMessage
-	var newLastCursor any
-	// Iterate through the results in the cursor.
-	for cursor.Next(context.Background()) {
-		var msg message.StatusMessage
-		if err = cursor.Decode(&msg); err != nil {
-			log.Error().Err(err).Msgf("Error decoding document: %v", err)
-			return nil, nil, err
-		}
-		messages = append(messages, msg)
-		newLastCursor = msg.Timestamp
-
-		if len(messages) >= int(batchSize) {
-			break
-		}
+	if err := cursor.All(ctx, &messages); err != nil {
+		log.Error().
+			Err(err).
+			Str("query", fmt.Sprintf("%+v", query)).
+			Msg("Error decoding messages from cursor")
 	}
 
-	if err := cursor.Err(); err != nil {
-		log.Error().Err(err).Msgf("Error iterating cursor: %v", err)
-		return nil, nil, err
+	var lastTimestampOfBatch any
+	if len(messages) > 0 {
+		lastTimestampOfBatch = messages[len(messages)-1].Timestamp
 	}
 
-	return messages, newLastCursor, nil
+	return messages, lastTimestampOfBatch, nil
 }
 
 func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string) ([]interface{}, error) {
@@ -97,7 +90,7 @@ func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTime
 	return castedSubscriptions, err
 }
 
-func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindWaitingMessages(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "WAITING",
 		"subscriptionId": subscriptionId,
@@ -106,10 +99,10 @@ func (connection Connection) FindWaitingMessages(timestamp time.Time, lastCursor
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastCursor any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "PROCESSED",
 		"deliveryType":   "SERVER_SENT_EVENT",
@@ -119,10 +112,10 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp ti
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status": "DELIVERING",
 		"modified": bson.M{
@@ -130,10 +123,10 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastCursor any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":    "FAILED",
 		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",
@@ -142,5 +135,5 @@ func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(
 		},
 	}
 
-	return connection.findMessagesByQuery(query, lastCursor)
+	return connection.findMessagesByQuery(query, lastTimestamp)
 }
