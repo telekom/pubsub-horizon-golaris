@@ -38,17 +38,26 @@ func StartScheduler() {
 	// Schedule the task for checking republishing entries
 	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
 		checkRepublishingEntries()
-		handler.CheckDeliveringEvents()
-		handler.CheckFailedEvents()
 	}); err != nil {
 		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
 	}
 
-	// Schedule the task for checking for stuck waiting events
-	if _, err := scheduler.Every(config.Current.WaitingHandler.CheckInterval).Do(func() {
-		handler.WaitingHandlerService.CheckWaitingEvents()
-	}); err != nil {
-		log.Error().Err(err).Msgf("Error while scheduling WAITING-Handler: %v", err)
+	if deliveringHandler := config.Current.Handlers.Delivering; deliveringHandler.Enabled {
+		if _, err := scheduler.Every(deliveringHandler.Interval).Do(handler.CheckDeliveringEvents); err != nil {
+			log.Error().Err(err).Msg("Unable to schedule delivering handler task")
+		}
+	}
+
+	if failedHandler := config.Current.Handlers.Failed; failedHandler.Enabled {
+		if _, err := scheduler.Every(failedHandler.Interval).Do(handler.CheckFailedEvents); err != nil {
+			log.Error().Err(err).Msg("Unable to schedule failed handler task")
+		}
+	}
+
+	if waitingHandler := config.Current.Handlers.Waiting; waitingHandler.Enabled {
+		if _, err := scheduler.Every(waitingHandler.Interval).Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {
+			log.Error().Err(err).Msg("Unable to schedule waiting handler task")
+		}
 	}
 
 	// Start the scheduler asynchronously

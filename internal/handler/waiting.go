@@ -31,8 +31,8 @@ var WaitingHandlerService WaitingHandlerInterface = new(waitingHandler)
 func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	log.Debug().Msgf("WaitingHandler: Republish messages stucked in state WAITING")
 
-	minMessageAge := config.Current.WaitingHandler.MinMessageAge
-	maxMessageAge := config.Current.WaitingHandler.MaxMessageAge
+	minMessageAge := config.Current.Handlers.Waiting.MinMessageAge
+	maxMessageAge := config.Current.Handlers.Waiting.MaxMessageAge
 
 	// Create a WaitingHandler entry and lock it
 	var ctx = cache.HandlerCache.NewLockContext(context.Background())

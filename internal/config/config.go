@@ -47,15 +47,14 @@ func setDefaults() {
 	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "75m")
 	viper.SetDefault("circuitBreaker.exponentialBackoffBase", "1000ms")
 	viper.SetDefault("circuitBreaker.exponentialBackoffMax", "60m")
+
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
+
 	viper.SetDefault("republishing.checkInterval", "30s")
 	viper.SetDefault("republishing.batchSize", 10)
 	viper.SetDefault("republishing.throttlingIntervalTime", "1s")
 	viper.SetDefault("republishing.deliveringStatesOffset", "70m")
-	viper.SetDefault("waitingHandler.checkInterval", "5m")
-	viper.SetDefault("waitingHandler.minMessageAge", "1m")
-	viper.SetDefault("waitingHandler.maxMessageAge", "24h")
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
@@ -92,6 +91,18 @@ func setDefaults() {
 	viper.SetDefault("tracing.enabled", true)
 	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
 	viper.SetDefault("tracing.debugEnabled", false)
+
+	// Handlers
+	viper.SetDefault("handlers.delivering.enabled", true)
+	viper.SetDefault("handlers.delivering.interval", "30s")
+
+	viper.SetDefault("handlers.failed.enabled", true)
+	viper.SetDefault("handlers.failed.interval", "30s")
+
+	viper.SetDefault("handlers.waiting.enabled", true)
+	viper.SetDefault("handlers.waiting.interval", "5m")
+	viper.SetDefault("handlers.waiting.minMessageAge", "1m")
+	viper.SetDefault("handlers.waiting.maxMessageAge", "24h")
 }
 
 func readConfiguration() *Configuration {
