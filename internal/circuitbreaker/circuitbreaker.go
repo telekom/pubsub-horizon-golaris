@@ -161,7 +161,9 @@ func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcDat
 		}
 		if republishCacheEntry.SubscriptionChange != true {
 			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
-			republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId)
+			if err := republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId); err != nil {
+				return err
+			}
 			cache.SetCancelStatus(cbMessage.SubscriptionId, true)
 		}
 	}
