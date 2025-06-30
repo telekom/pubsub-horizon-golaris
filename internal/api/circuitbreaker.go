@@ -88,7 +88,10 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
 	}
 
-	republish.ForceDelete(ctx.Context(), cbMessage.SubscriptionId)
+	if err = republish.ForceDelete(ctx.Context(), cbMessage.SubscriptionId); err != nil {
+		log.Error().Err(err).Msgf("Error while deleting republishing entry for subscription %s", subscriptionId)
+		return ctx.Status(fiber.StatusInternalServerError).SendString("Error deleting the republishing entry")
+	}
 	cache.SetCancelStatus(subscriptionId, true)
 
 	// Set new republishing entry to pick the last waiting
