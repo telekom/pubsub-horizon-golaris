@@ -95,12 +95,15 @@ func setDefaults() {
 	// Handlers
 	viper.SetDefault("handlers.delivering.enabled", true)
 	viper.SetDefault("handlers.delivering.interval", "30s")
+	viper.SetDefault("handlers.delivering.initialDelay", "5s")
 
 	viper.SetDefault("handlers.failed.enabled", true)
 	viper.SetDefault("handlers.failed.interval", "30s")
+	viper.SetDefault("handlers.failed.initialDelay", "10s")
 
 	viper.SetDefault("handlers.waiting.enabled", true)
 	viper.SetDefault("handlers.waiting.interval", "5m")
+	viper.SetDefault("handlers.waiting.initialDelay", "15s")
 	viper.SetDefault("handlers.waiting.minMessageAge", "1m")
 	viper.SetDefault("handlers.waiting.maxMessageAge", "24h")
 }
