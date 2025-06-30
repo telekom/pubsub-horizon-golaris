@@ -43,19 +43,22 @@ func StartScheduler() {
 	}
 
 	if deliveringHandler := config.Current.Handlers.Delivering; deliveringHandler.Enabled {
-		if _, err := scheduler.Every(deliveringHandler.Interval).Do(handler.CheckDeliveringEvents); err != nil {
+		initialDelay := time.Now().Add(deliveringHandler.InitialDelay)
+		if _, err := scheduler.Every(deliveringHandler.Interval).StartAt(initialDelay).Do(handler.CheckDeliveringEvents); err != nil {
 			log.Error().Err(err).Msg("Unable to schedule delivering handler task")
 		}
 	}
 
 	if failedHandler := config.Current.Handlers.Failed; failedHandler.Enabled {
-		if _, err := scheduler.Every(failedHandler.Interval).Do(handler.CheckFailedEvents); err != nil {
+		initialDelay := time.Now().Add(failedHandler.InitialDelay)
+		if _, err := scheduler.Every(failedHandler.Interval).StartAt(initialDelay).Do(handler.CheckFailedEvents); err != nil {
 			log.Error().Err(err).Msg("Unable to schedule failed handler task")
 		}
 	}
 
 	if waitingHandler := config.Current.Handlers.Waiting; waitingHandler.Enabled {
-		if _, err := scheduler.Every(waitingHandler.Interval).Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {
+		initialDelay := time.Now().Add(waitingHandler.InitialDelay)
+		if _, err := scheduler.Every(waitingHandler.Interval).StartAt(initialDelay).Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {
 			log.Error().Err(err).Msg("Unable to schedule waiting handler task")
 		}
 	}

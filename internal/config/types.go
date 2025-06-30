@@ -93,8 +93,9 @@ type Handlers struct {
 }
 
 type Handler struct {
-	Enabled  bool          `mapstructure:"enabled"`
-	Interval time.Duration `mapstructure:"interval"`
+	Enabled      bool          `mapstructure:"enabled"`
+	Interval     time.Duration `mapstructure:"interval"`
+	InitialDelay time.Duration `mapstructure:"initialDelay"`
 }
 
 type WaitingHandler struct {
