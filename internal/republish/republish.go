@@ -20,6 +20,7 @@ import (
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -31,10 +32,18 @@ func init() {
 }
 
 func createThrottler(redeliveriesPerSecond int, deliveryType string, subscriptionId string) gohalt.Throttler {
-	if deliveryType == "sse" || deliveryType == "server_sent_event" || redeliveriesPerSecond <= 0 {
+	var redeliveriesPerSecondDefault = 50
+	if deliveryType == "sse" || deliveryType == "server_sent_event" {
 		log.Debug().Msgf("Throttling disabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
 		return gohalt.NewThrottlerEcho(nil)
 	}
+
+	if redeliveriesPerSecond <= 0 {
+		log.Debug().Msgf("Throttling with default value for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecondDefault)
+		//TODO: make first parameter configurable for redeliveries per second
+		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecondDefault), config.Current.Republishing.ThrottlingIntervalTime, 0)
+	}
+
 	log.Info().Msgf("Throttling enabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
 	return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), config.Current.Republishing.ThrottlingIntervalTime, 0)
 }
@@ -109,8 +118,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
-
 	picker, err := kafka.NewPicker()
+
+	defer func() {
+		picker.Close()
+	}()
 
 	// Returning an error results in NOT deleting the republishingEntry from the cache
 	// so that the republishing job will get retried shortly
@@ -120,9 +132,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}).Msg("Could not create picker for subscription")
 		return err
 	}
-	defer picker.Close()
 
-	batchSize := config.Current.Republishing.BatchSize
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
 
 	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
 	defer throttler.Release(context.Background())
@@ -184,73 +196,93 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				break
 			}
 
-			var newDeliveryType string
-			if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
-				newDeliveryType = strings.ToUpper(string(subscription.Spec.Subscription.DeliveryType))
-			}
-
-			var newCallbackUrl string
-			if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
-				newCallbackUrl = subscription.Spec.Subscription.Callback
-			}
-
 			if dbMessage.Coordinates == nil {
 				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", subscriptionId, dbMessage)
 				continue
 			}
 
-			kafkaMessage, err := picker.Pick(&dbMessage)
-			if err != nil {
-				// Returning an error results in NOT deleting the republishingEntry from the cache
-				// so that the republishing job will get retried shortly
-				var nErr *net.OpError
-				if errors.As(err, &nErr) {
-					return err
+			//start delivering the message asynchronously
+			wg.Add(1)
+			go func(msg message.StatusMessage) {
+				defer wg.Done()
+
+				if err := republishMessage(subscription, msg, picker); err != nil {
+					errCh <- err
 				}
+			}(dbMessage)
 
-				var errorList = []error{
-					sarama.ErrEligibleLeadersNotAvailable,
-					sarama.ErrPreferredLeaderNotAvailable,
-					sarama.ErrUnknownLeaderEpoch,
-					sarama.ErrFencedLeaderEpoch,
-					sarama.ErrNotLeaderForPartition,
-					sarama.ErrLeaderNotAvailable,
-				}
-
-				for _, e := range errorList {
-					if errors.Is(err, e) {
-						return err
-					}
-				}
-
-				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
-				continue
-			}
-
-			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
-
-			traceCtx.StartSpan("republish message")
-			traceCtx.SetAttribute("component", "Horizon Golaris")
-			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
-			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
-			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
-
-			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl, false)
-			if err != nil {
-				log.Warn().Msgf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
-				traceCtx.CurrentSpan().RecordError(err)
-			}
-			log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
-
-			traceCtx.EndCurrentSpan()
 		}
 
-		if len(dbMessages) < int(batchSize) {
-			break
+		select {
+		case err := <-errCh:
+			log.Error().Err(err).Msgf("Error during message republishing for subscription %s", subscriptionId)
+			return err
+		default:
 		}
 	}
+	wg.Wait()
+	return nil
+}
+
+func republishMessage(subscription *resource.SubscriptionResource, dbMessage message.StatusMessage, picker kafka.MessagePicker) error {
+	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
+
+	var newDeliveryType string
+	if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
+		newDeliveryType = strings.ToUpper(string(subscription.Spec.Subscription.DeliveryType))
+	}
+
+	var newCallbackUrl string
+	if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
+		newCallbackUrl = subscription.Spec.Subscription.Callback
+	}
+
+	kafkaMessage, err := picker.Pick(&dbMessage)
+	if err != nil {
+		// Returning an error results in NOT deleting the republishingEntry from the cache
+		// so that the republishing job will get retried shortly
+		var nErr *net.OpError
+		if errors.As(err, &nErr) {
+			return err
+		}
+
+		var errorList = []error{
+			sarama.ErrEligibleLeadersNotAvailable,
+			sarama.ErrPreferredLeaderNotAvailable,
+			sarama.ErrUnknownLeaderEpoch,
+			sarama.ErrFencedLeaderEpoch,
+			sarama.ErrNotLeaderForPartition,
+			sarama.ErrLeaderNotAvailable,
+		}
+
+		for _, e := range errorList {
+			if errors.Is(err, e) {
+				return err
+			}
+		}
+
+		log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
+		//continue
+	}
+
+	var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+	var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+
+	traceCtx.StartSpan("republish message")
+	traceCtx.SetAttribute("component", "Horizon Golaris")
+	traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+	traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+	traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+	traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
+
+	err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl, false)
+	if err != nil {
+		log.Warn().Msgf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
+		traceCtx.CurrentSpan().RecordError(err)
+	}
+	log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
+
+	traceCtx.EndCurrentSpan()
 	return nil
 }
 
