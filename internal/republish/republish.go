@@ -41,7 +41,7 @@ func createThrottler(redeliveriesPerSecond int, deliveryType string, subscriptio
 	if redeliveriesPerSecond <= 0 {
 		log.Debug().Msgf("Throttling with default value for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecondDefault)
 		//TODO: make first parameter configurable for redeliveries per second
-		return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecondDefault), config.Current.Republishing.ThrottlingIntervalTime, 0)
+		redeliveriesPerSecond = redeliveriesPerSecondDefault
 	}
 
 	log.Info().Msgf("Throttling enabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
@@ -118,11 +118,14 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
-	picker, err := kafka.NewPicker()
 
-	defer func() {
-		picker.Close()
-	}()
+	batchSize := config.Current.Republishing.BatchSize
+
+	picker, err := kafka.NewPicker()
+	defer picker.Close()
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, 1)
 
 	// Returning an error results in NOT deleting the republishingEntry from the cache
 	// so that the republishing job will get retried shortly
@@ -132,9 +135,6 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}).Msg("Could not create picker for subscription")
 		return err
 	}
-
-	var wg sync.WaitGroup
-	errCh := make(chan error, 1)
 
 	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
 	defer throttler.Release(context.Background())
@@ -219,6 +219,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			return err
 		default:
 		}
+
+		if len(dbMessages) < int(batchSize) {
+			break
+		}
+
 	}
 	wg.Wait()
 	return nil
