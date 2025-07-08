@@ -109,6 +109,8 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
+	starttime := time.Now()
+	log.Debug().Msgf("Starting republishing for subscription %s at %v", subscriptionId, starttime)
 
 	picker, err := kafka.NewPicker()
 
@@ -140,6 +142,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		var dbMessages []message.StatusMessage
 		var err error
 
+		elapsedtime := time.Since(starttime)
+		starttime = time.Now()
+		log.Debug().Msgf("Starting MongoDB Query for subscription %s at %v and elapsed time %v", subscriptionId, starttime, elapsedtime)
+
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
 			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastTimestamp, subscriptionId)
 			if err != nil {
@@ -154,6 +160,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
 		}
 
+		elapsedtime = time.Since(starttime)
+		starttime = time.Now()
+		log.Debug().Msgf("Finished MongoDB Query for subscription %s at %v and elapsed time %v", subscriptionId, starttime, elapsedtime)
+
 		log.Debug().Msgf("Last cursor: %v", lastTimestamp)
 
 		if len(dbMessages) == 0 {
@@ -161,6 +171,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 
 		for _, dbMessage := range dbMessages {
+			starttime = time.Now()
+			log.Debug().Msgf("Begin loop for dbmessages %s at %v", subscriptionId, starttime)
 
 			if cache.GetCancelStatus(subscriptionId) {
 				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
@@ -183,6 +195,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				}
 				break
 			}
+			elapsed_time := time.Since(starttime)
+			starttime = time.Now()
+			log.Debug().Msgf("Elapsed time for throttler handling for subscription %s at %v", subscriptionId, elapsed_time)
 
 			var newDeliveryType string
 			if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
@@ -199,6 +214,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				continue
 			}
 
+			elapsed_time = time.Since(starttime)
+			starttime = time.Now()
+			log.Debug().Msgf("Start Kafka Picking for subscription %s at %v with elapsed time %v", subscriptionId, starttime, elapsed_time)
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
 				// Returning an error results in NOT deleting the republishingEntry from the cache
@@ -226,6 +244,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
 				continue
 			}
+			elapsed_time = time.Since(starttime)
+			starttime = time.Now()
+			log.Debug().Msgf("Finished Kafka Picking for subscription %s at %v with elapsed time %v", subscriptionId, starttime, elapsed_time)
 
 			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
 			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
@@ -237,12 +258,20 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
 			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
 
+			elapsed_time = time.Since(starttime)
+			starttime = time.Now()
+			log.Debug().Msgf("Start Republish Message for subscription %s at %v with elapsed time %v", subscriptionId, starttime, elapsed_time)
+
 			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl, false)
 			if err != nil {
 				log.Warn().Msgf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
 				traceCtx.CurrentSpan().RecordError(err)
 			}
 			log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
+
+			elapsed_time = time.Since(starttime)
+			starttime = time.Now()
+			log.Debug().Msgf("Finished Republish Message for subscription %s at %v with elapsed time %v", subscriptionId, starttime, elapsed_time)
 
 			traceCtx.EndCurrentSpan()
 		}
