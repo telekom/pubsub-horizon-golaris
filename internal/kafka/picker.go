@@ -47,9 +47,12 @@ func (p *Picker) Pick(status *message.StatusMessage) (*sarama.ConsumerMessage, e
 	}
 
 	defer func() {
+		startime = time.Now()
 		if err := partConsumer.Close(); err != nil {
 			log.Error().Err(err).Msg("Could not close picker gracefully")
 		}
+		elapsedtime = time.Since(startime)
+		log.Debug().Msgf("Kafka Pick: Closing consumer duration: %v", elapsedtime)
 	}()
 	startime = time.Now()
 	consumerMessage := <-partConsumer.Messages()
