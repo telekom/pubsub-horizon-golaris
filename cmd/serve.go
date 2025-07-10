@@ -31,7 +31,7 @@ func initialize() {
 
 	cache.Initialize()
 	mongo.Initialize()
-	kafka.Initialize()
+	kafka.InitializeKafka()
 	notify.Initialize()
 	listener.Initialize()
 	tracing.Initialize()
