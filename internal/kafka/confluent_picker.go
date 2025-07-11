@@ -28,11 +28,11 @@ func NewConfluentPicker() (MessagePicker, error) {
 		"enable.auto.commit":       false,
 		"go.events.channel.enable": false,
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &ConfluentPicker{consumer}, nil
 }
 
@@ -47,7 +47,7 @@ func (p *ConfluentPicker) Close() {
 func (p *ConfluentPicker) Pick(status *message.StatusMessage) (*sarama.ConsumerMessage, error) {
 	startTime := time.Now()
 	partition, offset := *status.Coordinates.Partition, *status.Coordinates.Offset
-	
+
 	// Assign to topic/partition
 	err := p.consumer.Assign([]kafka.TopicPartition{
 		{
@@ -56,18 +56,22 @@ func (p *ConfluentPicker) Pick(status *message.StatusMessage) (*sarama.ConsumerM
 			Offset:    kafka.Offset(offset),
 		},
 	})
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
-	msg, err := p.consumer.ReadMessage(5 * time.Second)
+
 	elapsedTime := time.Since(startTime)
 	log.Debug().Msgf("Confluent Kafka Pick: Creating consumer duration: %v", elapsedTime)
+
+	startTime = time.Now()
+	msg, err := p.consumer.ReadMessage(5 * time.Second)
+	elapsedTime = time.Since(startTime)
+	log.Debug().Msgf("Confluent Kafka Pick: Reading message from kafka: %v", elapsedTime)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert Confluent message to Sarama message for backward compatibility
 	saramaMsg := &sarama.ConsumerMessage{
 		Topic:     *msg.TopicPartition.Topic,
@@ -78,10 +82,7 @@ func (p *ConfluentPicker) Pick(status *message.StatusMessage) (*sarama.ConsumerM
 		Headers:   convertConfluentHeadersToSarama(msg.Headers),
 		Timestamp: msg.Timestamp,
 	}
-	
-	startTime = time.Now()
-	elapsedTime = time.Since(startTime)
-	log.Debug().Msgf("Confluent Kafka Pick: Reading message from kafka: %v", elapsedTime)
+
 	log.Debug().Msgf("Confluent Kafka Pick: Read message with key %s from topic %s, partition %d, offset %d, body %v",
 		string(saramaMsg.Key), saramaMsg.Topic, saramaMsg.Partition, saramaMsg.Offset, string(saramaMsg.Value))
 
