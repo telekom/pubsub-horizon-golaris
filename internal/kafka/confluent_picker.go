@@ -38,9 +38,12 @@ func NewConfluentPicker() (MessagePicker, error) {
 
 // Close implements MessagePicker.Close()
 func (p *ConfluentPicker) Close() {
+	startTime := time.Now()
 	if err := p.consumer.Close(); err != nil {
 		log.Error().Err(err).Msg("Could not close confluent picker gracefully")
 	}
+	elapsedTime := time.Since(startTime)
+	log.Debug().Msgf("Confluent Kafka Pick:: Closing consumer duration: %v", elapsedTime)
 }
 
 // Pick implements MessagePicker.Pick()
