@@ -69,9 +69,9 @@ type Caches struct {
 }
 
 type Kafka struct {
-	Brokers     []string `mapstructure:"brokers"`
-	Topics      []string `mapstructure:"topics"`
-	UseConfluent bool     `mapstructure:"use_confluent"`
+	Brokers      []string `mapstructure:"brokers"`
+	Topics       []string `mapstructure:"topics"`
+	UseConfluent bool     `mapstructure:"useConfluent"`
 }
 
 type Metrics struct {

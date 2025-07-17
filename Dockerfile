@@ -10,7 +10,8 @@ ENV GONOSUMDB=$GONOSUMDB
 
 WORKDIR /build
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -extldflags=-static" -o golaris .
+RUN apk add --no-cache gcc libc-dev librdkafka-dev
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags musl -ldflags="-w -s -extldflags=-static" -o golaris .
 
 FROM alpine:latest as certs
 RUN apk --update add ca-certificates
