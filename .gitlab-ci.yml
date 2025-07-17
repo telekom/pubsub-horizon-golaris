@@ -22,3 +22,4 @@ test:
   variables:
     GO_TEST_TAGS: "testing musl"
     GO_TEST_PARALLEL: 1
+    CGO_ENABLED: 1
