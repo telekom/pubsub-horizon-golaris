@@ -72,7 +72,7 @@ func setDefaults() {
 	// Kafka
 	viper.SetDefault("kafka.brokers", "localhost:9092")
 	viper.SetDefault("kafka.topics", []string{"status"})
-	viper.SetDefault("kafka.useConfluent", false)
+	viper.SetDefault("kafka.useConfluent", true)
 
 	// Metrics
 	viper.SetDefault("metrics.enabled", true)
