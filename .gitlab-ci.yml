@@ -20,5 +20,5 @@ variables:
 
 test:
   variables:
-    GO_TEST_TAGS: testing
+    GO_TEST_TAGS: "testing musl"
     GO_TEST_PARALLEL: 1
