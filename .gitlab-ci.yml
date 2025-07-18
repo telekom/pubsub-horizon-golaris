@@ -5,7 +5,7 @@
 include:
   - project: dhei/teams/pandora/gitlab-ci-templates
     file: products/gocomponents/GoComponent.Pipeline.gitlab-ci.yml
-    ref: build-always
+    ref: develop
 
 variables:
   TARGET_IMAGE_SUBGROUP: horizon
@@ -20,7 +20,7 @@ variables:
 
 test:
   variables:
-    GO_TEST_TAGS: "testing musl"
+    GO_TEST_TAGS: "testing,musl"
     GO_TEST_PARALLEL: 1
-    ADD_PACKAGES: "gcc libc-dev musl-dev librdkafka-dev"
+    ADD_PACKAGES: "gcc pkgconf libc-dev musl-dev librdkafka-dev"
     CGO_ENABLED: 1
