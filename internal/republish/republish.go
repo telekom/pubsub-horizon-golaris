@@ -108,6 +108,10 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // The function takes a subscriptionId as a parameter.
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
+	startTime := time.Now()
+	var totalMessages int
+
+	log.Debug().Msgf("Starting republishing for subscription %s", subscriptionId)
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
@@ -156,6 +160,7 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		log.Debug().Msgf("Last cursor: %v", lastTimestamp)
 
+		totalMessages = totalMessages + len(dbMessages)
 		if len(dbMessages) == 0 {
 			break
 		}
@@ -250,6 +255,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
+	}
+
+	if totalMessages > 0 {
+		elapsedTime := time.Since(startTime)
+		log.Debug().Msgf("Republishing for subscription %s completed in %v with avg %v per message", subscriptionId, elapsedTime, elapsedTime/time.Duration(totalMessages))
 	}
 	return nil
 }
