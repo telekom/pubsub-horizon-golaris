@@ -1,0 +1,46 @@
+# Copyright 2024 Deutsche Telekom IT GmbH
+#
+# SPDX-License-Identifier: Apache-2.0
+
+FROM golang:1.23-alpine AS build
+ARG GOPROXY
+ARG GONOSUMDB
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+ARG GO_TEST_TAGS
+ARG GO_TEST_PARALLEL
+
+# Use them during build
+ENV http_proxy=${HTTP_PROXY}
+ENV https_proxy=${HTTPS_PROXY}
+ENV no_proxy=${NO_PROXY}
+
+ENV GOPROXY=$GOPROXY
+ENV GONOSUMDB=$GONOSUMDB
+
+# Install dependencies for librdkafka
+RUN apk add --no-cache gcc libc-dev musl-dev librdkafka-dev
+
+# Set environment variables
+ENV CGO_ENABLED=1
+ENV GOOS=linux
+ENV GOARCH=amd64
+ENV GO_TEST_TAGS=$GO_TEST_TAGS
+ENV GO_TEST_PARALLEL=$GO_TEST_PARALLEL
+
+# Set working directory
+WORKDIR /app
+
+# Copy go.mod and go.sum files
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Run tests
+# CMD go test -coverprofile=coverage -coverpkg ./... -covermode atomic -tags="$GO_TEST_TAGS" -p=$GO_TEST_PARALLEL ./...
+CMD ["/bin/sh"]

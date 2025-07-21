@@ -13,6 +13,7 @@ import (
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/config"
+	"time"
 )
 
 var CurrentHandler HandlerInterface
@@ -68,6 +69,9 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 		kafkaMessages = append(kafkaMessages, optionalMetadataMessage)
 	}
 
+	// ToDo Performance tracking: Record start time
+	startTime := time.Now()
+
 	err = kafkaHandler.Producer.SendMessages(kafkaMessages)
 	if err != nil {
 		log.Error().Err(err).Msgf("Could not send message with id %v to kafka", string(message.Key))
@@ -76,7 +80,8 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 		}
 		return err
 	}
-
+	// ToDo Performance tracking: Log the duration
+	log.Debug().Msgf("Performance tracking: Successfully produced kafka messages with id %s after duration %v", string(message.Key), time.Since(startTime))
 	log.Debug().Msgf("Message with id %s sent to kafka: newDeliveryType %s newCallBackUrl %s", string(message.Key), newDeliveryType, newCallbackUrl)
 
 	if traceCtx != nil {

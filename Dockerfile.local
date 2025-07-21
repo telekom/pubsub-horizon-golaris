@@ -1,0 +1,31 @@
+# Copyright 2024 Deutsche Telekom IT GmbH
+#
+# SPDX-License-Identifier: Apache-2.0
+
+FROM golang:1.23-alpine AS build
+ARG GOPROXY
+ARG GONOSUMDB
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG NO_PROXY
+
+# Use them during build
+ENV http_proxy=${HTTP_PROXY}
+ENV https_proxy=${HTTPS_PROXY}
+ENV no_proxy=${NO_PROXY}
+
+ENV GOPROXY=$GOPROXY
+ENV GONOSUMDB=$GONOSUMDB
+
+WORKDIR /build
+COPY . .
+COPY config-docker.yml .
+# Install build dependencies
+RUN apk add --no-cache gcc libc-dev librdkafka-dev
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -tags musl -ldflags="-w -s -extldflags=-static" -o golaris .
+
+
+FROM scratch
+COPY --from=build /build/golaris golaris
+COPY --from=build /build/config-docker.yml config.yml
+ENTRYPOINT ["./golaris", "serve"]

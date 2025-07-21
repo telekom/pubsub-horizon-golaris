@@ -37,26 +37,37 @@ func (p *Picker) Close() {
 }
 
 func (p *Picker) Pick(status *message.StatusMessage) (*sarama.ConsumerMessage, error) {
+
+	// ToDo Performance tracking: Record start time
 	startime := time.Now()
+
 	var partition, offset = *status.Coordinates.Partition, *status.Coordinates.Offset
 	partConsumer, err := p.consumer.ConsumePartition(status.Topic, partition, offset)
-	elapsedtime := time.Since(startime)
-	log.Debug().Msgf("Kafka Pick: Creating consumer duration: %v", elapsedtime)
+
+	// ToDo Performance tracking: Record elapsed time
+	log.Debug().Msgf("Sarama Kafka Pick: Creating consumer duration: %v", time.Since(startime))
 	if err != nil {
 		return nil, err
 	}
 
 	defer func() {
+
+		// ToDo Performance tracking: Record start time
 		startime = time.Now()
+
 		if err := partConsumer.Close(); err != nil {
 			log.Error().Err(err).Msg("Could not close picker gracefully")
 		}
-		elapsedtime = time.Since(startime)
-		log.Debug().Msgf("Kafka Pick: Closing consumer duration: %v", elapsedtime)
+
+		// ToDo Performance tracking: Record elapsed time
+		log.Debug().Msgf("Sarama Kafka Pick: Closing consumer duration: %v", time.Since(startime))
 	}()
+	// ToDo Performance tracking: Record start time
 	startime = time.Now()
+
 	consumerMessage := <-partConsumer.Messages()
-	elapsedtime = time.Since(startime)
-	log.Debug().Msgf("Kafka Pick: Reading message from kafka: %v", elapsedtime)
+
+	// ToDo Performance tracking: Record elapsed time
+	log.Debug().Msgf("Sarama Kafka Pick: Reading message from kafka: %v", time.Since(startime))
 	return consumerMessage, nil
 }

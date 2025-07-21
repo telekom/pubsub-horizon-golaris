@@ -108,10 +108,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 // The function takes a subscriptionId as a parameter.
 func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
-	startTime := time.Now()
-	var totalMessages int
 
-	log.Debug().Msgf("Starting republishing for subscription %s", subscriptionId)
+	// ToDo Performance tracking: Record start time and sum total messages
+	startTime := time.Now()
+
+	var totalMessages int
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
@@ -160,7 +161,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		log.Debug().Msgf("Last cursor: %v", lastTimestamp)
 
+		// ToDo Performance tracking: Calculate sum of messages
 		totalMessages = totalMessages + len(dbMessages)
+
 		if len(dbMessages) == 0 {
 			break
 		}
@@ -257,9 +260,10 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 		}
 	}
 
+	// ToDo Performance tracking: Record elapsed time
 	if totalMessages > 0 {
 		elapsedTime := time.Since(startTime)
-		log.Debug().Msgf("Republishing for subscription %s completed in %v with avg %v per message", subscriptionId, elapsedTime, elapsedTime/time.Duration(totalMessages))
+		log.Debug().Msgf("Performance tracking: Completed republishing for subscription %s with %d messages in duration %v with an avg of %v per message", subscriptionId, totalMessages, elapsedTime, elapsedTime/time.Duration(totalMessages))
 	}
 	return nil
 }
@@ -273,13 +277,16 @@ func ForceDelete(ctx context.Context, subscriptionId string) error {
 	defer cancel()
 	lockCtx := cache.RepublishingCache.NewLockContext(ctxWithTimeout)
 
-	// Unlock it
+	// ToDo Debugging entry: Unlock republishing entry
+	log.Debug().Str("subscriptionId", subscriptionId).Msg("Attempting to force-unlock RepublishingCacheEntry for subscriptionId")
 	err := cache.RepublishingCache.ForceUnlock(lockCtx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error force-unlocking RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 		return err
 	}
 
+	// ToDo Debugging entry: Delete republishing
+	log.Debug().Str("subscriptionId", subscriptionId).Msg("Attempting to delete" + "RepublishingCacheEntry for subscriptionId")
 	// Delete the entry
 	err = cache.RepublishingCache.Delete(lockCtx, subscriptionId)
 	if err != nil {

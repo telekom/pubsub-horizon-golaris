@@ -23,7 +23,7 @@ type ConfluentPicker struct {
 func NewConfluentPicker() (MessagePicker, error) {
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers":        strings.Join(config.Current.Kafka.Brokers, ","),
-		"group.id":                 "golaris-republishing",
+		"group.id":                 "golaris-republishing-picker",
 		"auto.offset.reset":        "earliest",
 		"enable.auto.commit":       false,
 		"go.events.channel.enable": false,
@@ -38,16 +38,22 @@ func NewConfluentPicker() (MessagePicker, error) {
 
 // Close implements MessagePicker.Close()
 func (p *ConfluentPicker) Close() {
+
+	// ToDo Performance tracking: Record start time
 	startTime := time.Now()
+
 	if err := p.consumer.Close(); err != nil {
 		log.Error().Err(err).Msg("Could not close confluent picker gracefully")
 	}
-	elapsedTime := time.Since(startTime)
-	log.Debug().Msgf("Confluent Kafka Pick:: Closing consumer duration: %v", elapsedTime)
+
+	// Todo Performance tracking: Record elapsed time
+	log.Debug().Msgf("Performance tracking for Confluent Kafka Pick: Closed consumer after duration: %v", time.Since(startTime))
 }
 
 // Pick implements MessagePicker.Pick()
 func (p *ConfluentPicker) Pick(status *message.StatusMessage) (*sarama.ConsumerMessage, error) {
+
+	// ToDo Performance tracking: Record start time
 	startTime := time.Now()
 	partition, offset := *status.Coordinates.Partition, *status.Coordinates.Offset
 
@@ -64,16 +70,13 @@ func (p *ConfluentPicker) Pick(status *message.StatusMessage) (*sarama.ConsumerM
 		return nil, err
 	}
 
-	elapsedTime := time.Since(startTime)
-	log.Debug().Msgf("Confluent Kafka Pick: Creating consumer duration: %v", elapsedTime)
-
-	startTime = time.Now()
 	msg, err := p.consumer.ReadMessage(5 * time.Second)
-	elapsedTime = time.Since(startTime)
-	log.Debug().Msgf("Confluent Kafka Pick: Reading message from kafka: %v", elapsedTime)
 	if err != nil {
 		return nil, err
 	}
+
+	// ToDo Performance tracking: Record elapsed time
+	log.Debug().Msgf("Performance tracking for Confluent Kafka Pick: Read message after duration: %v", time.Since(startTime))
 
 	// Convert Confluent message to Sarama message for backward compatibility
 	saramaMsg := &sarama.ConsumerMessage{
@@ -86,17 +89,10 @@ func (p *ConfluentPicker) Pick(status *message.StatusMessage) (*sarama.ConsumerM
 		Timestamp: msg.Timestamp,
 	}
 
-	log.Debug().Msgf("Confluent Kafka Pick: Read message with key %s from topic %s, partition %d, offset %d, body %v",
+	// Performance tracking: Record  message details
+	log.Debug().Msgf("Performance tracking for Confluent Kafka Pick: Read message with key %s from topic %s, partition %d, offset %d, body %v",
 		string(saramaMsg.Key), saramaMsg.Topic, saramaMsg.Partition, saramaMsg.Offset, string(saramaMsg.Value))
 
-	// print the body field of the msg.Value
-	if saramaMsg.Value == nil && len(saramaMsg.Headers) > 0 {
-		for _, header := range saramaMsg.Headers {
-			if string(header.Key) == "body" {
-				log.Warn().Msgf("Received message with nil value but body header present: %s", string(header.Value))
-			}
-		}
-	}
 	return saramaMsg, nil
 }
 
