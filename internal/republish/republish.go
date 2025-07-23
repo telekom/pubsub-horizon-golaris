@@ -110,7 +110,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 
 	// ToDo Performance tracking: Record start time and sum total messages
-	startTime := time.Now()
+	totalStartTime := time.Now()
+	republishElapsedTime := time.Duration(0)
 
 	var totalMessages int
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
@@ -207,6 +208,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 				continue
 			}
 
+			republishStartTime := time.Now()
+
 			kafkaMessage, err := picker.Pick(&dbMessage)
 			if err != nil {
 				// Returning an error results in NOT deleting the republishingEntry from the cache
@@ -252,6 +255,8 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 			}
 			log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
 
+			republishElapsedTime = republishElapsedTime + time.Since(republishStartTime)
+
 			traceCtx.EndCurrentSpan()
 		}
 
@@ -262,8 +267,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 	// ToDo Performance tracking: Record elapsed time
 	if totalMessages > 0 {
-		elapsedTime := time.Since(startTime)
-		log.Debug().Msgf("Performance tracking: Completed republishing for subscription %s with %d messages in duration %v with an avg of %v per message", subscriptionId, totalMessages, elapsedTime, elapsedTime/time.Duration(totalMessages))
+		totalElapsedTime := time.Since(totalStartTime)
+		log.Debug().Msgf("Performance tracking: Completed republishing for subscription %s with %d messages: totalTime: %v republishingTime: %v avgRepublishingTime per message: %v",
+			subscriptionId, totalMessages, totalElapsedTime, republishElapsedTime, republishElapsedTime/time.Duration(totalMessages))
 	}
 	return nil
 }
