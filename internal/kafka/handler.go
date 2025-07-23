@@ -151,10 +151,12 @@ func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newC
 	}
 
 	msg := &sarama.ProducerMessage{
-		Key:     sarama.ByteEncoder(message.Key),
-		Topic:   message.Topic,
-		Headers: copyHeaders(message.Headers),
-		Value:   sarama.ByteEncoder(modifiedValue),
+		Key:       sarama.ByteEncoder(message.Key),
+		Topic:     message.Topic,
+		Headers:   copyHeaders(message.Headers),
+		Value:     sarama.ByteEncoder(modifiedValue),
+		Offset:    message.Offset,
+		Partition: message.Partition,
 	}
 
 	return msg, nil
