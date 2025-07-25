@@ -14,13 +14,13 @@ type Configuration struct {
 	CircuitBreaker CircuitBreaker `mapstructure:"circuitBreaker"`
 	HealthCheck    HealthCheck    `mapstructure:"healthCheck"`
 	Republishing   Republishing   `mapstructure:"republishing"`
-	WaitingHandler WaitingHandler `mapstructure:"waitingHandler"`
 	Hazelcast      Hazelcast      `mapstructure:"hazelcast"`
 	Kafka          Kafka          `mapstructure:"kafka"`
 	Metrics        Metrics        `mapstructure:"metrics"`
 	Mongo          Mongo          `mapstructure:"mongo"`
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
+	Handlers       Handlers       `mapstructure:"handlers"`
 }
 
 type CircuitBreaker struct {
@@ -28,12 +28,6 @@ type CircuitBreaker struct {
 	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
 	ExponentialBackoffBase  time.Duration `mapstructure:"exponentialBackoffBase"`
 	ExponentialBackoffMax   time.Duration `mapstructure:"exponentialBackoffMax"`
-}
-
-type WaitingHandler struct {
-	CheckInterval time.Duration `mapstructure:"checkInterval"`
-	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
-	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
 }
 
 type HealthCheck struct {
@@ -90,4 +84,22 @@ type Tracing struct {
 	CollectorEndpoint string `mapstructure:"collectorEndpoint"`
 	DebugEnabled      bool   `mapstructure:"debugEnabled"`
 	Enabled           bool   `mapstructure:"enabled"`
+}
+
+type Handlers struct {
+	Delivering Handler        `mapstructure:"delivering"`
+	Failed     Handler        `mapstructure:"failed"`
+	Waiting    WaitingHandler `mapstructure:"waiting"`
+}
+
+type Handler struct {
+	Enabled      bool          `mapstructure:"enabled"`
+	Interval     time.Duration `mapstructure:"interval"`
+	InitialDelay time.Duration `mapstructure:"initialDelay"`
+}
+
+type WaitingHandler struct {
+	Handler
+	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
+	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
 }

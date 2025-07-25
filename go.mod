@@ -8,6 +8,7 @@ require (
 	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/fiber/v2 v2.52.5
+	github.com/google/uuid v1.6.0
 	github.com/hazelcast/hazelcast-go-client v1.4.1
 	github.com/jarcoal/httpmock v1.3.1
 	github.com/ory/dockertest/v3 v3.10.0
@@ -55,7 +56,6 @@ require (
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
