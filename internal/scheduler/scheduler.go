@@ -36,10 +36,13 @@ func StartScheduler() {
 	}
 
 	// Schedule the task for checking republishing entries
-	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
-		checkRepublishingEntries()
-	}); err != nil {
-		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
+	{
+		initialDelay := time.Now().Add(config.Current.Republishing.InitialDelay)
+		if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).StartAt(initialDelay).Do(func() {
+			checkRepublishingEntries()
+		}); err != nil {
+			log.Error().Err(err).Msgf("Error while scheduling: %v", err)
+		}
 	}
 
 	if deliveringHandler := config.Current.Handlers.Delivering; deliveringHandler.Enabled {
@@ -71,6 +74,8 @@ func StartScheduler() {
 // and processes each entry asynchronously. It checks if the corresponding subscription exists
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
+	log.Debug().Msgf("CircuitBreaker Loop: Checking cricuitBreaker entries")
+
 	// Get all CircuitBreaker entries with status OPEN
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	cbEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
@@ -99,6 +104,8 @@ func checkOpenCircuitBreakers() {
 // checkRepublishingEntries queries the republishing cache for entries and processes each entry asynchronously.
 // It checks if the corresponding subscription exists and handles the republishing entry if the subscription is found.
 func checkRepublishingEntries() {
+	log.Debug().Msgf("Rebublishing-Loop: Checking republishing entries")
+
 	// Get all republishing entries
 	republishingEntries, err := cache.RepublishingCache.GetEntrySet(context.Background())
 	if err != nil {

@@ -264,6 +264,7 @@ func ForceDelete(ctx context.Context, subscriptionId string) error {
 	lockCtx := cache.RepublishingCache.NewLockContext(ctxWithTimeout)
 
 	// Unlock it
+	log.Debug().Msgf("Attempting to force unlock RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 	err := cache.RepublishingCache.ForceUnlock(lockCtx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error force-unlocking RepublishingCacheEntry for subscriptionId %s", subscriptionId)
@@ -271,6 +272,7 @@ func ForceDelete(ctx context.Context, subscriptionId string) error {
 	}
 
 	// Delete the entry
+	log.Debug().Msgf("Attempting to delete RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 	err = cache.RepublishingCache.Delete(lockCtx, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCacheEntry for subscriptionId %s", subscriptionId)
