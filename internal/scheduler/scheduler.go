@@ -45,6 +45,7 @@ func StartScheduler() {
 		}
 	}
 
+	// Schedule the task for checking messages stuck in state DELIVERING
 	if deliveringHandler := config.Current.Handlers.Delivering; deliveringHandler.Enabled {
 		initialDelay := time.Now().Add(deliveringHandler.InitialDelay)
 		if _, err := scheduler.Every(deliveringHandler.Interval).StartAt(initialDelay).Do(handler.CheckDeliveringEvents); err != nil {
@@ -52,6 +53,7 @@ func StartScheduler() {
 		}
 	}
 
+	// Schedule the task for checking messages in state FAILED
 	if failedHandler := config.Current.Handlers.Failed; failedHandler.Enabled {
 		initialDelay := time.Now().Add(failedHandler.InitialDelay)
 		if _, err := scheduler.Every(failedHandler.Interval).StartAt(initialDelay).Do(handler.CheckFailedEvents); err != nil {
@@ -59,6 +61,7 @@ func StartScheduler() {
 		}
 	}
 
+	// Schedule the task for checking messages stuck in state WAITING
 	if waitingHandler := config.Current.Handlers.Waiting; waitingHandler.Enabled {
 		initialDelay := time.Now().Add(waitingHandler.InitialDelay)
 		if _, err := scheduler.Every(waitingHandler.Interval).StartAt(initialDelay).Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {

@@ -79,7 +79,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
-	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 10*time.Millisecond); !acquired {
+	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
