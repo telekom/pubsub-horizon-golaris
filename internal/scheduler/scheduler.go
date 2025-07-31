@@ -77,7 +77,7 @@ func StartScheduler() {
 // and processes each entry asynchronously. It checks if the corresponding subscription exists
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
-	log.Debug().Msgf("CircuitBreaker Loop: Checking cricuitBreaker entries")
+	log.Debug().Msgf("CircuitBreaker-Loop: Checking cricuitBreaker entries")
 
 	// Get all CircuitBreaker entries with status OPEN
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
