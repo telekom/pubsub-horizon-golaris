@@ -25,7 +25,6 @@ type Configuration struct {
 
 type CircuitBreaker struct {
 	OpenCheckInterval       time.Duration `mapstructure:"openCheckInterval"`
-	InitialDelay            time.Duration `mapstructure:"initialDelay"`
 	OpenLoopDetectionPeriod time.Duration `mapstructure:"openLoopDetectionPeriod"`
 	ExponentialBackoffBase  time.Duration `mapstructure:"exponentialBackoffBase"`
 	ExponentialBackoffMax   time.Duration `mapstructure:"exponentialBackoffMax"`
