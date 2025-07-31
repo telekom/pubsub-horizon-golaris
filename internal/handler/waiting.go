@@ -29,7 +29,7 @@ var WaitingHandlerService WaitingHandlerInterface = new(waitingHandler)
 
 // CheckWaitingEvents checks for events stuck in the WAITING state and creates a republishing entry if necessary.
 func (waitingHandler *waitingHandler) CheckWaitingEvents() {
-	log.Debug().Msgf("WaitingHandler: Republish messages stucked in state WAITING")
+	log.Debug().Msgf("WaitingHandler: Republish messages stuck in state WAITING")
 
 	minMessageAge := config.Current.Handlers.Waiting.MinMessageAge
 	maxMessageAge := config.Current.Handlers.Waiting.MaxMessageAge
@@ -51,7 +51,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	// Get all subscriptions (distinct) for messages in state WAITING from db
 	dbSubscriptionsForWaitingEvents, err := mongo.CurrentConnection.FindDistinctSubscriptionsForWaitingEvents(time.Now().Add(-maxMessageAge), time.Now().Add(-minMessageAge))
 	if err != nil {
-		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching distinct subscriptions for events stucked in state WAITING from db")
+		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching distinct subscriptions for events stuck in state WAITING from db")
 		return
 	}
 
@@ -64,7 +64,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	// Get all republishing cache entries
 	republishingSubscriptionsMap, err := WaitingHandlerService.GetRepublishingSubscriptionsMap()
 	if err != nil {
-		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching rebublishing cache entries for events stucked in state WAITING")
+		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching rebublishing cache entries for events stuck in state WAITING")
 		return
 	}
 	log.Debug().Msgf("WaitingHandler: Found %d rebublishing entries: %v", len(republishingSubscriptionsMap), republishingSubscriptionsMap)
@@ -72,18 +72,18 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	// Get all circuit-breaker entries with status OPEN
 	circuitBreakerSubscriptionsMap, err := WaitingHandlerService.GetCircuitBreakerSubscriptionsMap()
 	if err != nil {
-		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching circuit breaker cache entries for events stucked in state WAITING")
+		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching circuit breaker cache entries for events stuck in state WAITING")
 		return
 	}
 	log.Debug().Msgf("WaitingHandler: Found %d circuitbreaker entries in state OPEN: %v", len(circuitBreakerSubscriptionsMap), circuitBreakerSubscriptionsMap)
 
 	// Check if subscription is in republishing cache or in circuit breaker cache. If not create a republishing cache entry
 	for _, subscriptionId := range dbSubscriptionsForWaitingEvents {
-		log.Debug().Msgf("WaitingHandler: Checking subscription for events stucked in state WAITING. subscription: %v", subscriptionId)
+		log.Debug().Msgf("WaitingHandler: Checking subscription for events stuck in state WAITING. subscription: %v", subscriptionId)
 		_, inRepublishing := republishingSubscriptionsMap[subscriptionId]
 		_, inCircuitBreaker := circuitBreakerSubscriptionsMap[subscriptionId]
 		if !inRepublishing && !inCircuitBreaker {
-			log.Warn().Msgf("WaitingHandler: Subscription %v has waiting messages and no circuitbreaker entry and no republishing entry!. Creating republishing entry for events stucked in state WAITING", subscriptionId)
+			log.Warn().Msgf("WaitingHandler: Subscription %v has waiting messages and no circuitbreaker entry and no republishing entry!. Creating republishing entry for events stuck in state WAITING", subscriptionId)
 
 			// Create republishing cache entry for subscription with stuck waiting events
 			republishingCacheEntry := republish.RepublishingCacheEntry{
@@ -92,13 +92,13 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 				PostponedUntil:   time.Now(),
 			}
 			if err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republishingCacheEntry); err != nil {
-				log.Error().Err(err).Msgf("WaitingHandler: Error while creating RepublishingCacheEntry entry for events stucked in state WAITING. subscriptionId: %s", subscriptionId)
+				log.Error().Err(err).Msgf("WaitingHandler: Error while creating RepublishingCacheEntry entry for events stuck in state WAITING. subscriptionId: %s", subscriptionId)
 				continue
 			}
-			log.Debug().Msgf("WaitingHandler: Successfully created RepublishingCacheEntry entry for for events stucked in state WAITING. subscriptionId: %s republishingEntry: %+v", subscriptionId, republishingCacheEntry)
+			log.Debug().Msgf("WaitingHandler: Successfully created RepublishingCacheEntry entry for for events stuck in state WAITING. subscriptionId: %s republishingEntry: %+v", subscriptionId, republishingCacheEntry)
 		}
 	}
-	log.Debug().Msgf("WaitingHandler: Finished republishing messages stucked in state WAITING")
+	log.Debug().Msgf("WaitingHandler: Finished republishing messages stuck in state WAITING")
 }
 
 // GetCircuitBreakerSubscriptionsMap returns a map of subscriptions with open circuit breaker entries.
