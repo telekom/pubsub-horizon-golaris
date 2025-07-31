@@ -37,6 +37,7 @@ type HealthCheck struct {
 
 type Republishing struct {
 	CheckInterval          time.Duration `mapstructure:"checkInterval"`
+	InitialDelay           time.Duration `mapstructure:"initialDelay"`
 	BatchSize              int64         `mapstructure:"batchSize"`
 	ThrottlingIntervalTime time.Duration `mapstructure:"throttlingIntervalTime"`
 	DeliveringStatesOffset time.Duration `mapstructure:"deliveringStatesOffset"`
@@ -99,7 +100,9 @@ type Handler struct {
 }
 
 type WaitingHandler struct {
-	Handler
+	Enabled       bool          `mapstructure:"enabled"`
+	Interval      time.Duration `mapstructure:"interval"`
+	InitialDelay  time.Duration `mapstructure:"initialDelay"`
 	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
 	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
 }

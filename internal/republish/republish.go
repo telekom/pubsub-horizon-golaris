@@ -70,7 +70,15 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 
-	// Attempt to acquire a lock on the republishing entry
+	// Check if resource is already locked, then return early if, otherwise try to acquire lock
+	isLocked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	if err != nil {
+		log.Error().Msgf("Failed to check locking state for RepublishingCacheEntry %s", subscriptionId)
+	}
+	if isLocked {
+		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
+		return
+	}
 	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
@@ -261,17 +269,18 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 func ForceDelete(ctx context.Context, subscriptionId string) error {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	lockCtx := cache.RepublishingCache.NewLockContext(ctxWithTimeout)
 
 	// Unlock it
-	err := cache.RepublishingCache.ForceUnlock(lockCtx, subscriptionId)
+	log.Debug().Msgf("Attempting to force unlock RepublishingCacheEntry for subscriptionId %s", subscriptionId)
+	err := cache.RepublishingCache.ForceUnlock(ctxWithTimeout, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error force-unlocking RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 		return err
 	}
 
 	// Delete the entry
-	err = cache.RepublishingCache.Delete(lockCtx, subscriptionId)
+	log.Debug().Msgf("Attempting to delete RepublishingCacheEntry for subscriptionId %s", subscriptionId)
+	err = cache.RepublishingCache.Delete(ctxWithTimeout, subscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error deleting RepublishingCacheEntry for subscriptionId %s", subscriptionId)
 		return err
