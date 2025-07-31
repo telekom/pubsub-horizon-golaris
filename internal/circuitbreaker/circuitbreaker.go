@@ -53,9 +53,15 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		}
 	}()
 
-	err = forceDeleteRepublishingEntry(cbMessage, hcData)
+	lastRepublishingEntry, err := forceDeleteRepublishingEntry(cbMessage, hcData)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while deleting Republishing cache entry for subscriptionId %s", cbMessage.SubscriptionId)
+		return
+	}
+
+	// Check if last republishing entry was still postponed, then update republishing entry and close circuit breaker
+	if checkRepublishingEntryForPostponing(cbMessage, lastRepublishingEntry, hcData) {
+		log.Debug().Msgf("RepublishingCacheEntry for subscriptionId %s is still postponed, update republishing entry and close circuit breaker", cbMessage.SubscriptionId)
 		return
 	}
 
@@ -113,6 +119,22 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	return
 }
 
+func checkRepublishingEntryForPostponing(cbMessage message.CircuitBreakerMessage, lastRepublishingEntry *republish.RepublishingCacheEntry, hcData *healthcheck.PreparedHealthCheckData) bool {
+	// Check if the last republishing entry was still postponed, then update republishing entry and skip health check
+	if lastRepublishingEntry != nil && time.Now().Before(lastRepublishingEntry.PostponedUntil) {
+		lastRepublishingEntry.RepublishingUpTo = time.Now()
+		cbMessage.LastOpened = cbMessage.LastModified
+		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, *lastRepublishingEntry)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
+			return true
+		}
+		CloseCircuitBreaker(&cbMessage)
+		return true
+	}
+	return false
+}
+
 // checkForCircuitBreakerLoop evaluates the circuit breaker's last opened timestamp against the configured loop detection period.
 // If the circuit breaker was last opened within the loop detection period, it increments the circuit breaker counter to indicate
 // a potential loop scenario. If the last opened timestamp is outside the loop detection period, it resets the counter, assuming
@@ -143,31 +165,33 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 }
 
 // Attempt to get an RepublishingCacheEntry for the subscriptionId
-// forceDeleteRepublishingEntry forces the deletion of a republishing cache entry.
-func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcData *healthcheck.PreparedHealthCheckData) error {
+// forceDeleteRepublishingEntry forces the deletion of a republishing cache entry and returns the entry if found.
+func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcData *healthcheck.PreparedHealthCheckData) (*republish.RepublishingCacheEntry, error) {
 	// Attempt to get an RepublishingCacheEntry for the subscriptionId
 	republishingEntry, err := cache.RepublishingCache.Get(hcData.Ctx, cbMessage.SubscriptionId)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error getting RepublishingCacheEntry for subscriptionId %s", cbMessage.SubscriptionId)
-		return err
+		return nil, err
 	}
 
-	// If there is an entry, force delete
+	// If there is an entry, force delete and return a copy of the repubishing entry
 	if republishingEntry != nil {
-		republishCacheEntry, ok := republishingEntry.(republish.RepublishingCacheEntry)
+		castedRepublishEntry, ok := republishingEntry.(republish.RepublishingCacheEntry)
 		if !ok {
 			log.Error().Msgf("Error casting republishing entry for subscriptionId %s", cbMessage.SubscriptionId)
-			return err
+			return nil, err
 		}
-		if republishCacheEntry.SubscriptionChange != true {
+
+		if castedRepublishEntry.SubscriptionChange != true {
 			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
 			cache.SetCancelStatus(cbMessage.SubscriptionId, true)
 			if err := republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId); err != nil {
-				return err
+				return nil, err
 			}
+			return &castedRepublishEntry, err
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.
