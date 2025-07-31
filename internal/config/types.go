@@ -5,9 +5,7 @@
 package config
 
 import (
-	"eni.telekom.de/galileo/client/options"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"log"
 	"time"
 )
 
@@ -17,14 +15,13 @@ type Configuration struct {
 	CircuitBreaker CircuitBreaker `mapstructure:"circuitBreaker"`
 	HealthCheck    HealthCheck    `mapstructure:"healthCheck"`
 	Republishing   Republishing   `mapstructure:"republishing"`
-	WaitingHandler WaitingHandler `mapstructure:"waitingHandler"`
 	Hazelcast      Hazelcast      `mapstructure:"hazelcast"`
 	Kafka          Kafka          `mapstructure:"kafka"`
 	Metrics        Metrics        `mapstructure:"metrics"`
 	Mongo          Mongo          `mapstructure:"mongo"`
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
-	Handler        Handler        `mapstructure:"handler"`
+	Handlers       Handlers       `mapstructure:"handlers"`
 	Notifications  Notifications  `mapstructure:"notifications"`
 }
 
@@ -35,12 +32,6 @@ type CircuitBreaker struct {
 	ExponentialBackoffMax   time.Duration `mapstructure:"exponentialBackoffMax"`
 }
 
-type WaitingHandler struct {
-	CheckInterval time.Duration `mapstructure:"checkInterval"`
-	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
-	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
-}
-
 type HealthCheck struct {
 	SuccessfulResponseCodes []int         `mapstructure:"successfulResponseCodes"`
 	CoolDownTime            time.Duration `mapstructure:"coolDownTime"`
@@ -48,6 +39,7 @@ type HealthCheck struct {
 
 type Republishing struct {
 	CheckInterval          time.Duration `mapstructure:"checkInterval"`
+	InitialDelay           time.Duration `mapstructure:"initialDelay"`
 	BatchSize              int64         `mapstructure:"batchSize"`
 	ThrottlingIntervalTime time.Duration `mapstructure:"throttlingIntervalTime"`
 	DeliveringStatesOffset time.Duration `mapstructure:"deliveringStatesOffset"`
@@ -97,9 +89,24 @@ type Tracing struct {
 	Enabled           bool   `mapstructure:"enabled"`
 }
 
+type Handlers struct {
+	Delivering Handler        `mapstructure:"delivering"`
+	Failed     Handler        `mapstructure:"failed"`
+	Waiting    WaitingHandler `mapstructure:"waiting"`
+}
+
 type Handler struct {
-	Delivering string `mapstructure:"delivering"`
-	Failed     string `mapstructure:"failed"`
+	Enabled      bool          `mapstructure:"enabled"`
+	Interval     time.Duration `mapstructure:"interval"`
+	InitialDelay time.Duration `mapstructure:"initialDelay"`
+}
+
+type WaitingHandler struct {
+	Enabled       bool          `mapstructure:"enabled"`
+	Interval      time.Duration `mapstructure:"interval"`
+	InitialDelay  time.Duration `mapstructure:"initialDelay"`
+	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
+	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
 }
 
 type Notifications struct {

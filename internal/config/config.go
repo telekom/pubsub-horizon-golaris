@@ -47,15 +47,15 @@ func setDefaults() {
 	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "75m")
 	viper.SetDefault("circuitBreaker.exponentialBackoffBase", "1000ms")
 	viper.SetDefault("circuitBreaker.exponentialBackoffMax", "60m")
+
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
+
 	viper.SetDefault("republishing.checkInterval", "30s")
+	viper.SetDefault("republishing.initialDelay", "3s")
 	viper.SetDefault("republishing.batchSize", 10)
 	viper.SetDefault("republishing.throttlingIntervalTime", "1s")
 	viper.SetDefault("republishing.deliveringStatesOffset", "70m")
-	viper.SetDefault("waitingHandler.checkInterval", "5m")
-	viper.SetDefault("waitingHandler.minMessageAge", "1m")
-	viper.SetDefault("waitingHandler.maxMessageAge", "24h")
 
 	// Caches
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
@@ -93,26 +93,20 @@ func setDefaults() {
 	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
 	viper.SetDefault("tracing.debugEnabled", false)
 
-	// Handler
-	viper.SetDefault("handler.delivering", "deliveringHandler")
-	viper.SetDefault("handler.failed", "failedHandler")
+	// Handlers
+	viper.SetDefault("handlers.delivering.enabled", true)
+	viper.SetDefault("handlers.delivering.interval", "30s")
+	viper.SetDefault("handlers.delivering.initialDelay", "5s")
 
-	// Notifications
-	viper.SetDefault("notifications.enabled", false)
-	viper.SetDefault("notifications.baseUrl", "https://galileo.example.com")
-	viper.SetDefault("notifications.loopModulo", 25)
+	viper.SetDefault("handlers.failed.enabled", true)
+	viper.SetDefault("handlers.failed.interval", "30s")
+	viper.SetDefault("handlers.failed.initialDelay", "10s")
 
-	viper.SetDefault("notifications.mail.subject.openCircuitBreaker", "Open circuit-breaker")
-	viper.SetDefault("notifications.mail.subject.loopDetected", "Loop detected")
-	viper.SetDefault("notifications.mail.senderName", "Golaris")
-	viper.SetDefault("notifications.mail.sender", "golaris@horizon.example.com")
-	viper.SetDefault("notifications.mail.templates.openCircuitBreaker", "golaris_circuit_breaker.tmpl")
-	viper.SetDefault("notifications.mail.templates.loopDetected", "golaris_loop.tmpl")
-
-	viper.SetDefault("notifications.auth.enabled", true)
-	viper.SetDefault("notifications.auth.issuer", "https://idp.example.com/token")
-	viper.SetDefault("notifications.auth.clientId", "clientId")
-	viper.SetDefault("notifications.auth.clientSecret", "clientSecret")
+	viper.SetDefault("handlers.waiting.enabled", true)
+	viper.SetDefault("handlers.waiting.interval", "5m")
+	viper.SetDefault("handlers.waiting.initialDelay", "15s")
+	viper.SetDefault("handlers.waiting.minMessageAge", "1m")
+	viper.SetDefault("handlers.waiting.maxMessageAge", "24h")
 }
 
 func readConfiguration() *Configuration {

@@ -36,19 +36,37 @@ func StartScheduler() {
 	}
 
 	// Schedule the task for checking republishing entries
-	if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).Do(func() {
-		checkRepublishingEntries()
-		handler.CheckDeliveringEvents()
-		handler.CheckFailedEvents()
-	}); err != nil {
-		log.Error().Err(err).Msgf("Error while scheduling: %v", err)
+	{
+		initialDelay := time.Now().Add(config.Current.Republishing.InitialDelay)
+		if _, err := scheduler.Every(config.Current.Republishing.CheckInterval).StartAt(initialDelay).Do(func() {
+			checkRepublishingEntries()
+		}); err != nil {
+			log.Error().Err(err).Msgf("Error while scheduling: %v", err)
+		}
 	}
 
-	// Schedule the task for checking for stuck waiting events
-	if _, err := scheduler.Every(config.Current.WaitingHandler.CheckInterval).Do(func() {
-		handler.WaitingHandlerService.CheckWaitingEvents()
-	}); err != nil {
-		log.Error().Err(err).Msgf("Error while scheduling WAITING-Handler: %v", err)
+	// Schedule the task for checking messages stuck in state DELIVERING
+	if deliveringHandler := config.Current.Handlers.Delivering; deliveringHandler.Enabled {
+		initialDelay := time.Now().Add(deliveringHandler.InitialDelay)
+		if _, err := scheduler.Every(deliveringHandler.Interval).StartAt(initialDelay).Do(handler.CheckDeliveringEvents); err != nil {
+			log.Error().Err(err).Msg("Unable to schedule delivering handler task")
+		}
+	}
+
+	// Schedule the task for checking messages in state FAILED
+	if failedHandler := config.Current.Handlers.Failed; failedHandler.Enabled {
+		initialDelay := time.Now().Add(failedHandler.InitialDelay)
+		if _, err := scheduler.Every(failedHandler.Interval).StartAt(initialDelay).Do(handler.CheckFailedEvents); err != nil {
+			log.Error().Err(err).Msg("Unable to schedule failed handler task")
+		}
+	}
+
+	// Schedule the task for checking messages stuck in state WAITING
+	if waitingHandler := config.Current.Handlers.Waiting; waitingHandler.Enabled {
+		initialDelay := time.Now().Add(waitingHandler.InitialDelay)
+		if _, err := scheduler.Every(waitingHandler.Interval).StartAt(initialDelay).Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {
+			log.Error().Err(err).Msg("Unable to schedule waiting handler task")
+		}
 	}
 
 	// Start the scheduler asynchronously
@@ -59,6 +77,8 @@ func StartScheduler() {
 // and processes each entry asynchronously. It checks if the corresponding subscription exists
 // and handles the open circuit breaker entry if the subscription is found.
 func checkOpenCircuitBreakers() {
+	log.Debug().Msgf("CircuitBreaker-Loop: Checking cricuitBreaker entries")
+
 	// Get all CircuitBreaker entries with status OPEN
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	cbEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
@@ -87,6 +107,8 @@ func checkOpenCircuitBreakers() {
 // checkRepublishingEntries queries the republishing cache for entries and processes each entry asynchronously.
 // It checks if the corresponding subscription exists and handles the republishing entry if the subscription is found.
 func checkRepublishingEntries() {
+	log.Debug().Msgf("Rebublishing-Loop: Checking republishing entries")
+
 	// Get all republishing entries
 	republishingEntries, err := cache.RepublishingCache.GetEntrySet(context.Background())
 	if err != nil {
