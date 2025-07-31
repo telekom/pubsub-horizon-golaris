@@ -20,7 +20,7 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any
 	var ctx = context.Background()
 
 	opts := options.Find().
-		SetBatchSize(int32(batchSize)).
+		SetLimit(batchSize).
 		SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 	if lastTimestamp != nil {
