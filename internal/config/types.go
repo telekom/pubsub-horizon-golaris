@@ -5,7 +5,9 @@
 package config
 
 import (
-	"log"
+	"eni.telekom.de/galileo/client/options"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"time"
 )
 
