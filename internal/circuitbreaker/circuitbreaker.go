@@ -123,13 +123,13 @@ func checkRepublishingEntryForPostponing(cbMessage message.CircuitBreakerMessage
 	// Check if the last republishing entry was still postponed, then update republishing entry and skip health check
 	if lastRepublishingEntry != nil && time.Now().Before(lastRepublishingEntry.PostponedUntil) {
 		lastRepublishingEntry.RepublishingUpTo = time.Now()
-		cbMessage.LastOpened = cbMessage.LastModified
 		err := cache.RepublishingCache.Set(hcData.Ctx, cbMessage.SubscriptionId, *lastRepublishingEntry)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
 			return true
 		}
-		CloseCircuitBreaker(&cbMessage)
+		cbMessage.PostponedUntil = types.NewTimestamp(lastRepublishingEntry.PostponedUntil)
+		UpdateCircuitBreaker(&cbMessage)
 		return true
 	}
 	return false
@@ -192,6 +192,17 @@ func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcDat
 		}
 	}
 	return nil, nil
+}
+
+// UpdateCircuitBreaker updates the circuit breaker for a given subscription.
+func UpdateCircuitBreaker(cbMessage *message.CircuitBreakerMessage) {
+	cbMessage.LastModified = types.NewTimestamp(time.Now().UTC())
+	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error: %v while updating CircuitBreaker for subscription %s", err, cbMessage.SubscriptionId)
+		return
+	}
+	log.Info().Msgf("Successfully updated circuit breaker for subscription %s with status %s", cbMessage.SubscriptionId, cbMessage.Status)
 }
 
 // CloseCircuitBreaker sets the circuit breaker status to CLOSED for a given subscription.

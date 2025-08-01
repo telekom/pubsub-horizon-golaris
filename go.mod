@@ -2,6 +2,8 @@ module pubsub-horizon-golaris
 
 go 1.22.3
 
+replace github.com/telekom/pubsub-horizon-go => ../pubsub-horizon-go
+
 require (
 	github.com/1pkg/gohalt v0.10.0
 	github.com/IBM/sarama v1.43.2
@@ -17,7 +19,7 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
-	github.com/telekom/pubsub-horizon-go v0.0.0-20240819134043-281686d5002b
+	github.com/telekom/pubsub-horizon-go v1.1.5
 	go.mongodb.org/mongo-driver v1.16.0
 	go.opentelemetry.io/contrib/propagators/b3 v1.28.0
 	go.opentelemetry.io/otel v1.31.0
