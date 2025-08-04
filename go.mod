@@ -9,7 +9,7 @@ require (
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/google/uuid v1.6.0
-	github.com/hazelcast/hazelcast-go-client v1.4.1
+	github.com/hazelcast/hazelcast-go-client v1.4.2
 	github.com/jarcoal/httpmock v1.4.0
 	github.com/ory/dockertest/v3 v3.10.0
 	github.com/prometheus/client_golang v1.23.0
