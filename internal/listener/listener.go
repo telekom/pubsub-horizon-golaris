@@ -6,14 +6,16 @@ package listener
 
 import (
 	"context"
-	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
 	"time"
+
+	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 type SubscriptionListener struct{}
@@ -123,8 +125,6 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), true)
-
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 	if err != nil {
 		log.Error().Msgf("failed with err: %v to get circuit breaker", err)
@@ -134,6 +134,8 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 	if cbMessage != nil {
 		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
+
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), true)
 }
 
 // handleCallbackUrlChange reacts to changes for the callback URL of subscriptions.
@@ -164,9 +166,9 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 
 		// Set cancel status to false to allow new goroutines to start
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
+		log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 	}
-
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 }
 
 // handleCircuitBreakerOptOutChange reacts to changes for CircuitBreakerOptOut flag of subscriptions.
@@ -214,13 +216,23 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 
 		// Set cancel status to false to allow new goroutines to start
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
-	}
 
-	log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
+		log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
+	}
 }
 
 func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
+
+	// Check if circuit breaker is open, if yes, do not set republishing cache entry
+	if cbEntry, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
+		log.Error().Msgf("Failed to get circuit breaker cache entry for subscription %s: %v", subscriptionId, err)
+		return
+	} else if cbEntry != nil && cbEntry.Status == enum.CircuitBreakerStatusOpen {
+		log.Debug().Msgf("Not setting republishing cache entry for subscription %s because circuit breaker entry exists", subscriptionId)
+		return
+	}
+
 	err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    oldDeliveryType,
