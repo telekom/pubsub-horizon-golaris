@@ -233,7 +233,10 @@ func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType strin
 		return
 	}
 
-	err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
+	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	err := cache.RepublishingCache.Set(ctxWithTimeout, subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    oldDeliveryType,
 		RepublishingUpTo:   time.Now(),
