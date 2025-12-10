@@ -6,19 +6,18 @@ package listener
 
 import (
 	"context"
-	"pubsub-horizon-golaris/internal/cache"
-	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/republish"
-	"pubsub-horizon-golaris/internal/test"
-	"testing"
-	"time"
-
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/republish"
+	"pubsub-horizon-golaris/internal/test"
+	"testing"
+	"time"
 )
 
 func createSubscriptionResource(subscriptionId, deliveryType string, circuitBreaker bool, callbackUrl string, redeliveriesPerSecond int) *resource.SubscriptionResource {

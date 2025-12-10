@@ -6,6 +6,12 @@ package republish
 
 import (
 	"context"
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -14,20 +20,13 @@ import (
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
-
-	"github.com/IBM/sarama"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 func TestMain(m *testing.M) {
-	//test.SetupDocker(&test.Options{
-	//	MongoDb:   false,
-	//	Hazelcast: true,
-	//})
+	test.SetupDocker(&test.Options{
+		MongoDb:   false,
+		Hazelcast: true,
+	})
 	config.Current = test.BuildTestConfig()
 	cache.Initialize()
 	code := m.Run()

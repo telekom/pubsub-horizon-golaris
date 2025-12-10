@@ -14,10 +14,6 @@ import (
 
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/resource"
-
-	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
@@ -227,6 +223,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 }
 
 func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
+
 	// Check if circuit breaker is open, if yes, do not set republishing cache entry
 	if cbEntry, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
 		log.Error().Msgf("Failed to get circuit breaker cache entry for subscription %s: %v", subscriptionId, err)
