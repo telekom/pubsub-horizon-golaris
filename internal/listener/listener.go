@@ -14,6 +14,10 @@ import (
 
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/resource"
+
+	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
@@ -92,7 +96,7 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // Delete the HealthCheckCacheEntry and close the circuitBreaker, because it is no longer needed for sse.
 func handleDeliveryTypeChangeFromSSEToCallback(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), false)
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), true)
 }
 
 func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
@@ -223,7 +227,6 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 }
 
 func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
-
 	// Check if circuit breaker is open, if yes, do not set republishing cache entry
 	if cbEntry, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
 		log.Error().Msgf("Failed to get circuit breaker cache entry for subscription %s: %v", subscriptionId, err)
@@ -236,6 +239,8 @@ func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType strin
 	err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    oldDeliveryType,
+		RepublishingUpTo:   time.Now(),
+		PostponedUntil:     time.Now(),
 		SubscriptionChange: subscriptionChange,
 	})
 	if err != nil {

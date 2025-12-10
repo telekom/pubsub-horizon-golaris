@@ -7,6 +7,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/hazelcast/hazelcast-go-client/serialization"
@@ -21,6 +22,9 @@ type CircuitBreakerMockCache struct {
 
 func (m *CircuitBreakerMockCache) Get(mapName string, key string) (*message.CircuitBreakerMessage, error) {
 	args := m.Called(mapName, key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).(*message.CircuitBreakerMessage), args.Error(1)
 }
 
