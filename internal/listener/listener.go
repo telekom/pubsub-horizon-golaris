@@ -38,22 +38,27 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
 		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
+		return
 	}
 
 	if (obj.Spec.Subscription.DeliveryType == "sse" || obj.Spec.Subscription.DeliveryType == "server_sent_event") && oldObj.Spec.Subscription.DeliveryType == "callback" {
 		handleDeliveryTypeChangeFromCallbackToSSE(obj, oldObj)
-	}
-
-	if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
-		handleCallbackUrlChange(obj, oldObj)
+		return
 	}
 
 	if obj.Spec.Subscription.CircuitBreakerOptOut == true && oldObj.Spec.Subscription.CircuitBreakerOptOut != true {
 		handleCircuitBreakerOptOutChange(obj, oldObj)
+		return
+	}
+
+	if obj.Spec.Subscription.Callback != oldObj.Spec.Subscription.Callback {
+		handleCallbackUrlChange(obj, oldObj)
+		return
 	}
 
 	if obj.Spec.Subscription.RedeliveriesPerSecond != oldObj.Spec.Subscription.RedeliveriesPerSecond {
 		handleRedeliveriesPerSecondChange(obj, oldObj)
+		return
 	}
 }
 
