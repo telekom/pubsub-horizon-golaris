@@ -440,7 +440,7 @@ func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage)
+	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
 
 	// assert the result
 	assertions.NoError(err)
@@ -466,7 +466,7 @@ func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
-	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage)
+	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
 
 	// assert the result
 	assertions.NoError(err)
