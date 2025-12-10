@@ -71,6 +71,12 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			// Then the DeliveryType was changed to SSE. However, the events landed on WAITING.
 			// HealthCheck was performed, but the CallbackUrl was already missing because deliveryType was set to SSE.
 			if subscription.Spec.Subscription.Callback == "" || subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
+				err = forceDeleteRepublishingEntry(cbMessage, hcData)
+				if err != nil {
+					log.Error().Err(err).Msgf("Error while deleting Republishing cache entry for subscriptionId %s", cbMessage.SubscriptionId)
+					return
+				}
+
 				err = cache.RepublishingCache.Set(hcData.Ctx, subscription.Spec.Subscription.SubscriptionId, republish.RepublishingCacheEntry{SubscriptionId: subscription.Spec.Subscription.SubscriptionId})
 				if err != nil {
 					log.Error().Err(err).Msgf("Error while creating RepublishingCache entry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
@@ -160,17 +166,10 @@ func forceDeleteRepublishingEntry(cbMessage message.CircuitBreakerMessage, hcDat
 
 	// If there is an entry, force delete
 	if republishingEntry != nil {
-		republishCacheEntry, ok := republishingEntry.(republish.RepublishingCacheEntry)
-		if !ok {
-			log.Error().Msgf("Error casting republishing entry for subscriptionId %s", cbMessage.SubscriptionId)
+		log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
+		cache.SetCancelStatus(cbMessage.SubscriptionId, true)
+		if err := republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId); err != nil {
 			return err
-		}
-		if republishCacheEntry.SubscriptionChange != true {
-			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", cbMessage.SubscriptionId)
-			cache.SetCancelStatus(cbMessage.SubscriptionId, true)
-			if err := republish.ForceDelete(hcData.Ctx, cbMessage.SubscriptionId); err != nil {
-				return err
-			}
 		}
 	}
 	return nil
