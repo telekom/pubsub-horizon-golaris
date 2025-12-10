@@ -166,8 +166,9 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 
 		// Set cancel status to false to allow new goroutines to start
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
+
 		log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
 	}
 }
 
@@ -176,6 +177,33 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 // add new entry in the republishingCache and deletes health checks.
 func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("CircuitBreakerOptOut changed from %v to %v for subscription %s", oldObj.Spec.Subscription.CircuitBreakerOptOut, obj.Spec.Subscription.CircuitBreakerOptOut, obj.Spec.Subscription.SubscriptionId)
+	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), obj.Spec.Subscription.SubscriptionId)
+	if err != nil {
+		log.Error().Msgf("Failed to get republishing cache entry for subscription %s: %v", obj.Spec.Subscription.SubscriptionId, err)
+		return
+	}
+
+	if optionalEntry != nil {
+		log.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
+		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
+		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
+
+		if err := republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId); err != nil {
+			log.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on handleRedeliveriesPerSecondChange", obj.Spec.Subscription.SubscriptionId)
+			return
+		}
+
+		log.Debug().Msgf("Successfully deleted RepublishingCache entry for subscriptionId %s", obj.Spec.Subscription.SubscriptionId)
+
+		log.Debug().Msgf("Waiting for 2 seconds before setting new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
+
+		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
+		time.Sleep(2 * time.Second)
+
+		// Set cancel status to false to allow new goroutines to start
+		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
+	}
+
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
 	if err != nil {
 		log.Error().Msgf("failed with err: %v to get circuit breaker", err)
@@ -186,6 +214,7 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
 
+	log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 }
 
@@ -223,7 +252,6 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 }
 
 func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
-
 	// Check if circuit breaker is open, if yes, do not set republishing cache entry
 	if cbEntry, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
 		log.Error().Msgf("Failed to get circuit breaker cache entry for subscription %s: %v", subscriptionId, err)
@@ -233,17 +261,13 @@ func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType strin
 		return
 	}
 
-	republishingCacheEntry := republish.RepublishingCacheEntry{
+	if err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    oldDeliveryType,
 		RepublishingUpTo:   time.Now(),
 		PostponedUntil:     time.Now(),
 		SubscriptionChange: subscriptionChange,
-	}
-
-	err := circuitbreaker.SetNewRepublishingCacheEntry(context.Background(), republishingCacheEntry, subscriptionId, false)
-	if err != nil {
+	}); err != nil {
 		log.Error().Msgf("Failed to set republishing cache for subscription %s: %v", subscriptionId, err)
-		return
 	}
 }
