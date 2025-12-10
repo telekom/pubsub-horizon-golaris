@@ -168,7 +168,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 
 		log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
 	}
 }
 

@@ -6,18 +6,19 @@ package listener
 
 import (
 	"context"
-	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
+
+	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 func createSubscriptionResource(subscriptionId, deliveryType string, circuitBreaker bool, callbackUrl string, redeliveriesPerSecond int) *resource.SubscriptionResource {
@@ -185,6 +186,15 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	newSubscription := createSubscriptionResource(subscriptionId, "callback", true, "", 0)
 
 	republishMockMap, circuitBreakerCache := setupMocks()
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(oldSubscription, nil)
+	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
+	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
+	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
+		return entry.SubscriptionId == subscriptionId &&
+			entry.SubscriptionChange == true
+	})).Return(nil)
 
 	openCBMessage := &message.CircuitBreakerMessage{
 		SubscriptionId: subscriptionId,
@@ -193,11 +203,6 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	}
 	circuitBreakerCache.On("Get", "test-circuit-breaker-cache", subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", "test-circuit-breaker-cache", subscriptionId, mock.Anything).Return(nil)
-
-	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
-		return entry.SubscriptionId == subscriptionId &&
-			entry.SubscriptionChange == true
-	})).Return(nil)
 
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
