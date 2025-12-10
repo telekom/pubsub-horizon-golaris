@@ -7,7 +7,6 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/hazelcast/hazelcast-go-client/serialization"
