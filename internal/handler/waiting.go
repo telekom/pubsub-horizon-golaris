@@ -7,6 +7,7 @@ package handler
 import (
 	"context"
 	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/republish"
@@ -87,7 +88,13 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 			log.Warn().Msgf("WaitingHandler: Subscription %v has waiting messages and no circuitbreaker entry and no republishing entry!. Creating republishing entry for events stuck in state WAITING", subscriptionId)
 
 			// Create republishing cache entry for subscription with stuck waiting events
-			err := waitingHandler.setRepublishingEntry(context.Background(), subscriptionId)
+			republishingCacheEntry := republish.RepublishingCacheEntry{
+				SubscriptionId:   subscriptionId,
+				RepublishingUpTo: time.Now(),
+				PostponedUntil:   time.Now(),
+			}
+			
+			err := circuitbreaker.SetNewRepublishingCacheEntry(context.Background(), republishingCacheEntry, subscriptionId, false)
 			if err != nil {
 				log.Error().Err(err).Msgf("WaitingHandler: Error while creating RepublishingCacheEntry entry for events stuck in state WAITING. subscriptionId: %s", subscriptionId)
 				continue
@@ -131,21 +138,4 @@ func (waitingHandler *waitingHandler) GetRepublishingSubscriptionsMap() (map[str
 		}
 	}
 	return republishingMap, nil
-}
-
-// set republishing entry
-func (waitingHandler *waitingHandler) setRepublishingEntry(ctx context.Context, subscriptionId string) error {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	republishingCacheEntry := republish.RepublishingCacheEntry{
-		SubscriptionId:   subscriptionId,
-		RepublishingUpTo: time.Now(),
-		PostponedUntil:   time.Now(),
-	}
-
-	if err := cache.RepublishingCache.Set(ctxWithTimeout, subscriptionId, republishingCacheEntry); err != nil {
-		return err
-	}
-	return nil
 }

@@ -233,16 +233,15 @@ func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType strin
 		return
 	}
 
-	ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	
-	err := cache.RepublishingCache.Set(ctxWithTimeout, subscriptionId, republish.RepublishingCacheEntry{
+	republishingCacheEntry := republish.RepublishingCacheEntry{
 		SubscriptionId:     subscriptionId,
 		OldDeliveryType:    oldDeliveryType,
 		RepublishingUpTo:   time.Now(),
 		PostponedUntil:     time.Now(),
 		SubscriptionChange: subscriptionChange,
-	})
+	}
+
+	err := circuitbreaker.SetNewRepublishingCacheEntry(context.Background(), republishingCacheEntry, subscriptionId, false)
 	if err != nil {
 		log.Error().Msgf("Failed to set republishing cache for subscription %s: %v", subscriptionId, err)
 		return
