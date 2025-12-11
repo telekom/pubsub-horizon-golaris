@@ -73,7 +73,6 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 			// HealthCheck was performed, but the CallbackUrl was already missing because deliveryType was set to SSE.
 			if subscription.Spec.Subscription.Callback == "" || subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
 				republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: subscription.Spec.Subscription.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now()}
-
 				if err := SetNewRepublishingCacheEntry(hcData.Ctx, republishingCacheEntry, cbMessage.SubscriptionId, true); err != nil {
 					log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
 					return
