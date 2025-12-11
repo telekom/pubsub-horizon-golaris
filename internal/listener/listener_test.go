@@ -81,7 +81,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.OldDeliveryType == string(oldSubscription.Spec.Subscription.DeliveryType) &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	})).Return(nil)
 
 	openCBMessage := &message.CircuitBreakerMessage{
@@ -121,7 +121,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.OldDeliveryType == string(oldSubscription.Spec.Subscription.DeliveryType) &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	}))
 	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 	circuitBreakerCache.AssertCalled(t, "Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything)
@@ -136,7 +136,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToCallback(t *testing.T) {
 	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.OldDeliveryType == string(oldSubscription.Spec.Subscription.DeliveryType) &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	})).Return(nil)
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil, nil)
 
@@ -146,7 +146,7 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToCallback(t *testing.T) {
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.OldDeliveryType == string(oldSubscription.Spec.Subscription.DeliveryType) &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	}))
 }
 
@@ -164,7 +164,7 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.OldDeliveryType == "" &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	})).Return(nil)
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil, nil)
 
@@ -176,7 +176,7 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.OldDeliveryType == "" &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	}))
 }
 
@@ -193,7 +193,7 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
 	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	})).Return(nil)
 
 	openCBMessage := &message.CircuitBreakerMessage{
@@ -212,7 +212,7 @@ func TestSubscriptionListener_OnUpdate_CircuitBreakerOptOut(t *testing.T) {
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	}))
 }
 
@@ -229,7 +229,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
 	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	})).Return(nil)
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil, nil)
 
@@ -240,7 +240,7 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
-			entry.SubscriptionChange == true
+			entry.SubscriptionChange == false
 	}))
 }
 
