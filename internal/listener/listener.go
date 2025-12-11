@@ -97,7 +97,7 @@ func (sl *SubscriptionListener) OnError(event *hazelcast.EntryNotified, err erro
 // Delete the HealthCheckCacheEntry and close the circuitBreaker, because it is no longer needed for sse.
 func handleDeliveryTypeChangeFromSSEToCallback(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
 	log.Debug().Msgf("Delivery type changed from sse to callback for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), true)
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), false)
 }
 
 func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
@@ -140,7 +140,7 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		circuitbreaker.CloseCircuitBreaker(cbMessage)
 	}
 
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), true)
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, string(oldObj.Spec.Subscription.DeliveryType), false)
 }
 
 // handleCallbackUrlChange reacts to changes for the callback URL of subscriptions.
@@ -173,7 +173,7 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 
 		log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
 	}
 }
 
@@ -220,7 +220,7 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 	}
 
 	log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
+	setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
 }
 
 func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
@@ -252,7 +252,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 
 		log.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", true)
+		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
 	}
 }
 
