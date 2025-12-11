@@ -257,7 +257,7 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 }
 
 func setNewEntryToRepublishingCache(subscriptionId string, oldDeliveryType string, subscriptionChange bool) {
-	// Check if circuit breaker is open, if yes, do not set republishing cache entry
+	// If circuit breaker is open, do not set republishing cache entry to avoid a republishing loop
 	if cbEntry, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId); err != nil {
 		log.Error().Msgf("Failed to get circuit breaker cache entry for subscription %s: %v", subscriptionId, err)
 		return
