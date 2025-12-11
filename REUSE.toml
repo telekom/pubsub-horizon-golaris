@@ -34,6 +34,12 @@ SPDX-FileCopyrightText = "Copyright 2024 Deutsche Telekom IT GmbH"
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
+path = ".github/dependabot.yml"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "Copyright 2024 Deutsche Telekom AG"
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = "REUSE.toml"
 precedence = "aggregate"
 SPDX-FileCopyrightText = "Copyright 2024 Deutsche Telekom IT GmbH"

@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      opentelemetry:
+        patterns:
+          - go.opentelemetry.io/*
+      docker:
+        patterns:
+          - github.com/docker/*
+      fiber:
+        patterns:
+          - github.com/gofiber/*
+      kubernetes:
+        patterns:
+          - k8s.io/*
