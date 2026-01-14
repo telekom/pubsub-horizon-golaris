@@ -183,7 +183,7 @@ func forceDeleteRepublishingEntry(ctx context.Context, subscriptionId string) er
 			log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
 			return err
 		}
-		if republishCacheEntry.SubscriptionChange != true {
+		if !republishCacheEntry.SubscriptionChange {
 			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", subscriptionId)
 			cache.SetCancelStatus(subscriptionId, true)
 			if err := republish.ForceDelete(ctx, subscriptionId); err != nil {
