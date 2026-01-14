@@ -6,14 +6,16 @@ package handler
 
 import (
 	"context"
-	"github.com/hazelcast/hazelcast-go-client/predicate"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/enum"
 	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/republish"
 	"time"
+
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
 )
 
 type (
@@ -91,11 +93,13 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 				RepublishingUpTo: time.Now(),
 				PostponedUntil:   time.Now(),
 			}
-			if err := cache.RepublishingCache.Set(context.Background(), subscriptionId, republishingCacheEntry); err != nil {
+			
+			err := circuitbreaker.SetNewRepublishingCacheEntry(context.Background(), republishingCacheEntry, subscriptionId, false)
+			if err != nil {
 				log.Error().Err(err).Msgf("WaitingHandler: Error while creating RepublishingCacheEntry entry for events stuck in state WAITING. subscriptionId: %s", subscriptionId)
 				continue
 			}
-			log.Debug().Msgf("WaitingHandler: Successfully created RepublishingCacheEntry entry for for events stuck in state WAITING. subscriptionId: %s republishingEntry: %+v", subscriptionId, republishingCacheEntry)
+			log.Debug().Msgf("WaitingHandler: Successfully created RepublishingCacheEntry entry for for events stuck in state WAITING. subscriptionId: %s", subscriptionId)
 		}
 	}
 	log.Debug().Msgf("WaitingHandler: Finished republishing messages stuck in state WAITING")
