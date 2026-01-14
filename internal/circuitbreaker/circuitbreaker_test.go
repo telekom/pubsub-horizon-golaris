@@ -7,12 +7,6 @@ package circuitbreaker
 import (
 	"context"
 	"fmt"
-	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/assert"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
-	"github.com/telekom/pubsub-horizon-go/types"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -21,6 +15,13 @@ import (
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/types"
 )
 
 func TestMain(m *testing.M) {
@@ -439,7 +440,7 @@ func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
 
 	// assert the result
 	assertions.NoError(err)
@@ -465,7 +466,7 @@ func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
-	err = forceDeleteRepublishingEntry(testCbMessage, preparedHealthCheck)
+	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
 
 	// assert the result
 	assertions.NoError(err)
