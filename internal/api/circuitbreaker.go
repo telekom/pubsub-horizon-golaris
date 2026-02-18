@@ -125,6 +125,10 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 		}
 	}
 
+	if subscription == nil {
+		return
+	}
+
 	var healthCheckCache = cache.HealthCheckCache.(*hazelcast.Map)
 	var healthCheckMethod = utils.IfThenElse(subscription.Spec.Subscription.EnforceGetHealthCheck, fiber.MethodGet, fiber.MethodHead)
 	var healthCheckKey = fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, healthCheckMethod, subscription.Spec.Subscription.Callback)
