@@ -23,6 +23,11 @@ import (
 	"time"
 )
 
+// ErrCancelled is returned by RepublishPendingEvents when the republishing cache entry
+// was deleted externally (e.g. by ForceDelete), signaling that the caller should not
+// delete the entry itself since a new entry may have been set in its place.
+var ErrCancelled = errors.New("republishing cancelled")
+
 var republishPendingEventsFunc = RepublishPendingEvents
 
 // register the data type RepublishingCacheEntry to gob for encoding and decoding of binary data
@@ -97,6 +102,10 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	}()
 
 	err = republishPendingEventsFunc(ctx, subscription, castedRepublishCacheEntry)
+	if errors.Is(err, ErrCancelled) {
+		log.Info().Msgf("Republishing for subscriptionId %s was cancelled externally, skipping entry deletion", subscriptionId)
+		return
+	}
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
@@ -143,7 +152,7 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 		}
 		if !exists {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-			return nil
+			return ErrCancelled
 		}
 
 		var dbMessages []message.StatusMessage

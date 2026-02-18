@@ -98,6 +98,46 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer cache.RepublishingCache.Unlock(ctx, testSubscriptionId)
 }
 
+func TestHandleRepublishingEntry_CancelledSkipsDelete(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	testSubscriptionId := "testCancelledSubscription"
+	testEnvironment := "test"
+	testCallbackUrl := "http://test.com"
+
+	// Mock republishPendingEventsFunc to return ErrCancelled
+	republishPendingEventsFunc = func(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+		// Simulate what happens in putCloseCircuitBreakerById:
+		// ForceDelete removes the old entry, then Set creates a new one.
+		// The goroutine detects the absence via ContainsKey and returns ErrCancelled.
+		// By the time we return, a new entry already exists.
+		cache.RepublishingCache.Delete(ctx, testSubscriptionId)
+		cache.RepublishingCache.Set(ctx, testSubscriptionId, RepublishingCacheEntry{SubscriptionId: testSubscriptionId})
+		return ErrCancelled
+	}
+
+	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
+
+	ctx := context.Background()
+	republishingCacheEntry := RepublishingCacheEntry{
+		SubscriptionId:   testSubscriptionId,
+		RepublishingUpTo: time.Now(),
+	}
+
+	err := cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
+	assertions.NoError(err)
+
+	// Call the function under test
+	HandleRepublishingEntry(testSubscriptionResource)
+
+	// The new entry set by the mock should still exist (not deleted by HandleRepublishingEntry)
+	exists, checkErr := cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId)
+	assertions.NoError(checkErr)
+	assertions.True(exists,
+		"entry should still exist because HandleRepublishingEntry must not delete on ErrCancelled")
+}
+
 func TestRepublishEvents(t *testing.T) {
 	defer test.ClearCaches()
 
