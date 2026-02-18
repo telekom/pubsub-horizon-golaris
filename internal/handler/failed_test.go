@@ -7,6 +7,7 @@ package handler
 import (
 	"context"
 	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -17,6 +18,7 @@ import (
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
+	"time"
 )
 
 func TestCheckFailedEvents(t *testing.T) {
@@ -36,7 +38,7 @@ func TestCheckFailedEvents(t *testing.T) {
 	test.InjectMockPicker(mockPicker)
 
 	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	handlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
@@ -93,4 +95,51 @@ func TestCheckFailedEvents(t *testing.T) {
 	mockKafka.AssertExpectations(t)
 	mockKafka.AssertCalled(t, "RepublishMessage", expectedKafkaMessage, "SERVER_SENT_EVENT", "")
 	mockPicker.AssertCalled(t, "Pick", mock.AnythingOfType("*message.StatusMessage"))
+}
+
+func TestCheckFailedEvents_LockAcquiredWithLease(t *testing.T) {
+	mockMongo := new(test.MockMongoHandler)
+	mongo.CurrentConnection = mockMongo
+
+	mockKafka := new(test.MockKafkaHandler)
+	kafka.CurrentHandler = mockKafka
+
+	mockCache := new(test.SubscriptionMockCache)
+	cache.SubscriptionCache = mockCache
+
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
+
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, cache.FailedLockKey, 60*time.Second, 100*time.Millisecond).Return(true, nil)
+	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+
+	config.Current.Republishing.BatchSize = 5
+
+	mockMongo.On("FindFailedMessagesWithCallbackUrlNotFoundException", mock.Anything, mock.Anything).Return([]message.StatusMessage{}, nil, nil)
+
+	CheckFailedEvents()
+
+	handlerCache.AssertCalled(t, "TryLockWithLeaseAndTimeout", mock.Anything, cache.FailedLockKey, 60*time.Second, 100*time.Millisecond)
+	handlerCache.AssertExpectations(t)
+}
+
+func TestCheckFailedEvents_LockAutoReleasesAfterLease(t *testing.T) {
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
+
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, cache.FailedLockKey, 60*time.Second, 100*time.Millisecond).Return(true, nil)
+
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
+	acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, cache.FailedLockKey, 60*time.Second, 100*time.Millisecond)
+
+	assert.True(t, acquired)
+	assert.Nil(t, err)
+
+	handlerCache.AssertCalled(t, "TryLockWithLeaseAndTimeout", mock.Anything, cache.FailedLockKey, 60*time.Second, 100*time.Millisecond)
+	handlerCache.AssertNotCalled(t, "Unlock", mock.Anything, mock.Anything)
 }

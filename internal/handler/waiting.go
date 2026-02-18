@@ -39,7 +39,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	// Create a WaitingHandler entry and lock it
 	var ctx = cache.HandlerCache.NewLockContext(context.Background())
 
-	if acquired, _ := cache.HandlerCache.TryLockWithTimeout(ctx, cache.WaitingLockKey, 100*time.Millisecond); !acquired {
+	if acquired, _ := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond); !acquired {
 		log.Debug().Msgf("WaitingHandler: Could not acquire lock for WaitingHandler entry: %s", cache.WaitingLockKey)
 		return
 	}

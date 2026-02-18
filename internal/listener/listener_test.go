@@ -11,10 +11,8 @@ import (
 	"pubsub-horizon-golaris/internal/republish"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
-	"time"
 
 	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
@@ -92,31 +90,8 @@ func TestSubscriptionListener_OnUpdate_DeliveryTypeToSSE(t *testing.T) {
 	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(openCBMessage, nil)
 	circuitBreakerCache.On("Put", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId, mock.Anything).Return(nil)
 
-	done := make(chan struct{})
-	iterations := 0
-	go func() {
-		defer close(done)
-		for i := 1; i <= 10000; i++ {
-			time.Sleep(10 * time.Millisecond)
-			status := cache.GetCancelStatus(subscriptionId)
-			t.Logf("Iteration %d: GetCancelStatus returned %v", i, status)
-			if status {
-				break
-			}
-			iterations++
-		}
-	}()
-
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
-
-	select {
-	case <-done:
-		t.Logf("Number of completed iterations: %d", iterations)
-		assert.False(t, cache.GetCancelStatus(subscriptionId))
-	case <-time.After(20 * time.Second):
-		assert.Fail(t, "Goroutine did not complete within the expected time")
-	}
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
@@ -170,8 +145,6 @@ func TestSubscriptionListener_OnUpdate_CallbackUrl(t *testing.T) {
 
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
-
-	assert.False(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
@@ -236,12 +209,36 @@ func TestSubscriptionListener_OnUpdate_RedeliveriesPerSecond(t *testing.T) {
 	listener := &SubscriptionListener{}
 	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
 
-	assert.False(t, cache.GetCancelStatus(subscriptionId))
-
 	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
 		return entry.SubscriptionId == subscriptionId &&
 			entry.SubscriptionChange == false
 	}))
+}
+
+func TestHandleDeliveryTypeChangeFromSSEToCallback_NoRepublishingEntry(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+	oldSubscription := createSubscriptionResource(subscriptionId, "sse", false, "", 0)
+	newSubscription := createSubscriptionResource(subscriptionId, "callback", false, "", 0)
+
+	republishMockMap, circuitBreakerCache := setupMocks()
+
+	// No existing republishing cache entry for this subscription
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil, nil)
+	republishMockMap.On("Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
+		return entry.SubscriptionId == subscriptionId &&
+			entry.OldDeliveryType == string(oldSubscription.Spec.Subscription.DeliveryType) &&
+			entry.SubscriptionChange == false
+	})).Return(nil)
+
+	listener := &SubscriptionListener{}
+	listener.OnUpdate(&hazelcast.EntryNotified{}, *newSubscription, *oldSubscription)
+
+	republishMockMap.AssertCalled(t, "Set", mock.Anything, subscriptionId, mock.MatchedBy(func(entry republish.RepublishingCacheEntry) bool {
+		return entry.SubscriptionId == subscriptionId &&
+			entry.OldDeliveryType == string(oldSubscription.Spec.Subscription.DeliveryType) &&
+			entry.SubscriptionChange == false
+	}))
+	republishMockMap.AssertNotCalled(t, "Get", mock.Anything, subscriptionId)
 }
 
 func TestSubscriptionListener_OnDelete(t *testing.T) {
@@ -258,8 +255,6 @@ func TestSubscriptionListener_OnDelete(t *testing.T) {
 	event := &hazelcast.EntryNotified{Key: subscriptionId}
 	listener := &SubscriptionListener{}
 	listener.OnDelete(event)
-
-	assert.True(t, cache.GetCancelStatus(subscriptionId))
 
 	republishMockMap.AssertCalled(t, "Get", mock.Anything, subscriptionId)
 	republishMockMap.AssertCalled(t, "Delete", mock.Anything, subscriptionId)

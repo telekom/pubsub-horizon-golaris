@@ -7,6 +7,7 @@ package handler
 import (
 	"context"
 	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/cache"
@@ -32,7 +33,7 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 	cache.HandlerCache = handlerCache
 
 	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	handlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
@@ -101,7 +102,7 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 	test.InjectMockPicker(mockPicker)
 
 	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	handlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 
 	config.Current.Republishing.BatchSize = 5
@@ -118,4 +119,49 @@ func TestCheckDeliveringEvents_NoEvents(t *testing.T) {
 	mockMongo.AssertCalled(t, "FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything)
 
 	mockKafka.AssertExpectations(t)
+}
+
+func TestCheckDeliveringEvents_LockAcquiredWithLease(t *testing.T) {
+	mockMongo := new(test.MockMongoHandler)
+	mongo.CurrentConnection = mockMongo
+
+	mockKafka := new(test.MockKafkaHandler)
+	kafka.CurrentHandler = mockKafka
+
+	mockPicker := new(test.MockPicker)
+	test.InjectMockPicker(mockPicker)
+
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
+
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, cache.DeliveringLockKey, 60*time.Second, 100*time.Millisecond).Return(true, nil)
+	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+
+	config.Current.Republishing.BatchSize = 5
+	config.Current.Republishing.DeliveringStatesOffset = 30 * time.Minute
+
+	mockMongo.On("FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything).Return([]message.StatusMessage{}, nil, nil)
+
+	CheckDeliveringEvents()
+
+	handlerCache.AssertCalled(t, "TryLockWithLeaseAndTimeout", mock.Anything, cache.DeliveringLockKey, 60*time.Second, 100*time.Millisecond)
+	handlerCache.AssertExpectations(t)
+}
+
+func TestCheckDeliveringEvents_LockAutoReleasesAfterLease(t *testing.T) {
+	handlerCache := new(test.MockHandlerCache)
+	cache.HandlerCache = handlerCache
+
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, cache.DeliveringLockKey, 60*time.Second, 100*time.Millisecond).Return(true, nil)
+
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
+	acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, cache.DeliveringLockKey, 60*time.Second, 100*time.Millisecond)
+
+	assert.True(t, acquired)
+	assert.Nil(t, err)
+
+	handlerCache.AssertCalled(t, "TryLockWithLeaseAndTimeout", mock.Anything, cache.DeliveringLockKey, 60*time.Second, 100*time.Millisecond)
+	handlerCache.AssertNotCalled(t, "Unlock", mock.Anything, mock.Anything)
 }

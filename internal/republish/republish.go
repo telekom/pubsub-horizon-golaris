@@ -79,7 +79,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
-	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond); !acquired {
+	if acquired, _ = cache.RepublishingCache.TryLockWithLeaseAndTimeout(ctx, subscriptionId, 60*time.Second, 100*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
@@ -96,7 +96,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		}
 	}()
 
-	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
+	err = republishPendingEventsFunc(ctx, subscription, castedRepublishCacheEntry)
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
@@ -113,8 +113,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
-// The function takes a subscriptionId as a parameter.
-func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+func RepublishPendingEvents(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
@@ -135,18 +134,19 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
 	defer throttler.Release(context.Background())
 
-	cache.SetCancelStatus(subscriptionId, false)
-
 	var lastTimestamp any
 	for {
-		if cache.GetCancelStatus(subscriptionId) {
+		exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
+		if err != nil {
+			log.Error().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s", subscriptionId)
+			return nil
+		}
+		if !exists {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-
 			return nil
 		}
 
 		var dbMessages []message.StatusMessage
-		var err error
 
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
 			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastTimestamp, subscriptionId)
@@ -170,21 +170,11 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		for _, dbMessage := range dbMessages {
 
-			if cache.GetCancelStatus(subscriptionId) {
-				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-				return nil
-			}
-
 			for {
 				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
 					sleepInterval := time.Millisecond * 10
 					totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
-						if cache.GetCancelStatus(subscriptionId) {
-							log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-							return nil
-						}
-
 						time.Sleep(sleepInterval)
 					}
 					continue

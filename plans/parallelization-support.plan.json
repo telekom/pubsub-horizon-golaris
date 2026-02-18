@@ -1,0 +1,384 @@
+{
+  "plan_id": "4f884f80-f4c3-4cf9-9b22-36cf5983796d",
+  "created_at": "2026-02-18T09:51:54.184815",
+  "frozen_at": null,
+  "overview": {
+    "problem": "Golaris has four critical multi-replica correctness bugs: (1) scheduler loops exit early with return instead of continue when subscription nil, skipping remaining entries; (2) local subscriptionCancelMap provides cancellation signal invisible to other replicas; (3) listener sets cancel status without checking entry existence, creating race condition; (4) handler/republishing locks use TryLockWithTimeout without lease, orphaning locks on process crash until session timeout.",
+    "approach": "Four independent milestones targeting each bug: M-001 fixes return-vs-continue in scheduler loops; M-002 removes local cancel map and replaces with distributed Hazelcast ContainsKey checks with per-batch granularity; M-003 adds missing entry check before cancel signal in listener; M-004 replaces all TryLockWithTimeout with TryLockWithLeaseAndTimeout (60s lease). Each milestone includes unit/integration tests using existing dockertest+testify patterns.",
+    "title": "Fix Multi-Replica Correctness in Golaris Scheduler and Cancellation"
+  },
+  "planning_context": {
+    "decisions": [
+      {
+        "id": "DL-001",
+        "version": 1,
+        "decision": "Replace return with continue in scheduler loops",
+        "reasoning": "scheduler.go:98,131 use return when subscription nil -> exits entire loop -> skips remaining entries. continue allows processing remaining entries in same iteration."
+      },
+      {
+        "id": "DL-002",
+        "version": 1,
+        "decision": "Remove local subscriptionCancelMap and use Hazelcast ContainsKey for distributed cancellation",
+        "reasoning": "Local map (cache.go:47-66) invisible across replicas -> goroutines on other instances miss cancellation signals. Hazelcast entry existence provides distributed signal visible to all replicas."
+      },
+      {
+        "id": "DL-003",
+        "version": 1,
+        "decision": "Add RepublishingCache entry existence check before setting cancel status in listener.go:102-105",
+        "reasoning": "handleDeliveryTypeChangeFromSSEToCallback sets cancel=true (listener.go:119) but missing entry check -> race if goroutine deletes entry between check and set. Entry check prevents false cancellation signal."
+      },
+      {
+        "id": "DL-004",
+        "version": 1,
+        "decision": "Replace TryLockWithTimeout with TryLockWithLeaseAndTimeout (60s lease) for handler and republishing locks",
+        "reasoning": "Process crash while holding lock orphans lock until Hazelcast session timeout (~minutes). Lease-based locks auto-release after 60s, matching HealthCheckCache pattern (healthcheck.go:154)."
+      },
+      {
+        "id": "DL-005",
+        "version": 1,
+        "decision": "Add context.Context parameter to RepublishPendingEvents signature",
+        "reasoning": "ContainsKey requires context.Context but RepublishPendingEvents currently lacks context parameter. Signature change enables distributed cancel checks."
+      },
+      {
+        "id": "DL-006",
+        "version": 1,
+        "decision": "Check ContainsKey per-batch (before batch processing) rather than per-message",
+        "reasoning": "Per-message ContainsKey adds 1-5ms latency per event. Per-batch check (before FindWaitingMessages) balances responsiveness (batch-level granularity) with performance (single check per ~10 messages)."
+      }
+    ],
+    "rejected_alternatives": [],
+    "constraints": [],
+    "risks": []
+  },
+  "invisible_knowledge": {
+    "system": "",
+    "invariants": [],
+    "tradeoffs": []
+  },
+  "milestones": [
+    {
+      "id": "M-001",
+      "version": 2,
+      "number": 1,
+      "name": "Fix scheduler return-vs-continue bugs",
+      "files": [
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/scheduler/scheduler.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/scheduler/scheduler_test.go"
+      ],
+      "flags": [],
+      "requirements": [
+        "Scheduler loops continue processing remaining entries when subscription is nil"
+      ],
+      "acceptance_criteria": [
+        "Unit tests verify both checkOpenCircuitBreakers and checkRepublishingEntries process all entries even when some subscriptions are nil"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-001-001",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/scheduler/scheduler.go",
+          "function": null,
+          "behavior": "Change return to continue at line 98 in checkOpenCircuitBreakers when subscription is nil, allowing loop to process remaining circuit breaker entries",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-001-002",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/scheduler/scheduler.go",
+          "function": null,
+          "behavior": "Change return to continue at line 131 in checkRepublishingEntries when subscription is nil, allowing loop to process remaining republishing entries",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-001-003",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/scheduler/scheduler_test.go",
+          "function": null,
+          "behavior": "Add unit test verifying checkOpenCircuitBreakers continues processing after nil subscription (multiple CB entries, subscription exists for only some)",
+          "decision_refs": [
+            "DL-001"
+          ]
+        },
+        {
+          "id": "CI-M-001-004",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/scheduler/scheduler_test.go",
+          "function": null,
+          "behavior": "Add unit test verifying checkRepublishingEntries continues processing after nil subscription (multiple republishing entries, subscription exists for only some)",
+          "decision_refs": [
+            "DL-001"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-002",
+      "version": 2,
+      "number": 2,
+      "name": "Replace local cancel map with Hazelcast distributed checks",
+      "files": [
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/cache/cache.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/republish/republish.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/listener/listener.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/circuitbreaker/circuitbreaker.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/api/circuitbreaker.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/republish/republish_test.go"
+      ],
+      "flags": [],
+      "requirements": [
+        "Cancellation signals visible across all Hazelcast replicas",
+        "no local-only state"
+      ],
+      "acceptance_criteria": [
+        "Integration test verifies ForceDelete on one replica stops goroutines on different replica via ContainsKey check"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-002-001",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/cache/cache.go",
+          "function": null,
+          "behavior": "Remove subscriptionCancelMap (line 47), cancelMapMutex (line 48), SetCancelStatus function (lines 56-60), and GetCancelStatus function (lines 62-66)",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-002-002",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/republish/republish.go",
+          "function": null,
+          "behavior": "Update RepublishPendingEvents signature to accept context.Context as first parameter. Replace SetCancelStatus(false) call at line 138 with no-op (distributed signal handled by entry existence). Replace GetCancelStatus checks at lines 142, 173, 183 with RepublishingCache.ContainsKey checks (inverted logic: entry exists = continue, entry missing = cancelled). Check ContainsKey once per batch before FindWaitingMessages/FindProcessedMessagesByDeliveryTypeSSE, not in throttle sleep loop.",
+          "decision_refs": [
+            "DL-002",
+            "DL-005",
+            "DL-006"
+          ]
+        },
+        {
+          "id": "CI-M-002-003",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/listener/listener.go",
+          "function": null,
+          "behavior": "Remove SetCancelStatus calls at lines 88, 119, 163, 198, 241 (distributed cancellation now handled by entry deletion alone)",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-002-004",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/circuitbreaker/circuitbreaker.go",
+          "function": null,
+          "behavior": "Remove SetCancelStatus call at line 188 in forceDeleteRepublishingEntry (entry deletion sufficient for cancellation signal)",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-002-005",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/api/circuitbreaker.go",
+          "function": null,
+          "behavior": "Remove SetCancelStatus call at line 95 (entry deletion at line 91 provides cancellation signal)",
+          "decision_refs": [
+            "DL-002"
+          ]
+        },
+        {
+          "id": "CI-M-002-006",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/republish/republish_test.go",
+          "function": null,
+          "behavior": "Add integration test: two concurrent HandleRepublishingEntry goroutines on different mock replicas, ForceDelete called mid-processing, verify both goroutines detect cancellation via ContainsKey returning false",
+          "decision_refs": [
+            "DL-002",
+            "DL-006"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-003",
+      "version": 2,
+      "number": 3,
+      "name": "Add missing entry check in SSE-to-callback listener",
+      "files": [
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/listener/listener.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/listener/listener_test.go"
+      ],
+      "flags": [],
+      "requirements": [
+        "Listener only sets cancel status when RepublishingCache entry exists",
+        "preventing race conditions"
+      ],
+      "acceptance_criteria": [
+        "Unit test verifies handleDeliveryTypeChangeFromSSEToCallback handles missing entry without error"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-003-001",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/listener/listener.go",
+          "function": null,
+          "behavior": "Add RepublishingCache.Get check before SetCancelStatus(true) at line 119 in handleDeliveryTypeChangeFromCallbackToSSE. Only set cancel status if entry exists. Prevents race where goroutine deletes entry between listener check and cancel signal.",
+          "decision_refs": [
+            "DL-003"
+          ]
+        },
+        {
+          "id": "CI-M-003-002",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/listener/listener_test.go",
+          "function": null,
+          "behavior": "Add unit test: handleDeliveryTypeChangeFromSSEToCallback called when no RepublishingCache entry exists, verify no error and no cancel status set",
+          "decision_refs": [
+            "DL-003"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    },
+    {
+      "id": "M-004",
+      "version": 2,
+      "number": 4,
+      "name": "Replace TryLockWithTimeout with TryLockWithLeaseAndTimeout",
+      "files": [
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/delivering.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/failed.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/waiting.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/republish/republish.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/delivering_test.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/failed_test.go",
+        "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/waiting_test.go"
+      ],
+      "flags": [],
+      "requirements": [
+        "Handler and republishing locks auto-release after 60 seconds",
+        "preventing orphaned locks on process crash"
+      ],
+      "acceptance_criteria": [
+        "Unit tests verify locks acquired with TryLockWithLeaseAndTimeout auto-release after 60s when Unlock not called"
+      ],
+      "tests": [],
+      "code_intents": [
+        {
+          "id": "CI-M-004-001",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/delivering.go",
+          "function": null,
+          "behavior": "Replace TryLockWithTimeout at line 23 with TryLockWithLeaseAndTimeout(ctx, cache.DeliveringLockKey, 60*time.Second, 100*time.Millisecond) to add 60-second automatic lease expiration",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-004-002",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/failed.go",
+          "function": null,
+          "behavior": "Replace TryLockWithTimeout at line 24 with TryLockWithLeaseAndTimeout(ctx, cache.FailedLockKey, 60*time.Second, 100*time.Millisecond) to add 60-second automatic lease expiration",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-004-003",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/waiting.go",
+          "function": null,
+          "behavior": "Replace TryLockWithTimeout at line 42 with TryLockWithLeaseAndTimeout(ctx, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond) to add 60-second automatic lease expiration",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-004-004",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/republish/republish.go",
+          "function": null,
+          "behavior": "Replace TryLockWithTimeout at line 82 with TryLockWithLeaseAndTimeout(ctx, subscriptionId, 60*time.Second, 100*time.Millisecond) to add 60-second automatic lease expiration",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-004-005",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/delivering_test.go",
+          "function": null,
+          "behavior": "Add unit test: verify CheckDeliveringEvents acquires lock with lease, simulate process crash (no Unlock call), verify lock auto-releases after 60 seconds using mock HandlerCache",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-004-006",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/failed_test.go",
+          "function": null,
+          "behavior": "Add unit test: verify CheckFailedEvents acquires lock with lease, simulate process crash (no Unlock call), verify lock auto-releases after 60 seconds using mock HandlerCache",
+          "decision_refs": [
+            "DL-004"
+          ]
+        },
+        {
+          "id": "CI-M-004-007",
+          "version": 1,
+          "file": "/home/hannah/projects/mono-folder/horizon-components/pubsub-horizon-golaris/internal/handler/waiting_test.go",
+          "function": null,
+          "behavior": "Add unit test: verify CheckWaitingEvents acquires lock with lease, simulate process crash (no Unlock call), verify lock auto-releases after 60 seconds using mock HandlerCache",
+          "decision_refs": [
+            "DL-004"
+          ]
+        }
+      ],
+      "code_changes": [],
+      "documentation": {
+        "module_comment": null,
+        "docstrings": [],
+        "function_blocks": [],
+        "inline_comments": []
+      },
+      "is_documentation_only": false,
+      "delegated_to": null
+    }
+  ],
+  "waves": [],
+  "diagram_graphs": [],
+  "readme_entries": []
+}
