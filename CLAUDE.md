@@ -1,3 +1,9 @@
+<!--
+Copyright 2024 Deutsche Telekom IT GmbH
+
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # pubsub-horizon-golaris
 
 Circuit breaker and event republishing service for the Horizon event streaming platform.
@@ -15,7 +21,6 @@ Circuit breaker and event republishing service for the Horizon event streaming p
 | ----------- | --------------------------------------------- | ---------------------------------------------------- |
 | `cmd/`      | Cobra CLI commands (root, serve, init)         | Adding CLI commands, modifying startup sequence       |
 | `internal/` | All application logic (see internal/CLAUDE.md) | Any feature work, debugging, or testing               |
-| `plans/`    | Implementation plans                           | Understanding design decisions for recent changes     |
 | `LICENSES/` | License files (Apache-2.0)                     | Never edit directly                                   |
 
 ## Build
