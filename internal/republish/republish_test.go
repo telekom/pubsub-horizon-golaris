@@ -98,46 +98,6 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer cache.RepublishingCache.Unlock(ctx, testSubscriptionId)
 }
 
-func TestHandleRepublishingEntry_CancelledSkipsDelete(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	testSubscriptionId := "testCancelledSubscription"
-	testEnvironment := "test"
-	testCallbackUrl := "http://test.com"
-
-	// Mock republishPendingEventsFunc to return ErrCancelled
-	republishPendingEventsFunc = func(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
-		// Simulate what happens in putCloseCircuitBreakerById:
-		// ForceDelete removes the old entry, then Set creates a new one.
-		// The goroutine detects the absence via ContainsKey and returns ErrCancelled.
-		// By the time we return, a new entry already exists.
-		cache.RepublishingCache.Delete(ctx, testSubscriptionId)
-		cache.RepublishingCache.Set(ctx, testSubscriptionId, RepublishingCacheEntry{SubscriptionId: testSubscriptionId})
-		return ErrCancelled
-	}
-
-	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-
-	ctx := context.Background()
-	republishingCacheEntry := RepublishingCacheEntry{
-		SubscriptionId:   testSubscriptionId,
-		RepublishingUpTo: time.Now(),
-	}
-
-	err := cache.RepublishingCache.Set(ctx, testSubscriptionId, republishingCacheEntry)
-	assertions.NoError(err)
-
-	// Call the function under test
-	HandleRepublishingEntry(testSubscriptionResource)
-
-	// The new entry set by the mock should still exist (not deleted by HandleRepublishingEntry)
-	exists, checkErr := cache.RepublishingCache.ContainsKey(ctx, testSubscriptionId)
-	assertions.NoError(checkErr)
-	assertions.True(exists,
-		"entry should still exist because HandleRepublishingEntry must not delete on ErrCancelled")
-}
-
 func TestRepublishEvents(t *testing.T) {
 	defer test.ClearCaches()
 
@@ -159,8 +119,11 @@ func TestRepublishEvents(t *testing.T) {
 	subscriptionId := "sub123"
 	ctx := context.Background()
 
-	// Set up RepublishingCache entry so ContainsKey returns true
+	// Set up RepublishingCache entry and lock it so cancellation check passes
 	cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	lockCtx := cache.RepublishingCache.NewLockContext(ctx)
+	cache.RepublishingCache.TryLockWithTimeout(lockCtx, subscriptionId, 100*time.Millisecond)
+	defer cache.RepublishingCache.Unlock(lockCtx, subscriptionId)
 
 	partitionValue1 := int32(1)
 	offsetValue1 := int64(100)
@@ -193,7 +156,7 @@ func TestRepublishEvents(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(ctx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(lockCtx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
@@ -295,8 +258,11 @@ func TestRepublishEventsThrottled(t *testing.T) {
 	redeliveriesPerSecond := 10
 	ctx := context.Background()
 
-	// Set up RepublishingCache entry so ContainsKey returns true
+	// Set up RepublishingCache entry and lock it so cancellation check passes
 	cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	lockCtx := cache.RepublishingCache.NewLockContext(ctx)
+	cache.RepublishingCache.TryLockWithTimeout(lockCtx, subscriptionId, 100*time.Millisecond)
+	defer cache.RepublishingCache.Unlock(lockCtx, subscriptionId)
 
 	// Set configurations for the test
 	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
@@ -327,7 +293,7 @@ func TestRepublishEventsThrottled(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(ctx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(lockCtx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
@@ -355,8 +321,11 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 	redeliveriesPerSecond := 0
 	ctx := context.Background()
 
-	// Set up RepublishingCache entry so ContainsKey returns true
+	// Set up RepublishingCache entry and lock it so cancellation check passes
 	cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	lockCtx := cache.RepublishingCache.NewLockContext(ctx)
+	cache.RepublishingCache.TryLockWithTimeout(lockCtx, subscriptionId, 100*time.Millisecond)
+	defer cache.RepublishingCache.Unlock(lockCtx, subscriptionId)
 
 	// Set configurations for the test
 	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
@@ -387,7 +356,7 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(ctx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(lockCtx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
@@ -460,110 +429,37 @@ func TestForceDeleteStopsConcurrentGoroutinesViaContainsKey(t *testing.T) {
 	assertions.False(cache.RepublishingCache.ContainsKey(ctx, subscriptionId))
 }
 
-// Integration tests for multi-replica parallelization behavior using real Hazelcast.
-
-func TestLeaseBasedLock_AutoReleasesWithoutUnlock(t *testing.T) {
+func TestForceDeleteCancelsViaLockCheck(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	lockKey := "test-lease-auto-release"
-	lease := 2 * time.Second
+	subscriptionId := "test-lock-cancel"
+	ctx := cache.RepublishingCache.NewLockContext(context.Background())
 
-	ctx := cache.HandlerCache.NewLockContext(context.Background())
-
-	// Acquire lock with short lease, do NOT unlock (simulating process crash)
-	acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, lease, 100*time.Millisecond)
-	assertions.True(acquired, "should acquire lock")
+	// Set up entry and acquire lock (simulating HandleRepublishingEntry)
+	err := cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	assertions.NoError(err)
+	acquired, err := cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond)
+	assertions.True(acquired)
 	assertions.NoError(err)
 
-	// Immediately after acquiring, lock should be held
-	isLocked, err := cache.HandlerCache.IsLocked(context.Background(), lockKey)
+	// Entry exists and is locked — the check in RepublishPendingEvents should pass
+	exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
 	assertions.NoError(err)
-	assertions.True(isLocked, "lock should be held immediately after acquisition")
-
-	// Wait for lease to expire
-	time.Sleep(lease + 1*time.Second)
-
-	// Lock should have auto-released
-	isLocked, err = cache.HandlerCache.IsLocked(context.Background(), lockKey)
+	assertions.True(exists)
+	locked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
 	assertions.NoError(err)
-	assertions.False(isLocked, "lock should auto-release after lease expiry without explicit Unlock")
-}
+	assertions.True(locked)
 
-func TestLeaseBasedLock_SecondReplicaAcquiresAfterLeaseExpiry(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	lockKey := "test-replica-takeover"
-	lease := 2 * time.Second
-
-	// Replica A acquires lock, then "crashes" (no Unlock)
-	ctxA := cache.HandlerCache.NewLockContext(context.Background())
-	acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctxA, lockKey, lease, 100*time.Millisecond)
-	assertions.True(acquired, "replica A should acquire lock")
+	// ForceDelete removes the lock and entry
+	err = ForceDelete(ctx, subscriptionId)
 	assertions.NoError(err)
 
-	// Replica B tries to acquire immediately -- should fail (lock is held by A)
-	ctxB := cache.HandlerCache.NewLockContext(context.Background())
-	acquired, err = cache.HandlerCache.TryLockWithLeaseAndTimeout(ctxB, lockKey, lease, 100*time.Millisecond)
-	assertions.False(acquired, "replica B should NOT acquire lock while A holds it")
+	// After ForceDelete: entry gone AND lock gone
+	exists, err = cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
 	assertions.NoError(err)
-
-	// Wait for A's lease to expire
-	time.Sleep(lease + 1*time.Second)
-
-	// Replica B tries again -- should succeed now
-	acquired, err = cache.HandlerCache.TryLockWithLeaseAndTimeout(ctxB, lockKey, lease, 100*time.Millisecond)
-	assertions.True(acquired, "replica B should acquire lock after A's lease expired")
+	assertions.False(exists, "entry should be deleted")
+	locked, err = cache.RepublishingCache.IsLocked(ctx, subscriptionId)
 	assertions.NoError(err)
-
-	// Clean up: B unlocks
-	defer cache.HandlerCache.Unlock(ctxB, lockKey)
-}
-
-func TestParallelHandlers_MutualExclusion(t *testing.T) {
-	defer test.ClearCaches()
-	var assertions = assert.New(t)
-
-	lockKey := "test-parallel-exclusion"
-	lease := 5 * time.Second
-
-	executionOrder := make(chan string, 2)
-
-	// Simulate two replicas trying to process the same handler concurrently
-	runHandler := func(replicaName string) {
-		ctx := cache.HandlerCache.NewLockContext(context.Background())
-		acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, lease, 2*time.Second)
-		if err != nil {
-			return
-		}
-		if !acquired {
-			return
-		}
-		defer cache.HandlerCache.Unlock(ctx, lockKey)
-
-		// Simulate work
-		time.Sleep(500 * time.Millisecond)
-		executionOrder <- replicaName
-	}
-
-	// Launch both replicas concurrently
-	go runHandler("replica-A")
-	go runHandler("replica-B")
-
-	// Collect results -- at least one should execute
-	var executed []string
-	timeout := time.After(10 * time.Second)
-	for i := 0; i < 2; i++ {
-		select {
-		case name := <-executionOrder:
-			executed = append(executed, name)
-		case <-timeout:
-			break
-		}
-	}
-
-	// Both replicas should eventually execute (one waits for the other's lock release)
-	assertions.Len(executed, 2, "both replicas should execute sequentially via distributed lock")
-	assertions.NotEqual(executed[0], executed[1], "replicas should be different")
+	assertions.False(locked, "lock should be force-unlocked")
 }

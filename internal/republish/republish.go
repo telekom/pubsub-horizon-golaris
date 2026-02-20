@@ -23,11 +23,6 @@ import (
 	"time"
 )
 
-// ErrCancelled is returned by RepublishPendingEvents when the republishing cache entry
-// was deleted externally (e.g. by ForceDelete), signaling that the caller should not
-// delete the entry itself since a new entry may have been set in its place.
-var ErrCancelled = errors.New("republishing cancelled")
-
 var republishPendingEventsFunc = RepublishPendingEvents
 
 // register the data type RepublishingCacheEntry to gob for encoding and decoding of binary data
@@ -84,7 +79,7 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
-	if acquired, _ = cache.RepublishingCache.TryLockWithLeaseAndTimeout(ctx, subscriptionId, 60*time.Second, 100*time.Millisecond); !acquired {
+	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond); !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
@@ -102,10 +97,6 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	}()
 
 	err = republishPendingEventsFunc(ctx, subscription, castedRepublishCacheEntry)
-	if errors.Is(err, ErrCancelled) {
-		log.Info().Msgf("Republishing for subscriptionId %s was cancelled externally, skipping entry deletion", subscriptionId)
-		return
-	}
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
@@ -148,11 +139,16 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 		exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s", subscriptionId)
-			return err
+			return nil
 		}
-		if !exists {
-			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-			return ErrCancelled
+		locked, lockErr := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+		if lockErr != nil {
+			log.Error().Err(lockErr).Msgf("Error checking lock state for subscription %s", subscriptionId)
+			return nil
+		}
+		if !exists || !locked {
+			log.Info().Msgf("Republishing for subscription %s has been cancelled (exists=%t, locked=%t)", subscriptionId, exists, locked)
+			return nil
 		}
 
 		var dbMessages []message.StatusMessage

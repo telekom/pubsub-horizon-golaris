@@ -31,7 +31,7 @@ func (f *MockHandlerCache) TryLockWithTimeout(ctx context.Context, key interface
 }
 
 func (d *MockHandlerCache) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error) {
-	args := d.Called(ctx, key, lease, timeout)
+	args := d.Called(ctx, key, timeout)
 	return args.Bool(0), args.Error(1)
 }
 

@@ -18,7 +18,6 @@ import (
 	"pubsub-horizon-golaris/internal/republish"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
-	"time"
 )
 
 func TestCheckWaitingEvents_NoActionNeededWhileNoWaitingEvents(t *testing.T) {
@@ -42,7 +41,7 @@ func TestCheckWaitingEvents_NoActionNeededWhileNoWaitingEvents(t *testing.T) {
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	mockHandlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return(mockedDbSubscriptionIds, nil)
 	mockWaitingHandler.On("GetCircuitBreakerSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
@@ -86,7 +85,7 @@ func TestCheckWaitingEvents_NoActionNeededWhileExistingCbEntry(t *testing.T) {
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	mockHandlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return(mockedDbSubscriptionIds, nil)
 	mockWaitingHandler.On("GetCircuitBreakerSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
@@ -129,7 +128,7 @@ func TestCheckWaitingEvents_NoActionNeededWhileExistingRepublishEntry(t *testing
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	mockHandlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return(mockedDbSubscriptionIds, nil)
 	mockWaitingHandler.On("GetCircuitBreakerSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
@@ -172,7 +171,7 @@ func TestCheckWaitingEvents_ActionNeededWhileNoMatchingCacheEntries(t *testing.T
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	mockHandlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return(mockedDbSubscriptionIds, nil)
 	mockWaitingHandler.On("GetCircuitBreakerSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
@@ -215,7 +214,7 @@ func TestCheckWaitingEvents_ActionNeededWhileSubsetHasNoCacheEntries(t *testing.
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	mockHandlerCache.On("TryLockWithTimeout", mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
 	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
 	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return(mockedDbSubscriptionIds, nil)
 	mockWaitingHandler.On("GetCircuitBreakerSubscriptionsMap").Return(mockedCircuitBreakerSubscriptionsMap, nil)
@@ -363,46 +362,4 @@ func TestGetRepublishingSubscriptionsMap_CacheError(t *testing.T) {
 	assert.Nil(t, subscriptions)
 	assert.NotNil(t, err)
 	mockRepulishingCache.AssertExpectations(t)
-}
-
-func TestCheckWaitingEvents_LockAcquiredWithLease(t *testing.T) {
-	mockMongo := new(test.MockMongoHandler)
-	mongo.CurrentConnection = mockMongo
-
-	mockWaitingHandler := new(test.MockWaitingHandler)
-	WaitingHandlerService = mockWaitingHandler
-
-	mockHandlerCache := new(test.MockHandlerCache)
-	cache.HandlerCache = mockHandlerCache
-
-	mockRepublishingCache := new(test.RepublishingMockMap)
-	cache.RepublishingCache = mockRepublishingCache
-
-	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond).Return(true, nil)
-	mockHandlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
-	mockMongo.On("FindDistinctSubscriptionsForWaitingEvents", mock.Anything, mock.Anything).Return([]string{}, nil)
-
-	waitingHandlerInstance := new(waitingHandler)
-	waitingHandlerInstance.CheckWaitingEvents()
-
-	mockHandlerCache.AssertCalled(t, "TryLockWithLeaseAndTimeout", mock.Anything, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond)
-	mockHandlerCache.AssertExpectations(t)
-}
-
-func TestCheckWaitingEvents_LockAutoReleasesAfterLease(t *testing.T) {
-	mockHandlerCache := new(test.MockHandlerCache)
-	cache.HandlerCache = mockHandlerCache
-
-	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
-	mockHandlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond).Return(true, nil)
-
-	ctx := cache.HandlerCache.NewLockContext(context.Background())
-	acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond)
-
-	assert.True(t, acquired)
-	assert.Nil(t, err)
-
-	mockHandlerCache.AssertCalled(t, "TryLockWithLeaseAndTimeout", mock.Anything, cache.WaitingLockKey, 60*time.Second, 100*time.Millisecond)
-	mockHandlerCache.AssertNotCalled(t, "Unlock", mock.Anything, mock.Anything)
 }

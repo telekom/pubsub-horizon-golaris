@@ -6,7 +6,6 @@ package circuitbreaker
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -182,7 +181,7 @@ func forceDeleteRepublishingEntry(ctx context.Context, subscriptionId string) er
 		republishCacheEntry, ok := republishingEntry.(republish.RepublishingCacheEntry)
 		if !ok {
 			log.Error().Msgf("Error casting republishing entry for subscriptionId %s", subscriptionId)
-			return fmt.Errorf("failed to cast republishing entry for subscriptionId %s", subscriptionId)
+			return err
 		}
 		if !republishCacheEntry.SubscriptionChange {
 			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", subscriptionId)
