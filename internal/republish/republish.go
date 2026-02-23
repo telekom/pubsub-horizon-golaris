@@ -139,12 +139,12 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 		exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s", subscriptionId)
-			return nil
+			return err
 		}
 		locked, lockErr := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
 		if lockErr != nil {
 			log.Error().Err(lockErr).Msgf("Error checking lock state for subscription %s", subscriptionId)
-			return nil
+			return lockErr
 		}
 		if !exists || !locked {
 			log.Info().Msgf("Republishing for subscription %s has been cancelled (exists=%t, locked=%t)", subscriptionId, exists, locked)
