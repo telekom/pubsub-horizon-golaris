@@ -111,6 +111,43 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	log.Debug().Msgf("Successfully processed RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 }
 
+// isCancelled checks whether republishing for the given subscription has been cancelled.
+// Cancellation is detected via two distributed signals in Hazelcast:
+//   - ContainsKey: returns false when the entry was deleted (ForceDelete or scheduler cleanup)
+//   - IsLocked: returns false when the lock was force-released (ForceDelete's ForceUnlock step)
+//
+// Both are checked because ForceDelete does ForceUnlock then Delete sequentially —
+// IsLocked becomes false before ContainsKey does, giving earlier detection.
+//
+// If fatal is true, Hazelcast errors are returned to the caller (use at batch boundaries
+// to preserve the cache entry for retry). If fatal is false, errors are logged and the
+// function returns not-cancelled (fail open), deferring to the next fatal check.
+func isCancelled(ctx context.Context, subscriptionId string, fatal bool) (bool, error) {
+	exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
+	if err != nil {
+		if fatal {
+			log.Error().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s", subscriptionId)
+			return false, err
+		}
+		log.Warn().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s, continuing", subscriptionId)
+		return false, nil
+	}
+	locked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	if err != nil {
+		if fatal {
+			log.Error().Err(err).Msgf("Error checking lock state for subscription %s", subscriptionId)
+			return false, err
+		}
+		log.Warn().Err(err).Msgf("Error checking lock state for subscription %s, continuing", subscriptionId)
+		return false, nil
+	}
+	if !exists || !locked {
+		log.Info().Msgf("Republishing for subscription %s has been cancelled (exists=%t, locked=%t)", subscriptionId, exists, locked)
+		return true, nil
+	}
+	return false, nil
+}
+
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 func RepublishPendingEvents(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
@@ -136,18 +173,10 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 
 	var lastTimestamp any
 	for {
-		exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
-		if err != nil {
-			log.Error().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s", subscriptionId)
+		// Per-batch ownership check (fatal: errors preserve cache entry for retry)
+		if cancelled, err := isCancelled(ctx, subscriptionId, true); err != nil {
 			return err
-		}
-		locked, lockErr := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
-		if lockErr != nil {
-			log.Error().Err(lockErr).Msgf("Error checking lock state for subscription %s", subscriptionId)
-			return lockErr
-		}
-		if !exists || !locked {
-			log.Info().Msgf("Republishing for subscription %s has been cancelled (exists=%t, locked=%t)", subscriptionId, exists, locked)
+		} else if cancelled {
 			return nil
 		}
 
@@ -175,6 +204,11 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 
 		for _, dbMessage := range dbMessages {
 
+			// Per-message ownership check (non-fatal: log and continue on error)
+			if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
+				return nil
+			}
+
 			for {
 				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
 					sleepInterval := time.Millisecond * 10
@@ -182,6 +216,12 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
 						time.Sleep(sleepInterval)
 					}
+
+					// Post-throttle ownership check (non-fatal: log and continue on error)
+					if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
+						return nil
+					}
+
 					continue
 				}
 				break
