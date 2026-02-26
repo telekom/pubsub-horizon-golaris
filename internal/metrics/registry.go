@@ -5,13 +5,14 @@
 package metrics
 
 import (
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/utils"
+
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
-	"pubsub-horizon-golaris/internal/cache"
-	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/utils"
 )
 
 var (
@@ -33,15 +34,25 @@ func init() {
 	registry.MustRegister(openCircuitBreakers)
 }
 
-func recordCircuitBreaker(subscriptionId string, eventType string, environment string, open bool) {
+func recordCircuitBreaker(subscriptionId string, subscriberId string, eventType string, environment string, open bool) {
 	if config.Current.Metrics.Enabled {
 		var value = float64(utils.IfThenElse(open, 1, 0))
 		openCircuitBreakers.With(map[string]string{
 			"subscriptionId": subscriptionId,
+			"subscriberId":   subscriberId,
 			"eventType":      eventType,
 			"environment":    environment,
 		}).Set(value)
 	}
+}
+
+func getSubscriberId(subscriptionId string) string {
+	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+	if err != nil {
+		log.Warn().Err(err).Str("logger", "metrics").Str("subscriptionId", subscriptionId).Msg("could not get subscription")
+	}
+
+	return utils.IfThenElse(subscription != nil, subscription.Spec.Subscription.SubscriberId, "n/a")
 }
 
 func PopulateFromCache() {
@@ -53,7 +64,9 @@ func PopulateFromCache() {
 
 	for _, circuitBreaker := range circuitBreakers {
 		var open = circuitBreaker.Status == enum.CircuitBreakerStatusOpen
-		recordCircuitBreaker(circuitBreaker.SubscriptionId, circuitBreaker.EventType, circuitBreaker.Environment, open)
+
+		var subscriberId = getSubscriberId(circuitBreaker.SubscriptionId)
+		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, open)
 	}
 }
 
