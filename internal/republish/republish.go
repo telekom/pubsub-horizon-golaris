@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+var ErrCancelled = errors.New("republishing cancelled")
+
 var republishPendingEventsFunc = RepublishPendingEvents
 
 // register the data type RepublishingCacheEntry to gob for encoding and decoding of binary data
@@ -97,6 +99,10 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	}()
 
 	err = republishPendingEventsFunc(ctx, subscription, castedRepublishCacheEntry)
+	if errors.Is(err, ErrCancelled) {
+		log.Info().Msgf("Republishing cancelled for subscriptionId %s, preserving cache entry", subscriptionId)
+		return
+	}
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
@@ -177,7 +183,7 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 		if cancelled, err := isCancelled(ctx, subscriptionId, true); err != nil {
 			return err
 		} else if cancelled {
-			return nil
+			return ErrCancelled
 		}
 
 		var dbMessages []message.StatusMessage
@@ -206,7 +212,7 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 
 			// Per-message ownership check (non-fatal: log and continue on error)
 			if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
-				return nil
+				return ErrCancelled
 			}
 
 			for {
@@ -219,7 +225,7 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 
 					// Post-throttle ownership check (non-fatal: log and continue on error)
 					if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
-						return nil
+						return ErrCancelled
 					}
 
 					continue
