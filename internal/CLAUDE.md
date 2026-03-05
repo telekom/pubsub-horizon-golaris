@@ -6,6 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 # internal/
 
+All application logic for golaris.
+
+## Files
+
+| File        | What                                         | When to read                                           |
+| ----------- | -------------------------------------------- | ------------------------------------------------------ |
+| `README.md` | Architecture, multi-replica design, invariants | Understanding distributed locking, design decisions   |
+
 ## Subdirectories
 
 | Directory          | What                                              | When to read                                                  |
