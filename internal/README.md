@@ -38,4 +38,4 @@ Scheduler loops (`checkOpenCircuitBreakers`, `checkRepublishingEntries`) use `co
 | DL-002 | Hazelcast `ContainsKey` for distributed cancel    | Local map invisible across replicas; entry existence is already a distributed signal       |
 | DL-003 | Entry existence check before cancel in listener   | Prevents race condition if goroutine deletes entry between check and set                   |
 | DL-004 | `context.Context` on `RepublishPendingEvents`     | `ContainsKey` requires context; propagated from caller's lock context                      |
-| DL-005 | Per-batch `ContainsKey` (not per-message)          | Single check per ~batchSize messages; avoids 1-5ms latency overhead per event              |
+| DL-005 | Triple-check cancellation (`ContainsKey`+`IsLocked`) | Checked per-batch, per-message, and post-throttle to detect cancellation promptly          |
