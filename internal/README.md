@@ -16,7 +16,7 @@ All state coordination uses Hazelcast distributed primitives. No local-only stat
 
 ### Distributed Cancellation
 
-Cancellation of in-progress republishing goroutines uses Hazelcast entry existence as the signal. When a republishing entry is deleted from the cache (via `ForceDelete`), all replicas detect this through `ContainsKey` returning false. The check runs once per batch (not per message) to balance responsiveness against latency overhead (1-5ms per Hazelcast round-trip).
+Cancellation of in-progress republishing goroutines uses two Hazelcast distributed signals: `ContainsKey` (entry existence) and `IsLocked` (lock ownership). When a republishing entry is deleted from the cache (via `ForceDelete`), `IsLocked` becomes false first (ForceUnlock step), then `ContainsKey` becomes false (Delete step), giving earlier detection. The check runs at three points: per-batch (fatal), per-message (non-fatal), and post-throttle (non-fatal). Cancellation returns `ErrCancelled` to prevent the caller from deleting a replacement entry that may have been created by the canceller.
 
 Previous designs used a local `subscriptionCancelMap` that was invisible to other replicas. Goroutines on replica B would miss cancellation signals issued on replica A.
 
