@@ -44,6 +44,12 @@ func setupMocks() (*test.RepublishingMockMap, *test.CircuitBreakerMockCache) {
 	cache.CircuitBreakerCache = circuitBreakerCache
 	config.Current.Hazelcast.Caches.CircuitBreakerCache = "test-circuit-breaker-cache"
 
+	handlerCache := new(test.MockHandlerCache)
+	handlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
+	handlerCache.On("TryLockWithLeaseAndTimeout", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(true, nil)
+	handlerCache.On("Unlock", mock.Anything, mock.Anything).Return(nil)
+	cache.HandlerCache = handlerCache
+
 	return republishMockMap, circuitBreakerCache
 
 }

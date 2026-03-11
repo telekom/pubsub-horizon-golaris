@@ -40,6 +40,15 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	subscriptionId := obj.Spec.Subscription.SubscriptionId
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
+	lockKey := "listener:" + subscriptionId
+	if acquired, _ := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, 30*time.Second, 100*time.Millisecond); !acquired {
+		logger.Debug().Msgf("Could not acquire listener lock for subscriptionId %s, skipping", subscriptionId)
+		return
+	}
+	defer cache.HandlerCache.Unlock(ctx, lockKey)
+
 	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
 		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
 		return
@@ -73,6 +82,14 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 		logger.Error().Msg("event.Key is not of type string")
 		return
 	}
+
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
+	lockKey := "listener:" + key
+	if acquired, _ := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, 30*time.Second, 100*time.Millisecond); !acquired {
+		logger.Debug().Msgf("Could not acquire listener lock for subscriptionId %s on OnDelete, skipping", key)
+		return
+	}
+	defer cache.HandlerCache.Unlock(ctx, lockKey)
 
 	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), key)
 	if err != nil {
