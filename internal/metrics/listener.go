@@ -17,18 +17,20 @@ type CircuitBreakerListener struct{}
 func (c *CircuitBreakerListener) OnAdd(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage) {
 	var open = obj.Status == enum.CircuitBreakerStatusOpen
 	var subscriptionId = event.Key.(string)
-	recordCircuitBreaker(subscriptionId, obj.EventType, obj.Environment, open)
+	var subscriberId = lookupSubscriberId(subscriptionId)
+	recordCircuitBreaker(subscriptionId, subscriberId, obj.EventType, obj.Environment, open)
 }
 
 func (c *CircuitBreakerListener) OnUpdate(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage, oldObj message.CircuitBreakerMessage) {
 	var open = obj.Status == enum.CircuitBreakerStatusOpen
 	var subscriptionId = event.Key.(string)
-	recordCircuitBreaker(subscriptionId, obj.EventType, obj.Environment, open)
+	var subscriberId = lookupSubscriberId(subscriptionId)
+	recordCircuitBreaker(subscriptionId, subscriberId, obj.EventType, obj.Environment, open)
 }
 
 func (c *CircuitBreakerListener) OnDelete(event *hazelcast.EntryNotified) {
 	var subscriptionId = event.Key.(string)
-	openCircuitBreakers.Delete(prometheus.Labels{
+	openCircuitBreakers.DeletePartialMatch(prometheus.Labels{
 		"subscriptionId": subscriptionId,
 	})
 }

@@ -27,17 +27,18 @@ func init() {
 		Name:      "open_circuit_breakers",
 		Help:      "The amount of open circuit-breakers.",
 		Namespace: namespace,
-	}, []string{"subscriptionId", "eventType", "environment"})
+	}, []string{"subscriptionId", "subscriberId", "eventType", "environment"})
 
 	registry = prometheus.NewRegistry()
 	registry.MustRegister(openCircuitBreakers)
 }
 
-func recordCircuitBreaker(subscriptionId string, eventType string, environment string, open bool) {
+func recordCircuitBreaker(subscriptionId string, subscriberId string, eventType string, environment string, open bool) {
 	if config.Current.Metrics.Enabled {
 		var value = float64(utils.IfThenElse(open, 1, 0))
 		openCircuitBreakers.With(map[string]string{
 			"subscriptionId": subscriptionId,
+			"subscriberId":   subscriberId,
 			"eventType":      eventType,
 			"environment":    environment,
 		}).Set(value)
@@ -53,8 +54,18 @@ func PopulateFromCache() {
 
 	for _, circuitBreaker := range circuitBreakers {
 		var open = circuitBreaker.Status == enum.CircuitBreakerStatusOpen
-		recordCircuitBreaker(circuitBreaker.SubscriptionId, circuitBreaker.EventType, circuitBreaker.Environment, open)
+		var subscriberId = lookupSubscriberId(circuitBreaker.SubscriptionId)
+		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, open)
 	}
+}
+
+func lookupSubscriberId(subscriptionId string) string {
+	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+	if err != nil || subscription == nil {
+		log.Warn().Str("subscriptionId", subscriptionId).Msg("could not look up subscriberId for metric")
+		return "unknown"
+	}
+	return subscription.Spec.Subscription.SubscriberId
 }
 
 func ListenForChanges() {
