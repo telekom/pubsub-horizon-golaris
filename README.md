@@ -22,6 +22,8 @@ SPDX-License-Identifier: Apache-2.0
   <a href="#running-golaris">Running Golaris</a>
 </p>
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/telekom/pubsub-horizon-golaris)
+
 ## Overview
 
 Horizon Golaris serves as the circuit breaker within the [Horizon ecosystem](https://github.com/telekom/pubsub-horizon). It ensures the redelivery of failed events by periodically checking the availability of a customer's endpoint using HEAD or GET requests. When the endpoint becomes available again, all events for that customer and endpoint with the status `WAITING` are getting republished and can be picked up by Comet or Pulsar redelivery.
