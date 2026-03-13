@@ -92,7 +92,6 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 		log.Error().Err(err).Msgf("Error while deleting republishing entry for subscription %s", subscriptionId)
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error deleting the republishing entry")
 	}
-	cache.SetCancelStatus(subscriptionId, true)
 
 	// Set new republishing entry to pick the last waiting
 	err = cache.RepublishingCache.Set(ctx.Context(), subscriptionId, republish.RepublishingCacheEntry{SubscriptionId: subscriptionId})

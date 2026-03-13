@@ -95,7 +95,7 @@ func checkOpenCircuitBreakers() {
 		if subscription == nil {
 			log.Debug().Msgf("Subscripton with id %s for circuit breaker entry doesn't exist.", entry.SubscriptionId)
 			circuitbreaker.CloseCircuitBreaker(&entry)
-			return
+			continue
 		} else {
 			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
 		}
@@ -126,9 +126,9 @@ func checkRepublishingEntries() {
 			log.Debug().Msgf("Subscription with id %s for republishing entry doesn't exist.", subscriptionId)
 			err := cache.RepublishingCache.Delete(context.Background(), subscriptionId)
 			if err != nil {
-				return
+				continue
 			}
-			return
+			continue
 		}
 		log.Debug().Msgf("Subscription with id %s for republishing entry found: %v", subscriptionId, subscription)
 		// Handle each republishing entry asynchronously

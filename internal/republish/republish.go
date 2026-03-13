@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+var ErrCancelled = errors.New("republishing cancelled")
+
 var republishPendingEventsFunc = RepublishPendingEvents
 
 // register the data type RepublishingCacheEntry to gob for encoding and decoding of binary data
@@ -79,7 +81,10 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
-	if acquired, _ = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond); !acquired {
+	if acquired, err = cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond); err != nil {
+		log.Error().Err(err).Msgf("Error acquiring lock for RepublishingCacheEntry with subscriptionId %s", subscriptionId)
+		return
+	} else if !acquired {
 		log.Debug().Msgf("Could not acquire lock for RepublishingCacheEntry, skipping entry for subscriptionId %s", subscriptionId)
 		return
 	}
@@ -96,7 +101,11 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		}
 	}()
 
-	err = republishPendingEventsFunc(subscription, castedRepublishCacheEntry)
+	err = republishPendingEventsFunc(ctx, subscription, castedRepublishCacheEntry)
+	if errors.Is(err, ErrCancelled) {
+		log.Info().Msgf("Republishing cancelled for subscriptionId %s, preserving cache entry", subscriptionId)
+		return
+	}
 	if err != nil {
 		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
@@ -111,10 +120,46 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 	log.Debug().Msgf("Successfully processed RepublishingCacheEntry with subscriptionId %s", subscriptionId)
 }
 
+// isCancelled checks whether republishing for the given subscription has been cancelled.
+// Cancellation is detected via two distributed signals in Hazelcast:
+//   - ContainsKey: returns false when the entry was deleted (ForceDelete or scheduler cleanup)
+//   - IsLocked: returns false when the lock was force-released (ForceDelete's ForceUnlock step)
+//
+// Both are checked because ForceDelete does ForceUnlock then Delete sequentially —
+// IsLocked becomes false before ContainsKey does, giving earlier detection.
+//
+// If fatal is true, Hazelcast errors are returned to the caller (use at batch boundaries
+// to preserve the cache entry for retry). If fatal is false, errors are logged and the
+// function returns not-cancelled (fail open), deferring to the next fatal check.
+func isCancelled(ctx context.Context, subscriptionId string, fatal bool) (bool, error) {
+	exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
+	if err != nil {
+		if fatal {
+			log.Error().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s", subscriptionId)
+			return false, err
+		}
+		log.Warn().Err(err).Msgf("Error checking RepublishingCache entry existence for subscription %s, continuing", subscriptionId)
+		return false, nil
+	}
+	locked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	if err != nil {
+		if fatal {
+			log.Error().Err(err).Msgf("Error checking lock state for subscription %s", subscriptionId)
+			return false, err
+		}
+		log.Warn().Err(err).Msgf("Error checking lock state for subscription %s, continuing", subscriptionId)
+		return false, nil
+	}
+	if !exists || !locked {
+		log.Info().Msgf("Republishing for subscription %s has been cancelled (exists=%t, locked=%t)", subscriptionId, exists, locked)
+		return true, nil
+	}
+	return false, nil
+}
+
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
-// The function takes a subscriptionId as a parameter.
-func RepublishPendingEvents(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+func RepublishPendingEvents(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
@@ -135,18 +180,16 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
 	defer throttler.Release(context.Background())
 
-	cache.SetCancelStatus(subscriptionId, false)
-
 	var lastTimestamp any
 	for {
-		if cache.GetCancelStatus(subscriptionId) {
-			log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-
-			return nil
+		// Per-batch ownership check (fatal: errors preserve cache entry for retry)
+		if cancelled, err := isCancelled(ctx, subscriptionId, true); err != nil {
+			return err
+		} else if cancelled {
+			return ErrCancelled
 		}
 
 		var dbMessages []message.StatusMessage
-		var err error
 
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
 			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastTimestamp, subscriptionId)
@@ -170,9 +213,9 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 
 		for _, dbMessage := range dbMessages {
 
-			if cache.GetCancelStatus(subscriptionId) {
-				log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-				return nil
+			// Per-message ownership check (non-fatal: log and continue on error)
+			if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
+				return ErrCancelled
 			}
 
 			for {
@@ -180,13 +223,14 @@ func RepublishPendingEvents(subscription *resource.SubscriptionResource, republi
 					sleepInterval := time.Millisecond * 10
 					totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
 					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
-						if cache.GetCancelStatus(subscriptionId) {
-							log.Info().Msgf("Republishing for subscription %s has been cancelled", subscriptionId)
-							return nil
-						}
-
 						time.Sleep(sleepInterval)
 					}
+
+					// Post-throttle ownership check (non-fatal: log and continue on error)
+					if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
+						return ErrCancelled
+					}
+
 					continue
 				}
 				break
