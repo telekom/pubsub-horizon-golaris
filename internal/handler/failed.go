@@ -21,7 +21,10 @@ func CheckFailedEvents() {
 
 	var ctx = cache.HandlerCache.NewLockContext(context.Background())
 
-	if acquired, _ := cache.HandlerCache.TryLockWithTimeout(ctx, cache.FailedLockKey, 100*time.Millisecond); !acquired {
+	if acquired, err := cache.HandlerCache.TryLockWithTimeout(ctx, cache.FailedLockKey, 100*time.Millisecond); err != nil {
+		log.Error().Err(err).Msgf("Error acquiring lock for FailedHandler entry: %s", cache.FailedLockKey)
+		return
+	} else if !acquired {
 		log.Debug().Msgf("Could not acquire lock for FailedHandler entry: %s", cache.FailedLockKey)
 		return
 	}
