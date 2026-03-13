@@ -19,6 +19,11 @@ import (
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
+const (
+	lockAcquireTimeout = 100 * time.Millisecond
+	listenerLockLease  = 30 * time.Second
+)
+
 type SubscriptionListener struct{}
 
 var logger zerolog.Logger
@@ -43,7 +48,7 @@ func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj res
 	subscriptionId := obj.Spec.Subscription.SubscriptionId
 	ctx := cache.HandlerCache.NewLockContext(context.Background())
 	lockKey := "listener:" + subscriptionId
-	if acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, 30*time.Second, 100*time.Millisecond); err != nil {
+	if acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, listenerLockLease, lockAcquireTimeout); err != nil {
 		logger.Error().Err(err).Msgf("Error acquiring listener lock for subscriptionId %s", subscriptionId)
 		return
 	} else if !acquired {
@@ -88,7 +93,7 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 
 	ctx := cache.HandlerCache.NewLockContext(context.Background())
 	lockKey := "listener:" + key
-	if acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, 30*time.Second, 100*time.Millisecond); err != nil {
+	if acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, listenerLockLease, lockAcquireTimeout); err != nil {
 		logger.Error().Err(err).Msgf("Error acquiring listener lock for subscriptionId %s on OnDelete", key)
 		return
 	} else if !acquired {
