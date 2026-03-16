@@ -18,7 +18,6 @@ import (
 	"github.com/telekom/pubsub-horizon-go/util"
 	"os"
 	"pubsub-horizon-golaris/internal/config"
-	"sync"
 	"time"
 )
 
@@ -44,26 +43,11 @@ var HealthCheckCache HazelcastMapInterface
 var RepublishingCache HazelcastMapInterface
 var hazelcastClient *hazelcast.Client
 
-var subscriptionCancelMap = make(map[string]bool)
-var cancelMapMutex sync.RWMutex
-
 var HandlerCache HazelcastMapInterface
 
 var DeliveringLockKey string
 var FailedLockKey string
 var WaitingLockKey string
-
-func SetCancelStatus(subscriptionId string, status bool) {
-	cancelMapMutex.Lock()
-	defer cancelMapMutex.Unlock()
-	subscriptionCancelMap[subscriptionId] = status
-}
-
-func GetCancelStatus(subscriptionId string) bool {
-	cancelMapMutex.RLock()
-	defer cancelMapMutex.RUnlock()
-	return subscriptionCancelMap[subscriptionId]
-}
 
 func Initialize() {
 	c := createNewHazelcastConfig()

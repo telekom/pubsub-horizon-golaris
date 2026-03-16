@@ -40,7 +40,7 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	var assertions = assert.New(t)
 
 	// Mock republishPendingEventsFunc
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+	republishPendingEventsFunc = func(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 		return nil
 	}
 
@@ -71,7 +71,7 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer test.ClearCaches()
 	var assertions = assert.New(t)
 
-	republishPendingEventsFunc = func(subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+	republishPendingEventsFunc = func(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
 		return nil
 	}
 
@@ -99,6 +99,8 @@ func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 }
 
 func TestRepublishEvents(t *testing.T) {
+	defer test.ClearCaches()
+
 	// Initialize mocks
 	mockMongo := new(test.MockMongoHandler)
 	mockKafka := new(test.MockKafkaHandler)
@@ -115,6 +117,13 @@ func TestRepublishEvents(t *testing.T) {
 
 	// Mock data
 	subscriptionId := "sub123"
+	ctx := context.Background()
+
+	// Set up RepublishingCache entry and lock it so cancellation check passes
+	cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	lockCtx := cache.RepublishingCache.NewLockContext(ctx)
+	cache.RepublishingCache.TryLockWithTimeout(lockCtx, subscriptionId, 100*time.Millisecond)
+	defer cache.RepublishingCache.Unlock(lockCtx, subscriptionId)
 
 	partitionValue1 := int32(1)
 	offsetValue1 := int64(100)
@@ -147,7 +156,7 @@ func TestRepublishEvents(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(lockCtx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
@@ -230,6 +239,8 @@ func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 }
 
 func TestRepublishEventsThrottled(t *testing.T) {
+	defer test.ClearCaches()
+
 	// Initialize mocks
 	mockMongo := new(test.MockMongoHandler)
 	mockKafka := new(test.MockKafkaHandler)
@@ -245,6 +256,13 @@ func TestRepublishEventsThrottled(t *testing.T) {
 	subscriptionId := "sub123"
 	numDbMessages := 50
 	redeliveriesPerSecond := 10
+	ctx := context.Background()
+
+	// Set up RepublishingCache entry and lock it so cancellation check passes
+	cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	lockCtx := cache.RepublishingCache.NewLockContext(ctx)
+	cache.RepublishingCache.TryLockWithTimeout(lockCtx, subscriptionId, 100*time.Millisecond)
+	defer cache.RepublishingCache.Unlock(lockCtx, subscriptionId)
 
 	// Set configurations for the test
 	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
@@ -275,7 +293,7 @@ func TestRepublishEventsThrottled(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(lockCtx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
@@ -284,6 +302,8 @@ func TestRepublishEventsThrottled(t *testing.T) {
 }
 
 func TestRepublishEventsUnThrottled(t *testing.T) {
+	defer test.ClearCaches()
+
 	// Initialize mocks
 	mockMongo := new(test.MockMongoHandler)
 	mockKafka := new(test.MockKafkaHandler)
@@ -299,6 +319,13 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 	subscriptionId := "sub124"
 	numDbMessages := 50
 	redeliveriesPerSecond := 0
+	ctx := context.Background()
+
+	// Set up RepublishingCache entry and lock it so cancellation check passes
+	cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	lockCtx := cache.RepublishingCache.NewLockContext(ctx)
+	cache.RepublishingCache.TryLockWithTimeout(lockCtx, subscriptionId, 100*time.Millisecond)
+	defer cache.RepublishingCache.Unlock(lockCtx, subscriptionId)
 
 	// Set configurations for the test
 	config.Current.Republishing.BatchSize = int64(numDbMessages + 1)
@@ -329,10 +356,110 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 		},
 	}
 
-	RepublishPendingEvents(subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	RepublishPendingEvents(lockCtx, subscription, RepublishingCacheEntry{SubscriptionId: subscriptionId})
 
 	// Assertions
 	mockMongo.AssertExpectations(t)
 	mockKafka.AssertExpectations(t)
 	mockPicker.AssertExpectations(t)
+}
+
+func TestForceDeleteStopsConcurrentGoroutinesViaContainsKey(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	subscriptionId := "test-concurrent-cancel"
+	ctx := context.Background()
+
+	// Set up RepublishingCache entry
+	republishingCacheEntry := RepublishingCacheEntry{
+		SubscriptionId:   subscriptionId,
+		RepublishingUpTo: time.Now(),
+	}
+	err := cache.RepublishingCache.Set(ctx, subscriptionId, republishingCacheEntry)
+	assertions.NoError(err)
+
+	// Channels to track goroutine cancellation detection
+	goroutine1Cancelled := make(chan bool, 1)
+	goroutine2Cancelled := make(chan bool, 1)
+
+	// Simulate long-running processing that checks ContainsKey per batch
+	simulateRepublishing := func(cancelledCh chan bool) {
+		for {
+			exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
+			if err != nil {
+				cancelledCh <- false
+				return
+			}
+			if !exists {
+				cancelledCh <- true
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// Start two goroutines simulating two replicas processing the same subscription
+	go simulateRepublishing(goroutine1Cancelled)
+	go simulateRepublishing(goroutine2Cancelled)
+
+	// Give goroutines time to start and perform initial ContainsKey checks
+	time.Sleep(200 * time.Millisecond)
+
+	// ForceDelete the entry (simulating cancellation from another replica)
+	err = ForceDelete(ctx, subscriptionId)
+	assertions.NoError(err)
+
+	// Verify both goroutines detect cancellation via ContainsKey returning false
+	select {
+	case cancelled := <-goroutine1Cancelled:
+		assertions.True(cancelled, "goroutine 1 should detect cancellation via ContainsKey")
+	case <-time.After(5 * time.Second):
+		assertions.Fail("goroutine 1 did not detect cancellation within timeout")
+	}
+
+	select {
+	case cancelled := <-goroutine2Cancelled:
+		assertions.True(cancelled, "goroutine 2 should detect cancellation via ContainsKey")
+	case <-time.After(5 * time.Second):
+		assertions.Fail("goroutine 2 did not detect cancellation within timeout")
+	}
+
+	// Verify entry is gone
+	assertions.False(cache.RepublishingCache.ContainsKey(ctx, subscriptionId))
+}
+
+func TestForceDeleteCancelsViaLockCheck(t *testing.T) {
+	defer test.ClearCaches()
+	var assertions = assert.New(t)
+
+	subscriptionId := "test-lock-cancel"
+	ctx := cache.RepublishingCache.NewLockContext(context.Background())
+
+	// Set up entry and acquire lock (simulating HandleRepublishingEntry)
+	err := cache.RepublishingCache.Set(ctx, subscriptionId, RepublishingCacheEntry{SubscriptionId: subscriptionId})
+	assertions.NoError(err)
+	acquired, err := cache.RepublishingCache.TryLockWithTimeout(ctx, subscriptionId, 100*time.Millisecond)
+	assertions.True(acquired)
+	assertions.NoError(err)
+
+	// Entry exists and is locked — the check in RepublishPendingEvents should pass
+	exists, err := cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
+	assertions.NoError(err)
+	assertions.True(exists)
+	locked, err := cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	assertions.NoError(err)
+	assertions.True(locked)
+
+	// ForceDelete removes the lock and entry
+	err = ForceDelete(ctx, subscriptionId)
+	assertions.NoError(err)
+
+	// After ForceDelete: entry gone AND lock gone
+	exists, err = cache.RepublishingCache.ContainsKey(ctx, subscriptionId)
+	assertions.NoError(err)
+	assertions.False(exists, "entry should be deleted")
+	locked, err = cache.RepublishingCache.IsLocked(ctx, subscriptionId)
+	assertions.NoError(err)
+	assertions.False(locked, "lock should be force-unlocked")
 }

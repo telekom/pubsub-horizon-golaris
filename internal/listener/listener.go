@@ -19,6 +19,11 @@ import (
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
+const (
+	lockAcquireTimeout = 100 * time.Millisecond
+	listenerLockLease  = 30 * time.Second
+)
+
 type SubscriptionListener struct{}
 
 var logger zerolog.Logger
@@ -40,6 +45,18 @@ func (sl *SubscriptionListener) OnAdd(event *hazelcast.EntryNotified, obj resour
 
 // OnUpdate handles the subscription resource update event.
 func (sl *SubscriptionListener) OnUpdate(event *hazelcast.EntryNotified, obj resource.SubscriptionResource, oldObj resource.SubscriptionResource) {
+	subscriptionId := obj.Spec.Subscription.SubscriptionId
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
+	lockKey := "listener:" + subscriptionId
+	if acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, listenerLockLease, lockAcquireTimeout); err != nil {
+		logger.Error().Err(err).Msgf("Error acquiring listener lock for subscriptionId %s", subscriptionId)
+		return
+	} else if !acquired {
+		logger.Debug().Msgf("Could not acquire listener lock for subscriptionId %s, skipping", subscriptionId)
+		return
+	}
+	defer cache.HandlerCache.Unlock(ctx, lockKey)
+
 	if obj.Spec.Subscription.DeliveryType == "callback" && (oldObj.Spec.Subscription.DeliveryType == "sse" || oldObj.Spec.Subscription.DeliveryType == "server_sent_event") {
 		handleDeliveryTypeChangeFromSSEToCallback(obj, oldObj)
 		return
@@ -74,6 +91,17 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 		return
 	}
 
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
+	lockKey := "listener:" + key
+	if acquired, err := cache.HandlerCache.TryLockWithLeaseAndTimeout(ctx, lockKey, listenerLockLease, lockAcquireTimeout); err != nil {
+		logger.Error().Err(err).Msgf("Error acquiring listener lock for subscriptionId %s on OnDelete", key)
+		return
+	} else if !acquired {
+		logger.Debug().Msgf("Could not acquire listener lock for subscriptionId %s on OnDelete, skipping", key)
+		return
+	}
+	defer cache.HandlerCache.Unlock(ctx, lockKey)
+
 	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), key)
 	if err != nil {
 		logger.Error().Msgf("failed with err: %v to get republishing cache", err)
@@ -85,7 +113,6 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on OnDelete", key)
 			return
 		}
-		cache.SetCancelStatus(key, true)
 	}
 }
 
@@ -113,11 +140,6 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 	}
 
 	if optionalEntry != nil {
-		logger.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
-
-		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
-
 		if err := republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId); err != nil {
 			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on handleDeliveryTypeChangeFromCallbackToSSE", obj.Spec.Subscription.SubscriptionId)
 			return
@@ -129,9 +151,6 @@ func handleDeliveryTypeChangeFromCallbackToSSE(obj resource.SubscriptionResource
 		time.Sleep(2 * time.Second)
 
 		logger.Debug().Msgf("Successfully set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
-
-		// Set cancel status to false to allow new goroutines to start
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
@@ -158,10 +177,6 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 	}
 
 	if optionalEntry != nil {
-		logger.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
-
 		if err := republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId); err != nil {
 			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on handleCallbackUrlChange", obj.Spec.Subscription.SubscriptionId)
 			return
@@ -172,9 +187,6 @@ func handleCallbackUrlChange(obj resource.SubscriptionResource, oldObj resource.
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
-
-		// Set cancel status to false to allow new goroutines to start
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 
 		logger.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)
@@ -193,12 +205,8 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 	}
 
 	if optionalEntry != nil {
-		logger.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
-
 		if err := republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId); err != nil {
-			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on handleRedeliveriesPerSecondChange", obj.Spec.Subscription.SubscriptionId)
+			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on handleCircuitBreakerOptOutChange", obj.Spec.Subscription.SubscriptionId)
 			return
 		}
 
@@ -208,9 +216,6 @@ func handleCircuitBreakerOptOutChange(obj resource.SubscriptionResource, oldObj 
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
-
-		// Set cancel status to false to allow new goroutines to start
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 	}
 
 	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, obj.Spec.Subscription.SubscriptionId)
@@ -236,10 +241,6 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 	}
 
 	if optionalEntry != nil {
-		logger.Debug().Msgf("Setting cancel map for subscription %s", obj.Spec.Subscription.SubscriptionId)
-		// Set cancel status to true to stop the current goroutine and prevent new goroutines from starting
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, true)
-
 		if err := republish.ForceDelete(context.Background(), obj.Spec.Subscription.SubscriptionId); err != nil {
 			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on handleRedeliveriesPerSecondChange", obj.Spec.Subscription.SubscriptionId)
 			return
@@ -251,9 +252,6 @@ func handleRedeliveriesPerSecondChange(obj resource.SubscriptionResource, oldObj
 
 		// We need to wait for the goroutine to finish before setting a new entry in the republishing cache
 		time.Sleep(2 * time.Second)
-
-		// Set cancel status to false to allow new goroutines to start
-		cache.SetCancelStatus(obj.Spec.Subscription.SubscriptionId, false)
 
 		logger.Info().Msgf("Start to set new entry to RepublishingCache for subscription %s", obj.Spec.Subscription.SubscriptionId)
 		setNewEntryToRepublishingCache(obj.Spec.Subscription.SubscriptionId, "", false)

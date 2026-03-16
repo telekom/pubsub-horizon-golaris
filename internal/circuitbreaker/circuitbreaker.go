@@ -185,7 +185,6 @@ func forceDeleteRepublishingEntry(ctx context.Context, subscriptionId string) er
 		}
 		if !republishCacheEntry.SubscriptionChange {
 			log.Debug().Msgf("RepublishingCacheEntry found for subscriptionId %s", subscriptionId)
-			cache.SetCancelStatus(subscriptionId, true)
 			if err := republish.ForceDelete(ctx, subscriptionId); err != nil {
 				return err
 			}
