@@ -105,13 +105,9 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 	optionalEntry, err := cache.RepublishingCache.Get(context.Background(), key)
 	if err != nil {
 		logger.Error().Msgf("failed with err: %v to get republishing cache", err)
-		return
-	}
-
-	if optionalEntry != nil {
+	} else if optionalEntry != nil {
 		if err := republish.ForceDelete(context.Background(), key); err != nil {
 			logger.Error().Err(err).Msgf("Failed to delete republishing cache entry for subscriptionId %s on OnDelete", key)
-			return
 		}
 	}
 

@@ -6,6 +6,7 @@ package listener
 
 import (
 	"context"
+	"fmt"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
@@ -317,6 +318,29 @@ func TestSubscriptionListener_OnDelete_DeletesCircuitBreakerAndRepublishing(t *t
 	listener.OnDelete(event)
 
 	republishMockMap.AssertCalled(t, "Delete", mock.Anything, subscriptionId)
+	circuitBreakerCache.AssertCalled(t, "Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+}
+
+func TestSubscriptionListener_OnDelete_CBCleanupProceedsWhenRepublishingFails(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+
+	republishMockMap, circuitBreakerCache := setupMocks()
+
+	// Republishing cache Get fails
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(nil, fmt.Errorf("hazelcast connection error"))
+
+	// Circuit breaker exists and should still be cleaned up
+	cbMessage := &message.CircuitBreakerMessage{
+		SubscriptionId: subscriptionId,
+		Status:         enum.CircuitBreakerStatusOpen,
+	}
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(cbMessage, nil)
+	circuitBreakerCache.On("Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil)
+
+	event := &hazelcast.EntryNotified{Key: subscriptionId}
+	listener := &SubscriptionListener{}
+	listener.OnDelete(event)
+
 	circuitBreakerCache.AssertCalled(t, "Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
 }
 
