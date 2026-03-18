@@ -5,11 +5,13 @@
 package metrics
 
 import (
+	"fmt"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 
+	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -17,9 +19,6 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
-
-// Fix 2: PopulateFromCache should only load OPEN circuit breakers, not all.
-// Currently it uses predicate.True() which loads stale CLOSED entries too.
 
 func resetMetrics() {
 	registry = prometheus.NewRegistry()
@@ -48,8 +47,9 @@ func TestPopulateFromCache_OnlyOpenCircuitBreakers(t *testing.T) {
 		EventType:      "test.event.v1",
 		Environment:    "integration",
 	}
-	// After fix, PopulateFromCache uses predicate.Equal("status", "OPEN") so only open CBs are returned.
-	cbCache.On("GetQuery", config.Current.Hazelcast.Caches.CircuitBreakerCache, mock.Anything).
+	cbCache.On("GetQuery", config.Current.Hazelcast.Caches.CircuitBreakerCache, mock.MatchedBy(func(p interface{}) bool {
+		return fmt.Sprintf("%v", p) == fmt.Sprintf("%v", predicate.Equal("status", string(enum.CircuitBreakerStatusOpen)))
+	})).
 		Return([]message.CircuitBreakerMessage{openCB}, nil)
 
 	subscription := &resource.SubscriptionResource{
@@ -107,8 +107,9 @@ func TestPopulateFromCache_OrphanedCBGetsUnknownSubscriberId(t *testing.T) {
 		Environment:    "playground",
 	}
 
-	cbCache.On("GetQuery", config.Current.Hazelcast.Caches.CircuitBreakerCache, mock.Anything).
-		Return([]message.CircuitBreakerMessage{orphanedCB}, nil)
+	cbCache.On("GetQuery", config.Current.Hazelcast.Caches.CircuitBreakerCache, mock.MatchedBy(func(p interface{}) bool {
+		return fmt.Sprintf("%v", p) == fmt.Sprintf("%v", predicate.Equal("status", string(enum.CircuitBreakerStatusOpen)))
+	})).Return([]message.CircuitBreakerMessage{orphanedCB}, nil)
 
 	// Subscription doesn't exist (deleted)
 	subCache.On("Get", config.Current.Hazelcast.Caches.SubscriptionCache, "orphaned-sub-id").Return((*resource.SubscriptionResource)(nil), nil)

@@ -17,10 +17,7 @@ import (
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
-// Fix 3: populateCircuitBreakerResponse has a nil pointer dereference on line 129
-// when the subscription is not found. It accesses subscription.Spec without nil check.
-
-func TestMakeCircuitBreakerResponse_PanicsWhenSubscriptionNil(t *testing.T) {
+func TestMakeCircuitBreakerResponse_NoPanicWhenSubscriptionNil(t *testing.T) {
 	config.Current = test.BuildTestConfig()
 
 	subCache := new(test.SubscriptionMockCache)
