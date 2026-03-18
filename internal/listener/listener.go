@@ -114,6 +114,17 @@ func (sl *SubscriptionListener) OnDelete(event *hazelcast.EntryNotified) {
 			return
 		}
 	}
+
+	cbMessage, err := cache.CircuitBreakerCache.Get(config.Current.Hazelcast.Caches.CircuitBreakerCache, key)
+	if err != nil {
+		logger.Error().Err(err).Msgf("Failed to get circuit breaker for subscriptionId %s on OnDelete", key)
+		return
+	}
+	if cbMessage != nil {
+		if err := cache.CircuitBreakerCache.Delete(config.Current.Hazelcast.Caches.CircuitBreakerCache, key); err != nil {
+			logger.Error().Err(err).Msgf("Failed to delete circuit breaker for subscriptionId %s on OnDelete", key)
+		}
+	}
 }
 
 // OnError handles any errors encountered by SubscriptionListener.
