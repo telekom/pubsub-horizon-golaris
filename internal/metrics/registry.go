@@ -53,9 +53,8 @@ func PopulateFromCache() {
 	}
 
 	for _, circuitBreaker := range circuitBreakers {
-		var open = circuitBreaker.Status == enum.CircuitBreakerStatusOpen
 		var subscriberId = lookupSubscriberId(circuitBreaker.SubscriptionId)
-		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, open)
+		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, true)
 	}
 }
 
