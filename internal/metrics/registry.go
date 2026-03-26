@@ -47,15 +47,14 @@ func recordCircuitBreaker(subscriptionId string, subscriberId string, eventType 
 
 func PopulateFromCache() {
 	var cbc = cache.CircuitBreakerCache
-	circuitBreakers, err := cbc.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, predicate.True())
+	circuitBreakers, err := cbc.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, predicate.Equal("status", string(enum.CircuitBreakerStatusOpen)))
 	if err != nil {
 		log.Warn().Err(err).Msg("could initialize metrics from circuit-breakers map")
 	}
 
 	for _, circuitBreaker := range circuitBreakers {
-		var open = circuitBreaker.Status == enum.CircuitBreakerStatusOpen
 		var subscriberId = lookupSubscriberId(circuitBreaker.SubscriptionId)
-		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, open)
+		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, true)
 	}
 }
 

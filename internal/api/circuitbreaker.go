@@ -118,12 +118,17 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 		log.Warn().Fields(map[string]any{
 			"subscriptionId": res.SubscriptionId,
 		}).Msg("could not populate circuit-breaker response with subscription data")
-	} else {
-		if subscription != nil {
-			res.SubscriberId = subscription.Spec.Subscription.SubscriberId
-			res.PublisherId = subscription.Spec.Subscription.PublisherId
-		}
+		return
 	}
+	if subscription == nil {
+		log.Warn().Fields(map[string]any{
+			"subscriptionId": res.SubscriptionId,
+		}).Msg("subscription not found, skipping circuit-breaker response population")
+		return
+	}
+
+	res.SubscriberId = subscription.Spec.Subscription.SubscriberId
+	res.PublisherId = subscription.Spec.Subscription.PublisherId
 
 	var healthCheckCache = cache.HealthCheckCache.(*hazelcast.Map)
 	var healthCheckMethod = utils.IfThenElse(subscription.Spec.Subscription.EnforceGetHealthCheck, fiber.MethodGet, fiber.MethodHead)
@@ -135,9 +140,8 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 			"subscriptionId": res.SubscriptionId,
 		}).Err(err).Msg("could not populate circuit-breaker response with healthcheck data")
 		return
-	} else {
-		if healthCheck != nil {
-			res.HealthCheck = healthCheck.(healthcheck.HealthCheckCacheEntry)
-		}
+	}
+	if healthCheck != nil {
+		res.HealthCheck = healthCheck.(healthcheck.HealthCheckCacheEntry)
 	}
 }

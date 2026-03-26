@@ -6,6 +6,7 @@ package listener
 
 import (
 	"context"
+	"fmt"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
@@ -250,7 +251,7 @@ func TestHandleDeliveryTypeChangeFromSSEToCallback_NoRepublishingEntry(t *testin
 func TestSubscriptionListener_OnDelete(t *testing.T) {
 	subscriptionId := "test-subscription-id"
 
-	republishMockMap, _ := setupMocks()
+	republishMockMap, circuitBreakerCache := setupMocks()
 	mockEntry := &republish.RepublishingCacheEntry{SubscriptionId: subscriptionId}
 	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(mockEntry, nil)
 	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
@@ -258,10 +259,105 @@ func TestSubscriptionListener_OnDelete(t *testing.T) {
 	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
 	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
 
+	// No circuit breaker for this subscription
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil, nil)
+
 	event := &hazelcast.EntryNotified{Key: subscriptionId}
 	listener := &SubscriptionListener{}
 	listener.OnDelete(event)
 
 	republishMockMap.AssertCalled(t, "Get", mock.Anything, subscriptionId)
 	republishMockMap.AssertCalled(t, "Delete", mock.Anything, subscriptionId)
+}
+
+func TestSubscriptionListener_OnDelete_DeletesCircuitBreaker(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+
+	republishMockMap, circuitBreakerCache := setupMocks()
+
+	// No republishing entry
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(nil, nil)
+
+	// Circuit breaker exists for this subscription
+	cbMessage := &message.CircuitBreakerMessage{
+		SubscriptionId: subscriptionId,
+		Status:         enum.CircuitBreakerStatusOpen,
+	}
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(cbMessage, nil)
+	circuitBreakerCache.On("Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil)
+
+	event := &hazelcast.EntryNotified{Key: subscriptionId}
+	listener := &SubscriptionListener{}
+	listener.OnDelete(event)
+
+	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+	circuitBreakerCache.AssertCalled(t, "Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+}
+
+func TestSubscriptionListener_OnDelete_DeletesCircuitBreakerAndRepublishing(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+
+	republishMockMap, circuitBreakerCache := setupMocks()
+
+	// Both republishing and circuit breaker entries exist
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(&republish.RepublishingCacheEntry{SubscriptionId: subscriptionId}, nil)
+	republishMockMap.On("IsLocked", mock.Anything, subscriptionId).Return(true, nil)
+	republishMockMap.On("ForceUnlock", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("Delete", mock.Anything, subscriptionId).Return(nil)
+	republishMockMap.On("NewLockContext", mock.Anything).Return(context.Background())
+
+	cbMessage := &message.CircuitBreakerMessage{
+		SubscriptionId: subscriptionId,
+		Status:         enum.CircuitBreakerStatusClosed,
+	}
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(cbMessage, nil)
+	circuitBreakerCache.On("Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil)
+
+	event := &hazelcast.EntryNotified{Key: subscriptionId}
+	listener := &SubscriptionListener{}
+	listener.OnDelete(event)
+
+	republishMockMap.AssertCalled(t, "Delete", mock.Anything, subscriptionId)
+	circuitBreakerCache.AssertCalled(t, "Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+}
+
+func TestSubscriptionListener_OnDelete_CBCleanupProceedsWhenRepublishingFails(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+
+	republishMockMap, circuitBreakerCache := setupMocks()
+
+	// Republishing cache Get fails
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(nil, fmt.Errorf("hazelcast connection error"))
+
+	// Circuit breaker exists and should still be cleaned up
+	cbMessage := &message.CircuitBreakerMessage{
+		SubscriptionId: subscriptionId,
+		Status:         enum.CircuitBreakerStatusOpen,
+	}
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(cbMessage, nil)
+	circuitBreakerCache.On("Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil)
+
+	event := &hazelcast.EntryNotified{Key: subscriptionId}
+	listener := &SubscriptionListener{}
+	listener.OnDelete(event)
+
+	circuitBreakerCache.AssertCalled(t, "Delete", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+}
+
+func TestSubscriptionListener_OnDelete_NoCBEntry(t *testing.T) {
+	subscriptionId := "test-subscription-id"
+
+	republishMockMap, circuitBreakerCache := setupMocks()
+
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(nil, nil)
+
+	// No circuit breaker exists
+	circuitBreakerCache.On("Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId).Return(nil, nil)
+
+	event := &hazelcast.EntryNotified{Key: subscriptionId}
+	listener := &SubscriptionListener{}
+	listener.OnDelete(event)
+
+	circuitBreakerCache.AssertCalled(t, "Get", config.Current.Hazelcast.Caches.CircuitBreakerCache, subscriptionId)
+	circuitBreakerCache.AssertNotCalled(t, "Delete", mock.Anything, mock.Anything)
 }
