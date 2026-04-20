@@ -14,7 +14,7 @@ require (
 	github.com/ory/dockertest/v3 v3.12.0
 	github.com/prometheus/client_golang v1.23.0
 	github.com/rs/zerolog v1.35.0
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	github.com/telekom/pubsub-horizon-go v0.0.0-20240819134043-281686d5002b
