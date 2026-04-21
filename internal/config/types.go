@@ -5,10 +5,11 @@
 package config
 
 import (
-	"eni.telekom.de/galileo/client/options"
+	"time"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"time"
+	"github.com/telekom/galileo-client-go/options"
 )
 
 type Configuration struct {

@@ -6,16 +6,17 @@ package notify
 
 import (
 	"context"
-	"eni.telekom.de/galileo/client/options"
-	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/utils"
 	"strings"
 	"time"
+
+	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/galileo-client-go/options"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 )
 
 type NotificationListener struct{}

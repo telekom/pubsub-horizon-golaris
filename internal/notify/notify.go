@@ -14,9 +14,9 @@ import (
 	"pubsub-horizon-golaris/internal/config"
 	"time"
 
-	"eni.telekom.de/galileo/client/galileo"
-	"eni.telekom.de/galileo/client/options"
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/galileo-client-go/galileo"
+	"github.com/telekom/galileo-client-go/options"
 )
 
 var CurrentSender *NotificationSender
