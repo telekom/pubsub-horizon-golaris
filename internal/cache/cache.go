@@ -111,7 +111,7 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 
 	RepublishingCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
-		return fmt.Errorf("error initializing RebublishingCache: %v", err)
+		return fmt.Errorf("error initializing RepublishingCache: %v", err)
 	}
 
 	HandlerCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HandlerCache)
@@ -121,7 +121,7 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 
 	NotificationSender, err = hazelcastClient.GetMap(context.Background(), "notificationSender")
 	if err != nil {
-		return fmt.Errorf("error initializing lock-cache for notification-sender")
+		return fmt.Errorf("error initializing lock-cache for notification-sender: %w", err)
 	}
 
 	return nil

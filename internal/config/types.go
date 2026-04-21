@@ -25,7 +25,6 @@ type Configuration struct {
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
 	Handlers       Handlers       `mapstructure:"handlers"`
-	Handler        Handler        `mapstructure:"handler"`
 	Notifications  Notifications  `mapstructure:"notifications"`
 }
 

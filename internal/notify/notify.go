@@ -71,7 +71,7 @@ func wait(ctx context.Context, d time.Duration) error {
 	}
 }
 
-// SendNotification sends a notifications based on the provided payload.
+// SendNotification sends a notification based on the provided payload.
 //
 // Parameters:
 // - ctx: The context for managing request deadlines and cancellations.
@@ -110,7 +110,7 @@ func (h *NotificationSender) SendNotification(ctx context.Context, opts *options
 
 		log.Warn().Err(err).Int("attempt", i+1).Msg("Notification send attempt failed")
 
-		/// If the last attempt failed, return an error.
+		// If the last attempt failed, return an error.
 		if i == cfg.MaxRetries {
 			log.Debug().Int("maxRetries", cfg.MaxRetries).Msg("Failed to send notification after all retry attempts")
 			return fmt.Errorf("failed to send notification after %d attempts: %w", cfg.MaxRetries, err)
@@ -170,14 +170,7 @@ func (h *NotificationSender) calculateBackoff(attempt int, backoffBase float64, 
 	return finalBackoff
 }
 
-// sendNotificationRequest sends a single notifications request to the Galileo client.
-//
-// Parameters:
-// - ctx: The context for managing request deadlines and cancellations.
-// - opts: The options applied to the notification request that is being sent to Galileo.
-//
-// Returns:
-// - An error if the request failed; nil otherwise.
+// sendNotificationRequest sends a single notification request to the Galileo client.
 func (h *NotificationSender) sendNotificationRequest(opts *options.NotifyOptions) error {
 	log.Debug().Msg("Sending notification request to Notification Service")
 	_, err := h.client.Notify(resolver, opts)
