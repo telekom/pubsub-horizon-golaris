@@ -7,6 +7,10 @@ package cache
 import (
 	"context"
 	"fmt"
+	"os"
+	"pubsub-horizon-golaris/internal/config"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/types"
@@ -16,9 +20,6 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/util"
-	"os"
-	"pubsub-horizon-golaris/internal/config"
-	"time"
 )
 
 type HazelcastMapInterface interface {
@@ -35,7 +36,7 @@ type HazelcastMapInterface interface {
 	Clear(ctx context.Context) error
 	Lock(ctx context.Context, key interface{}) error
 	TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error)
-	TryLockWithLease(ctx context.Context, key interface{}, duration time.Duration) (bool, error)
+	TryLockWithLease(ctx context.Context, key interface{}, lease time.Duration) (bool, error)
 }
 
 var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
@@ -45,11 +46,6 @@ var RepublishingCache HazelcastMapInterface
 var hazelcastClient *hazelcast.Client
 
 var HandlerCache HazelcastMapInterface
-var subscriptionCancelMap = make(map[string]bool)
-var cancelMapMutex sync.RWMutex
-
-var DeliveringHandler HazelcastMapInterface
-var FailedHandler HazelcastMapInterface
 var NotificationSender HazelcastMapInterface
 
 var DeliveringLockKey string
@@ -121,11 +117,6 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 	HandlerCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HandlerCache)
 	if err != nil {
 		return fmt.Errorf("error initializing DeliveringHandler: %v", err)
-	}
-
-	FailedHandler, err = hazelcastClient.GetMap(context.Background(), config.Current.Handler.Failed)
-	if err != nil {
-		return fmt.Errorf("error initializing FailedHandler: %v", err)
 	}
 
 	NotificationSender, err = hazelcastClient.GetMap(context.Background(), "notificationSender")

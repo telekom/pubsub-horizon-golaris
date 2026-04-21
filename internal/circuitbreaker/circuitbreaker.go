@@ -5,11 +5,7 @@
 package circuitbreaker
 
 import (
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
-	"github.com/telekom/pubsub-horizon-go/types"
+	"context"
 	"math"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
