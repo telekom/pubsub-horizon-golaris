@@ -6,6 +6,7 @@ package notify
 
 import (
 	"context"
+	"errors"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/utils"
@@ -133,6 +134,10 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, te
 				"$environment": cbMessage.Environment,
 				"$application": strings.Replace(subscription.Spec.Subscription.SubscriberId, label+"--", "", 1),
 			})
+
+			if cbMessage.LastOpened == nil {
+				return errors.New("lastOpened field of circuit breaker is nil")
+			}
 
 			notifyOpts := options.Notify().
 				SetParameters([]string{label}).
