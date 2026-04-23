@@ -90,9 +90,7 @@ func parseHazelcastLogLevel(logLevel string) zerolog.Level {
 	return hazelcastLogLevel
 }
 
-// initializeCaches sets up the Hazelcast caches used in the application.
-// It takes a Hazelcast configuration object as a parameter.
-// The function initializes the SubscriptionCache, CircuitBreakerCache, HealthCheckCache, and RepublishingCache.
+// initializeCaches sets up all Hazelcast caches used by the application.
 func initializeCaches(hzConfig hazelcast.Config) error {
 	var err error
 

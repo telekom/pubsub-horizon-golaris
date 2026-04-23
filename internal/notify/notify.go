@@ -36,7 +36,6 @@ type RetryConfig struct {
 type NotificationSender struct {
 	client      *galileo.Client
 	retryConfig RetryConfig
-	rand        *rand.Rand
 }
 
 func newNotificationSender(clientOpts *options.ClientOptions) *NotificationSender {
@@ -49,12 +48,9 @@ func newNotificationSender(clientOpts *options.ClientOptions) *NotificationSende
 		MaxBackoff:  1 * time.Minute,
 	}
 
-	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
-
 	return &NotificationSender{
 		client:      client,
 		retryConfig: defaultRetryConfig,
-		rand:        seededRand,
 	}
 }
 
@@ -113,7 +109,7 @@ func (h *NotificationSender) SendNotification(ctx context.Context, opts *options
 		// If the last attempt failed, return an error.
 		if i == cfg.MaxRetries {
 			log.Debug().Int("maxRetries", cfg.MaxRetries).Msg("Failed to send notification after all retry attempts")
-			return fmt.Errorf("failed to send notification after %d attempts: %w", cfg.MaxRetries, err)
+			return fmt.Errorf("failed to send notification after %d attempts: %w", cfg.MaxRetries+1, err)
 		}
 
 		// Calculate the backoff duration including jitter.
@@ -157,7 +153,7 @@ func (h *NotificationSender) calculateBackoff(attempt int, backoffBase float64, 
 	}
 
 	// Calculate jitter: random percentage between -25% and +25% of the base delay.
-	jitterPercent := h.rand.Float64()*0.5 - 0.25
+	jitterPercent := rand.Float64()*0.5 - 0.25
 	jitter := time.Duration(float64(baseDelay) * jitterPercent)
 
 	finalBackoff := baseDelay + jitter
@@ -172,10 +168,8 @@ func (h *NotificationSender) calculateBackoff(attempt int, backoffBase float64, 
 
 // sendNotificationRequest sends a single notification request to the Galileo client.
 func (h *NotificationSender) sendNotificationRequest(opts *options.NotifyOptions) error {
-	log.Debug().Msg("Sending notification request to Notification Service")
 	_, err := h.client.Notify(resolver, opts)
 	if err != nil {
-		log.Error().Err(err).Msg("Error sending notification request")
 		return fmt.Errorf("error sending notification: %w", err)
 	}
 

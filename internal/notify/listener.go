@@ -7,6 +7,7 @@ package notify
 import (
 	"context"
 	"errors"
+	"fmt"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/utils"
@@ -161,7 +162,7 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, te
 				SetSubject(subject)
 
 			if err := CurrentSender.SendNotification(context.Background(), notifyOpts); err != nil {
-				log.Error().Err(err).Msg("Could not send notification")
+				return fmt.Errorf("could not send notification for subscription %s: %w", cbMessage.SubscriptionId, err)
 			}
 		}
 	}
