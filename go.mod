@@ -7,7 +7,7 @@ require (
 	github.com/IBM/sarama v1.43.2
 	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
-	github.com/gofiber/fiber/v2 v2.52.12
+	github.com/gofiber/fiber/v2 v2.52.13
 	github.com/google/uuid v1.6.0
 	github.com/hazelcast/hazelcast-go-client v1.5.0
 	github.com/jarcoal/httpmock v1.4.0
