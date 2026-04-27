@@ -13,7 +13,7 @@ type MockWaitingHandler struct {
 }
 
 func (f *MockWaitingHandler) CheckWaitingEvents() {
-	return
+	
 }
 
 func (f *MockWaitingHandler) GetCircuitBreakerSubscriptionsMap() (map[string]struct{}, error) {
