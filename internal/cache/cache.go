@@ -7,6 +7,10 @@ package cache
 import (
 	"context"
 	"fmt"
+	"os"
+	"pubsub-horizon-golaris/internal/config"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/hazelcast/hazelcast-go-client/types"
@@ -16,9 +20,6 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/util"
-	"os"
-	"pubsub-horizon-golaris/internal/config"
-	"time"
 )
 
 type HazelcastMapInterface interface {
@@ -35,6 +36,7 @@ type HazelcastMapInterface interface {
 	Clear(ctx context.Context) error
 	Lock(ctx context.Context, key interface{}) error
 	TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error)
+	TryLockWithLease(ctx context.Context, key interface{}, lease time.Duration) (bool, error)
 }
 
 var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
@@ -44,6 +46,7 @@ var RepublishingCache HazelcastMapInterface
 var hazelcastClient *hazelcast.Client
 
 var HandlerCache HazelcastMapInterface
+var NotificationSender HazelcastMapInterface
 
 var DeliveringLockKey string
 var FailedLockKey string
@@ -87,9 +90,7 @@ func parseHazelcastLogLevel(logLevel string) zerolog.Level {
 	return hazelcastLogLevel
 }
 
-// initializeCaches sets up the Hazelcast caches used in the application.
-// It takes a Hazelcast configuration object as a parameter.
-// The function initializes the SubscriptionCache, CircuitBreakerCache, HealthCheckCache, and RepublishingCache.
+// initializeCaches sets up all Hazelcast caches used by the application.
 func initializeCaches(hzConfig hazelcast.Config) error {
 	var err error
 
@@ -108,12 +109,17 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 
 	RepublishingCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
-		return fmt.Errorf("error initializing RebublishingCache: %v", err)
+		return fmt.Errorf("error initializing RepublishingCache: %v", err)
 	}
 
 	HandlerCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HandlerCache)
 	if err != nil {
 		return fmt.Errorf("error initializing DeliveringHandler: %v", err)
+	}
+
+	NotificationSender, err = hazelcastClient.GetMap(context.Background(), "notificationSender")
+	if err != nil {
+		return fmt.Errorf("error initializing lock-cache for notification-sender: %w", err)
 	}
 
 	return nil

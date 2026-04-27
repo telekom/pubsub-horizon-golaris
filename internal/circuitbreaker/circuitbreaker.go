@@ -111,7 +111,6 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 	}
 
 	log.Debug().Msgf("Successfully processed open CircuitBreaker entry for subscriptionId %s", cbMessage.SubscriptionId)
-	return
 }
 
 // checkForCircuitBreakerLoop evaluates the circuit breaker's last opened timestamp against the configured loop detection period.
@@ -140,6 +139,7 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s with loop detection result: %v", cbMessage.SubscriptionId, err)
 		return err
 	}
+
 	return nil
 }
 

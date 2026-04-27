@@ -107,6 +107,23 @@ func setDefaults() {
 	viper.SetDefault("handlers.waiting.initialDelay", "15s")
 	viper.SetDefault("handlers.waiting.minMessageAge", "1m")
 	viper.SetDefault("handlers.waiting.maxMessageAge", "24h")
+	
+	// Notifications
+	viper.SetDefault("notifications.enabled", false)
+	viper.SetDefault("notifications.baseUrl", "https://galileo.example.com")
+	viper.SetDefault("notifications.loopModulo", 25)
+
+	viper.SetDefault("notifications.mail.subject.openCircuitBreaker", "Open circuit-breaker")
+	viper.SetDefault("notifications.mail.subject.loopDetected", "Loop detected")
+	viper.SetDefault("notifications.mail.senderName", "Golaris")
+	viper.SetDefault("notifications.mail.sender", "golaris@horizon.example.com")
+	viper.SetDefault("notifications.mail.templates.openCircuitBreaker", "golaris_circuit_breaker.tmpl")
+	viper.SetDefault("notifications.mail.templates.loopDetected", "golaris_loop.tmpl")
+
+	viper.SetDefault("notifications.auth.enabled", true)
+	viper.SetDefault("notifications.auth.issuer", "https://idp.example.com/token")
+	viper.SetDefault("notifications.auth.clientId", "clientId")
+	viper.SetDefault("notifications.auth.clientSecret", "clientSecret")
 }
 
 func readConfiguration() *Configuration {

@@ -6,6 +6,10 @@ package config
 
 import (
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/galileo-client-go/options"
 )
 
 type Configuration struct {
@@ -21,6 +25,7 @@ type Configuration struct {
 	Security       Security       `mapstructure:"security"`
 	Tracing        Tracing        `mapstructure:"tracing"`
 	Handlers       Handlers       `mapstructure:"handlers"`
+	Notifications  Notifications  `mapstructure:"notifications"`
 }
 
 type CircuitBreaker struct {
@@ -105,4 +110,45 @@ type WaitingHandler struct {
 	InitialDelay  time.Duration `mapstructure:"initialDelay"`
 	MinMessageAge time.Duration `mapstructure:"minMessageAge"`
 	MaxMessageAge time.Duration `mapstructure:"maxMessageAge"`
+}
+
+type Notifications struct {
+	Enabled    bool   `mapstructure:"enabled"`
+	BaseUrl    string `mapstructure:"baseUrl"`
+	LoopModulo int    `mapstructure:"loopModulo"`
+	Mail       struct {
+		Subject struct {
+			OpenCircuitBreaker string `mapstructure:"openCircuitBreaker"`
+			LoopDetected       string `mapstructure:"loopDetected"`
+		} `mapstructure:"subject"`
+		Sender     string `mapstructure:"sender"`
+		SenderName string `mapstructure:"senderName"`
+		Templates  struct {
+			OpenCircuitBreaker string `mapstructure:"openCircuitBreaker"`
+			LoopDetected       string `mapstructure:"loopDetected"`
+		} `mapstructure:"templates"`
+	} `mapstructure:"mail"`
+	Auth struct {
+		Enabled      bool   `mapstructure:"enabled"`
+		Issuer       string `mapstructure:"issuer"`
+		ClientId     string `mapstructure:"clientId"`
+		ClientSecret string `mapstructure:"clientSecret"`
+	} `mapstructure:"auth"`
+}
+
+func (n Notifications) Options() *options.ClientOptions {
+	var opts = options.Client().
+		SetBaseUrl(n.BaseUrl).
+		SetDebug(log.Logger.GetLevel() == zerolog.DebugLevel).
+		SetDryRun(false).
+		SetTimeout(30 * time.Second).
+		WithAuth(
+			options.Auth().
+				SetEnabled(n.Auth.Enabled).
+				SetIssuer(n.Auth.Issuer).
+				SetClientId(n.Auth.ClientId).
+				SetClientSecret(n.Auth.ClientSecret),
+		)
+
+	return opts
 }

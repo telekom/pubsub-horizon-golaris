@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//go:build testing
+
 package test
 
 import (
@@ -27,6 +29,11 @@ func (r *RepublishingMockMap) Set(ctx context.Context, key interface{}, value in
 
 func (r *RepublishingMockMap) TryLockWithTimeout(ctx context.Context, key interface{}, timeout time.Duration) (bool, error) {
 	args := r.Called(ctx, key, timeout)
+	return args.Bool(0), args.Error(1)
+}
+
+func (r *RepublishingMockMap) TryLockWithLease(ctx context.Context, key interface{}, duration time.Duration) (bool, error) {
+	args := r.Called(ctx, key, duration)
 	return args.Bool(0), args.Error(1)
 }
 

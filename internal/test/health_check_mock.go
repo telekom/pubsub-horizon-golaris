@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//go:build testing
+
 package test
 
 import (
@@ -71,6 +73,16 @@ func (h *HealthCheckMockMap) Lock(ctx context.Context, key interface{}) error {
 }
 
 func (h *HealthCheckMockMap) TryLockWithTimeout(ctx context.Context, key interface{}, timeout time.Duration) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HealthCheckMockMap) TryLockWithLease(ctx context.Context, key interface{}, lease time.Duration) (bool, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (h *HealthCheckMockMap) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error) {
 	//TODO implement me
 	panic("implement me")
 }

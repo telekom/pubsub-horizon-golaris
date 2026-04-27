@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+//go:build testing
+
 package test
 
 import "github.com/stretchr/testify/mock"
@@ -11,7 +13,7 @@ type MockWaitingHandler struct {
 }
 
 func (f *MockWaitingHandler) CheckWaitingEvents() {
-	return
+	
 }
 
 func (f *MockWaitingHandler) GetCircuitBreakerSubscriptionsMap() (map[string]struct{}, error) {
