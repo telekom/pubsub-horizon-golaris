@@ -17,7 +17,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
-	github.com/telekom/galileo-client-go v0.0.0-20260326124126-5c3c71d68d31
+	github.com/telekom/galileo-client-go v1.0.0
 	github.com/telekom/pubsub-horizon-go v1.1.5
 	go.mongodb.org/mongo-driver v1.17.9
 	go.opentelemetry.io/contrib/propagators/b3 v1.43.0

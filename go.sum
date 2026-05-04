@@ -272,8 +272,8 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/syndtr/goleveldb v1.0.0 h1:fBdIW9lB4Iz0n9khmH8w27SJ3QEJ7+IgjPEwGSZiFdE=
 github.com/syndtr/goleveldb v1.0.0/go.mod h1:ZVVdQEZoIme9iO1Ch2Jdy24qqXrMMOU6lpPAyBWyWuQ=
-github.com/telekom/galileo-client-go v0.0.0-20260326124126-5c3c71d68d31 h1:eqGT1bEkqIDxFNnzQKNlHbgauOOD5bNOROtghC6rzJ0=
-github.com/telekom/galileo-client-go v0.0.0-20260326124126-5c3c71d68d31/go.mod h1:2PhktcS1PM/zoIhbw1pNG7cqypNrrGvIGUuX7Uq8zUU=
+github.com/telekom/galileo-client-go v1.0.0 h1:ttDvmsTlAMlfIOD3QRDfFVewWr60bLkHPQXScGnaxU8=
+github.com/telekom/galileo-client-go v1.0.0/go.mod h1:2PhktcS1PM/zoIhbw1pNG7cqypNrrGvIGUuX7Uq8zUU=
 github.com/telekom/pubsub-horizon-go v1.1.5 h1:pu5n8pZ74wNx2EDAZTctW93+HfmeZ6gIdrkfPSoFJk4=
 github.com/telekom/pubsub-horizon-go v1.1.5/go.mod h1:HLfHbGpLJGb3vjAgmQAcfPsaHuZ4jGr11bmNPOVUMng=
 github.com/tklauser/go-sysconf v0.3.16 h1:frioLaCQSsF5Cy1jgRBrzr6t502KIIwQ0MArYICU0nA=
