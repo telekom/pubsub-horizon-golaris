@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/1pkg/gohalt v0.10.0
-	github.com/IBM/sarama v1.48.0
+	github.com/IBM/sarama v1.48.1
 	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/fiber/v2 v2.52.13
@@ -69,7 +69,7 @@ require (
 	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.18.5 // indirect
+	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/lovoo/goka v1.1.16 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260330125221-c963978e514e // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
@@ -132,12 +132,12 @@ require (
 	go.uber.org/mock v0.6.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.50.0 // indirect
-	golang.org/x/net v0.53.0 // indirect
+	golang.org/x/crypto v0.51.0 // indirect
+	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/text v0.36.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/text v0.37.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260420184626-e10c466a9529 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260420184626-e10c466a9529 // indirect
 	google.golang.org/grpc v1.80.0 // indirect
