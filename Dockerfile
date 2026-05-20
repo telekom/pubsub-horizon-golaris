@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-FROM golang:1.23-alpine AS build
+FROM golang:1.26-alpine AS build
 ARG GOPROXY
 ARG GONOSUMDB
 ENV GOPROXY=$GOPROXY
