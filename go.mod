@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/1pkg/gohalt v0.10.0
-	github.com/IBM/sarama v1.48.1
+	github.com/IBM/sarama v1.49.0
 	github.com/burdiyan/kafkautil v0.0.0-20240215092415-7e6d3d0fc870
 	github.com/go-co-op/gocron v1.37.0
 	github.com/gofiber/fiber/v2 v2.52.13
