@@ -20,6 +20,8 @@ jobs:
 
   lint:
     uses: telekom/pubsub-horizon-ci/.github/workflows/golangci-lint.yml@main
+    with:
+      args: "--build-tags=testing"
 
   reuse:
     uses: telekom/pubsub-horizon-ci/.github/workflows/reuse-compliance.yml@main
