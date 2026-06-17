@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Deutsche Telekom AG
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    uses: telekom/pubsub-horizon-ci/.github/workflows/go-test.yml@main
+    with:
+      test-tags: "testing"
+      test-flags: "-v -p 1"
+
+  lint:
+    uses: telekom/pubsub-horizon-ci/.github/workflows/golangci-lint.yml@main
+
+  reuse:
+    uses: telekom/pubsub-horizon-ci/.github/workflows/reuse-compliance.yml@main
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build, lint]
+    uses: telekom/pubsub-horizon-ci/.github/workflows/docker-publish.yml@main
+    with:
+      component: golaris
+      language: go
+    secrets:
+      REGISTRY_USERNAME: ${{ secrets.ARTIFACTORY_O28M_PUSH_USER }}
+      REGISTRY_PASSWORD: ${{ secrets.ARTIFACTORY_O28M_PUSH_TOKEN }}
