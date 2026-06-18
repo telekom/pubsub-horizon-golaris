@@ -8,12 +8,6 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
-	"github.com/1pkg/gohalt"
-	"github.com/IBM/sarama"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
-	"github.com/telekom/pubsub-horizon-go/tracing"
 	"net"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -21,6 +15,13 @@ import (
 	"pubsub-horizon-golaris/internal/mongo"
 	"strings"
 	"time"
+
+	"github.com/1pkg/gohalt"
+	"github.com/IBM/sarama"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 )
 
 var ErrCancelled = errors.New("republishing cancelled")
@@ -32,19 +33,25 @@ func init() {
 	gob.Register(RepublishingCacheEntry{})
 }
 
-func createThrottler(redeliveriesPerSecond int, deliveryType string, subscriptionId string) gohalt.Throttler {
+func createThrottler(redeliveriesPerSecond int, deliveryType, subscriptionId string) gohalt.Throttler {
 	if deliveryType == "sse" || deliveryType == "server_sent_event" || redeliveriesPerSecond <= 0 {
-		log.Debug().Msgf("Throttling disabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
+		log.Debug().
+			Msgf("Throttling disabled for subscription %s with delivery type %s "+
+				"and redeliveries per second %d",
+				subscriptionId, deliveryType, redeliveriesPerSecond)
 		return gohalt.NewThrottlerEcho(nil)
 	}
-	log.Info().Msgf("Throttling enabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
+	log.Info().
+		Msgf("Throttling enabled for subscription %s with delivery type %s "+
+			"and redeliveries per second %d",
+			subscriptionId, deliveryType, redeliveriesPerSecond)
 	return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), config.Current.Republishing.ThrottlingIntervalTime, 0)
 }
 
 // HandleRepublishingEntry manages the republishing process for a given subscription.
 // The function takes a SubscriptionResource object as a parameter.
 func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
-	var acquired = false
+	acquired := false
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())
 	subscriptionId := subscription.Spec.Subscription.SubscriptionId
 
@@ -107,7 +114,9 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
+		log.Error().
+			Err(err).
+			Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
 	}
 
@@ -160,11 +169,10 @@ func isCancelled(ctx context.Context, subscriptionId string, fatal bool) (bool, 
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 func RepublishPendingEvents(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
-	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
+	subscriptionId := subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
-
 	// Returning an error results in NOT deleting the republishingEntry from the cache
 	// so that the republishing job will get retried shortly
 	if err != nil {
@@ -177,8 +185,12 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 
 	batchSize := config.Current.Republishing.BatchSize
 
-	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
-	defer throttler.Release(context.Background())
+	throttler := createThrottler(
+		subscription.Spec.Subscription.RedeliveriesPerSecond,
+		string(subscription.Spec.Subscription.DeliveryType),
+		subscriptionId,
+	)
+	defer func() { _ = throttler.Release(context.Background()) }()
 
 	var lastTimestamp any
 	for {
@@ -192,7 +204,11 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 		var dbMessages []message.StatusMessage
 
 		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
-			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastTimestamp, subscriptionId)
+			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(
+				time.Now(),
+				lastTimestamp,
+				subscriptionId,
+			)
 			if err != nil {
 				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
 			}
@@ -212,7 +228,6 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 		}
 
 		for _, dbMessage := range dbMessages {
-
 			// Per-message ownership check (non-fatal: log and continue on error)
 			if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
 				return ErrCancelled
@@ -260,7 +275,7 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 					return err
 				}
 
-				var errorList = []error{
+				errorList := []error{
 					sarama.ErrEligibleLeadersNotAvailable,
 					sarama.ErrPreferredLeaderNotAvailable,
 					sarama.ErrUnknownLeaderEpoch,
@@ -279,8 +294,8 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 				continue
 			}
 
-			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+			b3Ctx := tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+			traceCtx := tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
 
 			traceCtx.StartSpan("republish message")
 			traceCtx.SetAttribute("component", "Horizon Golaris")

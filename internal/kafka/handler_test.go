@@ -6,10 +6,11 @@ package kafka
 
 import (
 	"errors"
+	"testing"
+
 	"github.com/IBM/sarama"
 	"github.com/IBM/sarama/mocks"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var mockHandler *Handler

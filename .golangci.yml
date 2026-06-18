@@ -143,21 +143,9 @@ issues:
 
 formatters:
   enable:
-    - gci
-    - gofmt
     - gofumpt
-    - goimports
     - golines
   settings:
-    gci:
-      no-inline-comments: true
-    gofmt:
-      simplify: true
-      rewrite-rules:
-        - pattern: 'interface{}'
-          replacement: 'any'
-        - pattern: 'a[b:len(a)]'
-          replacement: 'a[b:]'
     golines:
       max-len: 140
       tab-len: 1

@@ -137,7 +137,7 @@ type Notifications struct {
 }
 
 func (n Notifications) Options() *options.ClientOptions {
-	var opts = options.Client().
+	opts := options.Client().
 		SetBaseUrl(n.BaseUrl).
 		SetDebug(log.Logger.GetLevel() == zerolog.DebugLevel).
 		SetDryRun(false).

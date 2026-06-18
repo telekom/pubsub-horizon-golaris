@@ -7,18 +7,19 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/gofiber/fiber/v2"
-	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/hazelcast/hazelcast-go-client/predicate"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/healthcheck"
 	"pubsub-horizon-golaris/internal/republish"
 	"pubsub-horizon-golaris/internal/utils"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
 )
 
 type CircuitBreakerResponse struct {
@@ -40,7 +41,7 @@ func getAllCircuitBreakerMessages(ctx *fiber.Ctx) error {
 	}
 
 	// Build body with items wrapper
-	var body = struct {
+	body := struct {
 		Items []CircuitBreakerResponse `json:"items"`
 	}{make([]CircuitBreakerResponse, 0)}
 
@@ -63,7 +64,7 @@ func getCircuitBreakerMessageById(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
 	}
 
-	//add if cbMessage is nil, then return not found status code
+	// add if cbMessage is nil, then return not found status code
 	if cbMessage == nil {
 		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
 	}
@@ -83,7 +84,7 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 		return ctx.Status(fiber.StatusInternalServerError).SendString("Error retrieving circuit breaker message")
 	}
 
-	//add if cbMessage is nil, then return not found status code
+	// add if cbMessage is nil, then return not found status code
 	if cbMessage == nil {
 		return ctx.Status(fiber.StatusNotFound).SendString("Circuit breaker message not found for subscription-id " + subscriptionId)
 	}
@@ -107,7 +108,7 @@ func putCloseCircuitBreakerById(ctx *fiber.Ctx) error {
 }
 
 func makeCircuitBreakerResponse(cbMsg *message.CircuitBreakerMessage) CircuitBreakerResponse {
-	var resp = CircuitBreakerResponse{CircuitBreakerMessage: *cbMsg}
+	resp := CircuitBreakerResponse{CircuitBreakerMessage: *cbMsg}
 	populateCircuitBreakerResponse(&resp)
 	return resp
 }
@@ -130,9 +131,9 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 	res.SubscriberId = subscription.Spec.Subscription.SubscriberId
 	res.PublisherId = subscription.Spec.Subscription.PublisherId
 
-	var healthCheckCache = cache.HealthCheckCache.(*hazelcast.Map)
-	var healthCheckMethod = utils.IfThenElse(subscription.Spec.Subscription.EnforceGetHealthCheck, fiber.MethodGet, fiber.MethodHead)
-	var healthCheckKey = fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, healthCheckMethod, subscription.Spec.Subscription.Callback)
+	healthCheckCache := cache.HealthCheckCache.(*hazelcast.Map)
+	healthCheckMethod := utils.IfThenElse(subscription.Spec.Subscription.EnforceGetHealthCheck, fiber.MethodGet, fiber.MethodHead)
+	healthCheckKey := fmt.Sprintf("%s:%s:%s", subscription.Spec.Environment, healthCheckMethod, subscription.Spec.Subscription.Callback)
 
 	healthCheck, err := healthCheckCache.Get(context.Background(), healthCheckKey)
 	if err != nil {

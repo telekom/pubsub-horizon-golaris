@@ -5,10 +5,11 @@
 package log
 
 import (
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"os"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func SetLogLevel(level string) {
@@ -21,6 +22,8 @@ func SetLogLevel(level string) {
 	zerolog.TimeFieldFormat = time.RFC3339 // Set the time format to RFC3339 which includes seconds
 	log.Logger = zerolog.New(os.Stdout).Level(logLevel).With().Timestamp().Logger()
 	if logLevel == zerolog.DebugLevel {
-		log.Logger = log.Logger.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}) // Set the time format for the console writer as well
+		log.Logger = log.Logger.Output(
+			zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339},
+		) // Set the time format for the console writer as well
 	}
 }

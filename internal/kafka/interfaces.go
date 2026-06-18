@@ -10,5 +10,10 @@ import (
 )
 
 type HandlerInterface interface {
-	RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error
+	RepublishMessage(
+		traceCtx *tracing.TraceContext,
+		message *sarama.ConsumerMessage,
+		newDeliveryType, newCallbackUrl string,
+		errorParams bool,
+	) error
 }

@@ -6,14 +6,15 @@ package api
 
 import (
 	"context"
-	"github.com/gofiber/fiber/v2"
-	"github.com/hazelcast/hazelcast-go-client"
-	"github.com/hazelcast/hazelcast-go-client/predicate"
-	"github.com/rs/zerolog/log"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/healthcheck"
 	"pubsub-horizon-golaris/internal/utils"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/hazelcast/hazelcast-go-client"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/rs/zerolog/log"
 )
 
 type HealthCheckResponse struct {
@@ -22,14 +23,14 @@ type HealthCheckResponse struct {
 }
 
 func getAllHealthChecks(ctx *fiber.Ctx) error {
-	var healthStateCache = cache.HealthCheckCache.(*hazelcast.Map)
+	healthStateCache := cache.HealthCheckCache.(*hazelcast.Map)
 
 	values, err := healthStateCache.GetValues(context.Background())
 	if err != nil {
 		return err
 	}
 
-	var body = struct {
+	body := struct {
 		Items []HealthCheckResponse `json:"items"`
 	}{make([]HealthCheckResponse, 0)}
 
@@ -42,7 +43,7 @@ func getAllHealthChecks(ctx *fiber.Ctx) error {
 }
 
 func makeResponse(healthCheck *healthcheck.HealthCheckCacheEntry) HealthCheckResponse {
-	var res = HealthCheckResponse{HealthCheckCacheEntry: *healthCheck}
+	res := HealthCheckResponse{HealthCheckCacheEntry: *healthCheck}
 	populateHealthCheckResponse(&res)
 	return res
 }
@@ -58,7 +59,7 @@ func populateHealthCheckResponse(res *HealthCheckResponse) {
 	}
 
 	for _, subscription := range subscriptions {
-		var enforceGetRequest = utils.IfThenElse(res.Method == fiber.MethodGet, true, false)
+		enforceGetRequest := utils.IfThenElse(res.Method == fiber.MethodGet, true, false)
 		if enforceGetRequest == subscription.Spec.Subscription.EnforceGetHealthCheck {
 			res.SubscriptionIds = append(res.SubscriptionIds, subscription.Spec.Subscription.SubscriptionId)
 		}

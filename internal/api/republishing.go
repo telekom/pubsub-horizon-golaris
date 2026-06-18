@@ -6,19 +6,20 @@ package api
 
 import (
 	"context"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/republish"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/hazelcast/hazelcast-go-client"
 	"github.com/rs/zerolog/log"
-	"pubsub-horizon-golaris/internal/cache"
-	"pubsub-horizon-golaris/internal/republish"
 )
 
 func getRepublishingEntries(ctx *fiber.Ctx) error {
-	var body = struct {
+	body := struct {
 		Items []republish.RepublishingCacheEntry `json:"items"`
 	}{make([]republish.RepublishingCacheEntry, 0)}
 
-	var republishingCache = cache.RepublishingCache.(*hazelcast.Map)
+	republishingCache := cache.RepublishingCache.(*hazelcast.Map)
 	values, err := republishingCache.GetValues(context.Background())
 	if err != nil {
 		log.Error().Err(err).Msg("Could not retrieve republishing cache entries")

@@ -6,22 +6,25 @@ package scheduler
 
 import (
 	"context"
-	"github.com/go-co-op/gocron"
-	"github.com/hazelcast/hazelcast-go-client/predicate"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/circuitbreaker"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/handler"
 	"pubsub-horizon-golaris/internal/republish"
 	"time"
+
+	"github.com/go-co-op/gocron"
+	"github.com/hazelcast/hazelcast-go-client/predicate"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
-var scheduler *gocron.Scheduler
-var HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
-var HandleRepublishingEntryFunc = republish.HandleRepublishingEntry
+var (
+	scheduler                    *gocron.Scheduler
+	HandleOpenCircuitBreakerFunc = circuitbreaker.HandleOpenCircuitBreaker
+	HandleRepublishingEntryFunc  = republish.HandleRepublishingEntry
+)
 
 // StartScheduler initializes and starts the task scheduler. It schedules periodic tasks
 // for checking open circuit breakers and republishing entries based on the configured intervals.
@@ -64,7 +67,9 @@ func StartScheduler() {
 	// Schedule the task for checking messages stuck in state WAITING
 	if waitingHandler := config.Current.Handlers.Waiting; waitingHandler.Enabled {
 		initialDelay := time.Now().Add(waitingHandler.InitialDelay)
-		if _, err := scheduler.Every(waitingHandler.Interval).StartAt(initialDelay).Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {
+		if _, err := scheduler.Every(waitingHandler.Interval).
+			StartAt(initialDelay).
+			Do(handler.WaitingHandlerService.CheckWaitingEvents); err != nil {
 			log.Error().Err(err).Msg("Unable to schedule waiting handler task")
 		}
 	}
@@ -87,7 +92,7 @@ func checkOpenCircuitBreakers() {
 		return
 	}
 
-	//Iterate over all circuit breaker entries and handle them
+	// Iterate over all circuit breaker entries and handle them
 	for _, entry := range cbEntries {
 		log.Debug().Msgf("Checking CircuitBreaker with id %s", entry.SubscriptionId)
 
@@ -99,7 +104,7 @@ func checkOpenCircuitBreakers() {
 		} else {
 			log.Debug().Msgf("Subscription with id %s for circuit breaker entry found: %v", entry.SubscriptionId, subscription)
 		}
-		//Handle each circuit breaker entry asynchronously
+		// Handle each circuit breaker entry asynchronously
 		go HandleOpenCircuitBreakerFunc(entry, subscription)
 	}
 }

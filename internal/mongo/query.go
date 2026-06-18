@@ -7,17 +7,18 @@ package mongo
 import (
 	"context"
 	"fmt"
+	"pubsub-horizon-golaris/internal/config"
+	"time"
+
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"pubsub-horizon-golaris/internal/config"
-	"time"
 )
 
 func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any) ([]message.StatusMessage, any, error) {
-	var batchSize = config.Current.Republishing.BatchSize
-	var ctx = context.Background()
+	batchSize := config.Current.Republishing.BatchSize
+	ctx := context.Background()
 
 	opts := options.Find().
 		SetLimit(batchSize).
@@ -53,7 +54,6 @@ func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any
 }
 
 func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string) ([]interface{}, error) {
-
 	opts := options.Distinct()
 
 	collection := connection.Client.Database(connection.Config.Database).Collection(connection.Config.Collection)
@@ -67,7 +67,7 @@ func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string
 	return fields, nil
 }
 
-func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error) {
+func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp, endTimestamp time.Time) ([]string, error) {
 	query := bson.M{
 		"status":       "WAITING",
 		"deliveryType": "CALLBACK",
@@ -90,7 +90,11 @@ func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTime
 	return castedSubscriptions, err
 }
 
-func (connection Connection) FindWaitingMessages(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindWaitingMessages(
+	timestamp time.Time,
+	lastTimestamp any,
+	subscriptionId string,
+) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "WAITING",
 		"subscriptionId": subscriptionId,
@@ -102,7 +106,11 @@ func (connection Connection) FindWaitingMessages(timestamp time.Time, lastTimest
 	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(
+	timestamp time.Time,
+	lastTimestamp any,
+	subscriptionId string,
+) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":         "PROCESSED",
 		"deliveryType":   "SERVER_SENT_EVENT",
@@ -115,7 +123,10 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(timestamp ti
 	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindDeliveringMessagesByDeliveryType(
+	timestamp time.Time,
+	lastTimestamp any,
+) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status": "DELIVERING",
 		"modified": bson.M{
@@ -126,7 +137,10 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(timestamp time
 	return connection.findMessagesByQuery(query, lastTimestamp)
 }
 
-func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error) {
+func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(
+	timestamp time.Time,
+	lastTimestamp any,
+) ([]message.StatusMessage, any, error) {
 	query := bson.M{
 		"status":    "FAILED",
 		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",

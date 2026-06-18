@@ -8,9 +8,10 @@ package test
 
 import (
 	"context"
+	"time"
+
 	"github.com/hazelcast/hazelcast-go-client/types"
 	"github.com/stretchr/testify/mock"
-	"time"
 )
 
 type DeliveringMockHandler struct {
@@ -22,7 +23,7 @@ func (d *DeliveringMockHandler) Get(ctx context.Context, key interface{}) (inter
 	return args.Get(0), args.Error(1)
 }
 
-func (d *DeliveringMockHandler) Set(ctx context.Context, key interface{}, value interface{}) error {
+func (d *DeliveringMockHandler) Set(ctx context.Context, key, value interface{}) error {
 	args := d.Called(ctx, key, value)
 	return args.Error(0)
 }
@@ -37,7 +38,11 @@ func (r *DeliveringMockHandler) TryLockWithLease(ctx context.Context, key interf
 	return args.Bool(0), args.Error(1)
 }
 
-func (d *DeliveringMockHandler) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error) {
+func (d *DeliveringMockHandler) TryLockWithLeaseAndTimeout(
+	ctx context.Context,
+	key interface{},
+	lease, timeout time.Duration,
+) (bool, error) {
 	args := d.Called(ctx, key, timeout)
 	return args.Bool(0), args.Error(1)
 }

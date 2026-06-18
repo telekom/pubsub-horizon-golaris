@@ -6,19 +6,21 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/rs/zerolog/log"
 	"net/http"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 var Client = &http.Client{Timeout: 30 * time.Second}
 
-func RetrieveToken(url string, clientId string, clientSecret string) (string, error) {
-	requestBody := bytes.NewBuffer([]byte("grant_type=client_credentials"))
+func RetrieveToken(url, clientId, clientSecret string) (string, error) {
+	requestBody := bytes.NewBufferString("grant_type=client_credentials")
 
-	request, err := http.NewRequest(http.MethodPost, url, requestBody)
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodPost, url, requestBody)
 	if err != nil {
 		return "", err
 	}

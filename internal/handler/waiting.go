@@ -37,7 +37,7 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	maxMessageAge := config.Current.Handlers.Waiting.MaxMessageAge
 
 	// Create a WaitingHandler entry and lock it
-	var ctx = cache.HandlerCache.NewLockContext(context.Background())
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
 
 	if acquired, err := cache.HandlerCache.TryLockWithTimeout(ctx, cache.WaitingLockKey, 100*time.Millisecond); err != nil {
 		log.Error().Err(err).Msgf("WaitingHandler: Error acquiring lock for WaitingHandler entry: %s", cache.WaitingLockKey)
@@ -54,14 +54,19 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 	}()
 
 	// Get all subscriptions (distinct) for messages in state WAITING from db
-	dbSubscriptionsForWaitingEvents, err := mongo.CurrentConnection.FindDistinctSubscriptionsForWaitingEvents(time.Now().Add(-maxMessageAge), time.Now().Add(-minMessageAge))
+	dbSubscriptionsForWaitingEvents, err := mongo.CurrentConnection.FindDistinctSubscriptionsForWaitingEvents(
+		time.Now().Add(-maxMessageAge),
+		time.Now().Add(-minMessageAge),
+	)
 	if err != nil {
 		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching distinct subscriptions for events stuck in state WAITING from db")
 		return
 	}
 
 	// If no subscriptions found, return
-	log.Debug().Msgf("WaitingHandler: Found %d subscriptions with waiting messages: %v", len(dbSubscriptionsForWaitingEvents), dbSubscriptionsForWaitingEvents)
+	log.Debug().
+		Msgf("WaitingHandler: Found %d subscriptions with waiting messages: %v",
+			len(dbSubscriptionsForWaitingEvents), dbSubscriptionsForWaitingEvents)
 	if len(dbSubscriptionsForWaitingEvents) == 0 {
 		return
 	}
@@ -80,7 +85,9 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 		log.Error().Err(err).Msgf("WaitingHandler: Error while fetching circuit breaker cache entries for events stuck in state WAITING")
 		return
 	}
-	log.Debug().Msgf("WaitingHandler: Found %d circuitbreaker entries in state OPEN: %v", len(circuitBreakerSubscriptionsMap), circuitBreakerSubscriptionsMap)
+	log.Debug().
+		Msgf("WaitingHandler: Found %d circuitbreaker entries in state OPEN: %v",
+			len(circuitBreakerSubscriptionsMap), circuitBreakerSubscriptionsMap)
 
 	// Check if subscription is in republishing cache or in circuit breaker cache. If not create a republishing cache entry
 	for _, subscriptionId := range dbSubscriptionsForWaitingEvents {
@@ -88,7 +95,11 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 		_, inRepublishing := republishingSubscriptionsMap[subscriptionId]
 		_, inCircuitBreaker := circuitBreakerSubscriptionsMap[subscriptionId]
 		if !inRepublishing && !inCircuitBreaker {
-			log.Warn().Msgf("WaitingHandler: Subscription %v has waiting messages and no circuitbreaker entry and no republishing entry!. Creating republishing entry for events stuck in state WAITING", subscriptionId)
+			log.Warn().
+				Msgf("WaitingHandler: Subscription %v has waiting messages and no "+
+					"circuitbreaker entry and no republishing entry!. "+
+					"Creating republishing entry for events stuck in state WAITING",
+					subscriptionId)
 
 			// Create republishing cache entry for subscription with stuck waiting events
 			republishingCacheEntry := republish.RepublishingCacheEntry{
@@ -96,13 +107,20 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 				RepublishingUpTo: time.Now(),
 				PostponedUntil:   time.Now(),
 			}
-			
+
 			err := circuitbreaker.SetNewRepublishingCacheEntry(context.Background(), republishingCacheEntry, subscriptionId, false)
 			if err != nil {
-				log.Error().Err(err).Msgf("WaitingHandler: Error while creating RepublishingCacheEntry entry for events stuck in state WAITING. subscriptionId: %s", subscriptionId)
+				log.Error().
+					Err(err).
+					Msgf("WaitingHandler: Error while creating RepublishingCacheEntry "+
+						"entry for events stuck in state WAITING. subscriptionId: %s",
+						subscriptionId)
 				continue
 			}
-			log.Debug().Msgf("WaitingHandler: Successfully created RepublishingCacheEntry entry for for events stuck in state WAITING. subscriptionId: %s", subscriptionId)
+			log.Debug().
+				Msgf("WaitingHandler: Successfully created RepublishingCacheEntry "+
+					"entry for events stuck in state WAITING. subscriptionId: %s",
+					subscriptionId)
 		}
 	}
 	log.Debug().Msgf("WaitingHandler: Finished republishing messages stuck in state WAITING")
@@ -110,7 +128,6 @@ func (waitingHandler *waitingHandler) CheckWaitingEvents() {
 
 // GetCircuitBreakerSubscriptionsMap returns a map of subscriptions with open circuit breaker entries.
 func (waitingHandler *waitingHandler) GetCircuitBreakerSubscriptionsMap() (map[string]struct{}, error) {
-
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
 	circuitBreakerEntries, err := cache.CircuitBreakerCache.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, statusQuery)
 	if err != nil {
@@ -126,7 +143,6 @@ func (waitingHandler *waitingHandler) GetCircuitBreakerSubscriptionsMap() (map[s
 
 // GetRepublishingSubscriptionsMap returns a map of subscriptions with republishing entries.
 func (waitingHandler *waitingHandler) GetRepublishingSubscriptionsMap() (map[string]struct{}, error) {
-
 	cacheRepublishingEntries, err := cache.RepublishingCache.GetEntrySet(context.Background())
 	if err != nil {
 		return nil, err

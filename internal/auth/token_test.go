@@ -5,11 +5,12 @@
 package auth
 
 import (
-	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"os"
 	"testing"
+
+	"github.com/jarcoal/httpmock"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMain(m *testing.M) {
@@ -20,7 +21,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestRetrieveToken_Success(t *testing.T) {
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -33,11 +34,10 @@ func TestRetrieveToken_Success(t *testing.T) {
 
 	assertions.NoError(err)
 	assertions.NotNil(token)
-
 }
 
 func TestRetrieveToken_RequestError(t *testing.T) {
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()

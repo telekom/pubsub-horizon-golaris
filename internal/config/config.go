@@ -6,9 +6,10 @@ package config
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 var Current Configuration
@@ -107,7 +108,7 @@ func setDefaults() {
 	viper.SetDefault("handlers.waiting.initialDelay", "15s")
 	viper.SetDefault("handlers.waiting.minMessageAge", "1m")
 	viper.SetDefault("handlers.waiting.maxMessageAge", "24h")
-	
+
 	// Notifications
 	viper.SetDefault("notifications.enabled", false)
 	viper.SetDefault("notifications.baseUrl", "https://galileo.example.com")

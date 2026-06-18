@@ -6,20 +6,21 @@ package handler
 
 import (
 	"context"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/tracing"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
 	"time"
+
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 )
 
 func CheckFailedEvents() {
 	log.Debug().Msgf("FailedHandler: Republish messages in state FAILED")
 
-	var ctx = cache.HandlerCache.NewLockContext(context.Background())
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
 
 	if acquired, err := cache.HandlerCache.TryLockWithTimeout(ctx, cache.FailedLockKey, 100*time.Millisecond); err != nil {
 		log.Error().Err(err).Msgf("Error acquiring lock for FailedHandler entry: %s", cache.FailedLockKey)
@@ -70,7 +71,7 @@ func CheckFailedEvents() {
 
 			if subscription != nil {
 				if subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
-					var newDeliveryType = "SERVER_SENT_EVENT"
+					newDeliveryType := "SERVER_SENT_EVENT"
 
 					if dbMessage.Coordinates == nil {
 						log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
@@ -83,8 +84,8 @@ func CheckFailedEvents() {
 						return
 					}
 
-					var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-					var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+					b3Ctx := tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+					traceCtx := tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
 
 					traceCtx.StartSpan("republish failed message")
 					traceCtx.SetAttribute("component", "Horizon Golaris")
@@ -99,7 +100,6 @@ func CheckFailedEvents() {
 						return
 					}
 					log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", subscriptionId)
-
 				}
 			}
 		}

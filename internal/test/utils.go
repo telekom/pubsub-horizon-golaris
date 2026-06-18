@@ -8,13 +8,14 @@ package test
 
 import (
 	"context"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
+
+	"github.com/telekom/pubsub-horizon-go/message"
 )
 
-func EnvOrDefault(name string, fallback string) string {
+func EnvOrDefault(name, fallback string) string {
 	value, ok := os.LookupEnv(name)
 	if !ok {
 		return fallback
@@ -48,7 +49,7 @@ func ClearCaches() {
 
 func GenerateStatusMessages(topic string, startPartition int32, startOffset int64, count int) []message.StatusMessage {
 	msgs := make([]message.StatusMessage, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		p := startPartition
 		o := startOffset + int64(i)
 

@@ -6,10 +6,6 @@ package scheduler
 
 import (
 	"context"
-	"github.com/stretchr/testify/assert"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -18,6 +14,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 func TestMain(m *testing.M) {
@@ -35,7 +36,7 @@ func TestMain(m *testing.M) {
 
 func TestCheckOpenCircuitBreakers_SubscriptionExists(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Mock HandleOpenCircuitBreaker function
 	HandleOpenCircuitBreakerFunc = func(cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
@@ -67,7 +68,7 @@ func TestCheckOpenCircuitBreakers_SubscriptionExists(t *testing.T) {
 
 func TestCheckOpenCircuitBreakers_NoSubscription(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Mock HandleOpenCircuitBreaker function
 	HandleOpenCircuitBreakerFunc = func(cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {}
@@ -89,7 +90,7 @@ func TestCheckOpenCircuitBreakers_NoSubscription(t *testing.T) {
 
 func TestCheckRepublishingEntries_SubscriptionExists(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	ctx := context.Background()
 
@@ -120,7 +121,7 @@ func TestCheckRepublishingEntries_SubscriptionExists(t *testing.T) {
 
 func TestCheckRepublishingEntries_NoSubscription(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	ctx := context.Background()
 
@@ -144,7 +145,7 @@ func TestCheckRepublishingEntries_NoSubscription(t *testing.T) {
 
 func TestCheckOpenCircuitBreakers_ContinuesAfterNilSubscription(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	var mu sync.Mutex
 	handledSubscriptionIds := make([]string, 0)
@@ -207,7 +208,7 @@ func TestCheckOpenCircuitBreakers_ContinuesAfterNilSubscription(t *testing.T) {
 
 func TestCheckRepublishingEntries_ContinuesAfterNilSubscription(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	ctx := context.Background()
 
@@ -274,7 +275,7 @@ func TestCheckRepublishingEntries_ContinuesAfterNilSubscription(t *testing.T) {
 }
 
 func TestGetSubscription(t *testing.T) {
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	mockCache := new(test.SubscriptionMockCache)
 	cache.SubscriptionCache = mockCache

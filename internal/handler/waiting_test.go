@@ -6,22 +6,22 @@ package handler
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/mongo"
+	"pubsub-horizon-golaris/internal/republish"
+	"pubsub-horizon-golaris/internal/test"
+	"testing"
+
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/hazelcast/hazelcast-go-client/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
-	"pubsub-horizon-golaris/internal/cache"
-	"pubsub-horizon-golaris/internal/mongo"
-	"pubsub-horizon-golaris/internal/republish"
-	"pubsub-horizon-golaris/internal/test"
-	"testing"
 )
 
 func TestCheckWaitingEvents_NoActionNeededWhileNoWaitingEvents(t *testing.T) {
-
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
 
@@ -65,7 +65,6 @@ func TestCheckWaitingEvents_NoActionNeededWhileNoWaitingEvents(t *testing.T) {
 }
 
 func TestCheckWaitingEvents_NoActionNeededWhileExistingCbEntry(t *testing.T) {
-
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
 
@@ -79,9 +78,9 @@ func TestCheckWaitingEvents_NoActionNeededWhileExistingCbEntry(t *testing.T) {
 	cache.RepublishingCache = mockRepublishingCache
 
 	// Prepare testdata
-	var mockedDbSubscriptionIds = []string{"subscription-1"}                                  // two subscriptions with waiting events in db
-	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{"subscription-1": struct{}{}} // existing circuit breaker entries
-	mockedRepublishingSubscriptionsMap := map[string]struct{}{}                               // no republishing entries
+	mockedDbSubscriptionIds := []string{"subscription-1"}                             // two subscriptions with waiting events in db
+	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{"subscription-1": {}} // existing circuit breaker entries
+	mockedRepublishingSubscriptionsMap := map[string]struct{}{}                       // no republishing entries
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
@@ -108,7 +107,6 @@ func TestCheckWaitingEvents_NoActionNeededWhileExistingCbEntry(t *testing.T) {
 }
 
 func TestCheckWaitingEvents_NoActionNeededWhileExistingRepublishEntry(t *testing.T) {
-
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
 
@@ -122,9 +120,11 @@ func TestCheckWaitingEvents_NoActionNeededWhileExistingRepublishEntry(t *testing
 	cache.RepublishingCache = mockRepublishingCache
 
 	// Prepare testdata
-	var mockedDbSubscriptionIds = []string{"subscription-1"}                                // two subscriptions with waiting events in db
-	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{}                           // no circuit breaker entries
-	mockedRepublishingSubscriptionsMap := map[string]struct{}{"subscription-1": struct{}{}} // existing republishing entries                                                       // no republishing entries
+	mockedDbSubscriptionIds := []string{"subscription-1"}         // two subscriptions with waiting events in db
+	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{} // no circuit breaker entries
+	mockedRepublishingSubscriptionsMap := map[string]struct{}{
+		"subscription-1": {},
+	} // existing republishing entries                                                       // no republishing entries
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
@@ -151,7 +151,6 @@ func TestCheckWaitingEvents_NoActionNeededWhileExistingRepublishEntry(t *testing
 }
 
 func TestCheckWaitingEvents_ActionNeededWhileNoMatchingCacheEntries(t *testing.T) {
-
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
 
@@ -165,9 +164,14 @@ func TestCheckWaitingEvents_ActionNeededWhileNoMatchingCacheEntries(t *testing.T
 	cache.RepublishingCache = mockRepublishingCache
 
 	// Prepare testdata
-	var mockedDbSubscriptionIds = []string{"subscription-1", "subscription-2"}                             // two subscriptions with waiting events in db
-	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{"not-matching-subscription-1": struct{}{}} // no circuit breaker entries
-	mockedRepublishingSubscriptionsMap := map[string]struct{}{"not-matching-subscription-2": struct{}{}}   // no republishing entries                                                       // no republishing entries
+	mockedDbSubscriptionIds := []string{
+		"subscription-1",
+		"subscription-2",
+	} // two subscriptions with waiting events in db
+	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{"not-matching-subscription-1": {}} // no circuit breaker entries
+	mockedRepublishingSubscriptionsMap := map[string]struct{}{
+		"not-matching-subscription-2": {},
+	} // no republishing entries                                                       // no republishing entries
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
@@ -194,7 +198,6 @@ func TestCheckWaitingEvents_ActionNeededWhileNoMatchingCacheEntries(t *testing.T
 }
 
 func TestCheckWaitingEvents_ActionNeededWhileSubsetHasNoCacheEntries(t *testing.T) {
-
 	mockMongo := new(test.MockMongoHandler)
 	mongo.CurrentConnection = mockMongo
 
@@ -208,9 +211,11 @@ func TestCheckWaitingEvents_ActionNeededWhileSubsetHasNoCacheEntries(t *testing.
 	cache.RepublishingCache = mockRepublishingCache
 
 	// Prepare testdata
-	var mockedDbSubscriptionIds = []string{"subscription-1", "subscription-2"}                // two subscriptions with waiting events in db
-	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{"subscription-1": struct{}{}} // existing circuit breaker entry for one subscription         // no circuit breaker entries
-	mockedRepublishingSubscriptionsMap := map[string]struct{}{}                               // no republishing entries                                                       // no republishing entries
+	mockedDbSubscriptionIds := []string{"subscription-1", "subscription-2"} // two subscriptions with waiting events in db
+	mockedCircuitBreakerSubscriptionsMap := map[string]struct{}{
+		"subscription-1": {},
+	} // existing circuit breaker entry for one subscription         // no circuit breaker entries
+	mockedRepublishingSubscriptionsMap := map[string]struct{}{} // no republishing entries
 
 	// Prepare mocks
 	mockHandlerCache.On("NewLockContext", mock.Anything).Return(context.Background())
@@ -237,7 +242,6 @@ func TestCheckWaitingEvents_ActionNeededWhileSubsetHasNoCacheEntries(t *testing.
 }
 
 func TestGetCircuitBreakerSubscriptionsMap_ReturnsCorrectSubscriptions(t *testing.T) {
-
 	// CircuitBreakerCache is needed for this test
 	mockCircuitBreakerCache := new(test.CircuitBreakerMockCache)
 	cache.CircuitBreakerCache = mockCircuitBreakerCache
@@ -291,7 +295,7 @@ func TestGetCircuitBreakerSubscriptionsMap_CacheError(t *testing.T) {
 	// Create empty test data
 	circuitBreakerEntries := []message.CircuitBreakerMessage{}
 	statusQuery := predicate.Equal("status", string(enum.CircuitBreakerStatusOpen))
-	mockCircuitBreakerCache.On("GetQuery", mock.Anything, statusQuery).Return(circuitBreakerEntries, fmt.Errorf("cache retrieval error"))
+	mockCircuitBreakerCache.On("GetQuery", mock.Anything, statusQuery).Return(circuitBreakerEntries, errors.New("cache retrieval error"))
 
 	// Call the method to test
 	waitingHandler := new(waitingHandler)
@@ -352,7 +356,7 @@ func TestGetRepublishingSubscriptionsMap_CacheError(t *testing.T) {
 	cache.RepublishingCache = mockRepulishingCache
 
 	// Simulate cache retrieval error
-	mockRepulishingCache.On("GetEntrySet", mock.Anything).Return([]types.Entry{}, fmt.Errorf("cache retrieval error"))
+	mockRepulishingCache.On("GetEntrySet", mock.Anything).Return([]types.Entry{}, errors.New("cache retrieval error"))
 
 	// Call the method to test
 	waitingHandler := new(waitingHandler)

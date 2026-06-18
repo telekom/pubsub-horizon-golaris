@@ -8,8 +8,8 @@ package test
 
 import (
 	"context"
-	"fmt"
 	"log"
+	"net"
 	"time"
 
 	"github.com/hazelcast/hazelcast-go-client"
@@ -79,7 +79,6 @@ func SetupDocker(opts *Options) {
 	pool.MaxWait = 30 * time.Second
 
 	err = pool.Retry(func() error {
-
 		// MongoDB readiness
 		if opts.MongoDb {
 			if err := pingMongoDb(); err != nil {
@@ -114,8 +113,8 @@ func TeardownDocker() {
 }
 
 func pingMongoDb() error {
-	var ctx = context.Background()
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s", mongoHost, mongoPort)))
+	ctx := context.Background()
+	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://"+net.JoinHostPort(mongoHost, mongoPort)))
 	if err != nil {
 		log.Printf("Could not reach mongodb: %s\n", err)
 		return err
@@ -168,7 +167,7 @@ func setupHazelcast() error {
 }
 
 func pingHazelcast() error {
-	var ctx = context.Background()
+	ctx := context.Background()
 	config := hazelcast.NewConfig()
 
 	config.Cluster.Name = "dev"

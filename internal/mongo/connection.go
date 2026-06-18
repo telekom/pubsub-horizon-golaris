@@ -6,10 +6,11 @@ package mongo
 
 import (
 	"context"
+	"pubsub-horizon-golaris/internal/config"
+
 	"github.com/rs/zerolog/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"pubsub-horizon-golaris/internal/config"
 )
 
 var CurrentConnection HandlerInterface

@@ -7,11 +7,12 @@
 package test
 
 import (
+	"time"
+
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/resource"
 	"github.com/telekom/pubsub-horizon-go/types"
-	"time"
 )
 
 func NewTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
@@ -25,7 +26,7 @@ func NewTestCbMessage(testSubscriptionId string) message.CircuitBreakerMessage {
 	return testCircuitBreakerMessage
 }
 
-func NewTestSubscriptionResource(testSubscriptionId string, testCallbackUrl string, testEnvironment string) *resource.SubscriptionResource {
+func NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment string) *resource.SubscriptionResource {
 	testSubscriptionResource := &resource.SubscriptionResource{
 		Spec: struct {
 			Subscription resource.Subscription `json:"subscription"`

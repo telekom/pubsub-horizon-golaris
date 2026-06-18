@@ -4,7 +4,7 @@
 
 package utils
 
-func IfThenElse[T any](condition bool, thenValue T, elseValue T) T {
+func IfThenElse[T any](condition bool, thenValue, elseValue T) T {
 	if condition {
 		return thenValue
 	}

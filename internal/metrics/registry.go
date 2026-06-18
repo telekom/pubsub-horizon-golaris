@@ -5,13 +5,14 @@
 package metrics
 
 import (
+	"pubsub-horizon-golaris/internal/cache"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/utils"
+
 	"github.com/hazelcast/hazelcast-go-client/predicate"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
-	"pubsub-horizon-golaris/internal/cache"
-	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/utils"
 )
 
 var (
@@ -33,9 +34,9 @@ func init() {
 	registry.MustRegister(openCircuitBreakers)
 }
 
-func recordCircuitBreaker(subscriptionId string, subscriberId string, eventType string, environment string, open bool) {
+func recordCircuitBreaker(subscriptionId, subscriberId, eventType, environment string, open bool) {
 	if config.Current.Metrics.Enabled {
-		var value = float64(utils.IfThenElse(open, 1, 0))
+		value := float64(utils.IfThenElse(open, 1, 0))
 		openCircuitBreakers.With(map[string]string{
 			"subscriptionId": subscriptionId,
 			"subscriberId":   subscriberId,
@@ -46,14 +47,17 @@ func recordCircuitBreaker(subscriptionId string, subscriberId string, eventType 
 }
 
 func PopulateFromCache() {
-	var cbc = cache.CircuitBreakerCache
-	circuitBreakers, err := cbc.GetQuery(config.Current.Hazelcast.Caches.CircuitBreakerCache, predicate.Equal("status", string(enum.CircuitBreakerStatusOpen)))
+	cbc := cache.CircuitBreakerCache
+	circuitBreakers, err := cbc.GetQuery(
+		config.Current.Hazelcast.Caches.CircuitBreakerCache,
+		predicate.Equal("status", string(enum.CircuitBreakerStatusOpen)),
+	)
 	if err != nil {
 		log.Warn().Err(err).Msg("could initialize metrics from circuit-breakers map")
 	}
 
 	for _, circuitBreaker := range circuitBreakers {
-		var subscriberId = lookupSubscriberId(circuitBreaker.SubscriptionId)
+		subscriberId := lookupSubscriberId(circuitBreaker.SubscriptionId)
 		recordCircuitBreaker(circuitBreaker.SubscriptionId, subscriberId, circuitBreaker.EventType, circuitBreaker.Environment, true)
 	}
 }
@@ -68,8 +72,8 @@ func lookupSubscriberId(subscriptionId string) string {
 }
 
 func ListenForChanges() {
-	var cbc = cache.CircuitBreakerCache
-	var listener = new(CircuitBreakerListener)
+	cbc := cache.CircuitBreakerCache
+	listener := new(CircuitBreakerListener)
 	if err := cbc.AddListener(config.Current.Hazelcast.Caches.CircuitBreakerCache, listener); err != nil {
 		log.Warn().Err(err).Msg("could not register listener for circuit-breakers map")
 	}

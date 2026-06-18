@@ -6,10 +6,11 @@ package cmd
 
 import (
 	"errors"
+	"pubsub-horizon-golaris/internal/config"
+
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"pubsub-horizon-golaris/internal/config"
 )
 
 var initCmd = &cobra.Command{

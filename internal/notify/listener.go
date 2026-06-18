@@ -45,7 +45,7 @@ func (n NotificationListener) OnAdd(event *hazelcast.EntryNotified, obj message.
 	}
 }
 
-func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage, oldObj message.CircuitBreakerMessage) {
+func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj, oldObj message.CircuitBreakerMessage) {
 	notificationConfig := config.Current.Notifications
 	circuitBreakerOpen := obj.Status == enum.CircuitBreakerStatusOpen
 
@@ -113,7 +113,7 @@ func (n NotificationListener) lockKey(key any, action string, leaseDuration time
 	}
 }
 
-func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, template string) error {
+func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject, template string) error {
 	log.Debug().
 		Str("subscriptionId", cbMessage.SubscriptionId).
 		Msg("Sending notification for open circuit-breaker")

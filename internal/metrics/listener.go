@@ -15,21 +15,21 @@ import (
 type CircuitBreakerListener struct{}
 
 func (c *CircuitBreakerListener) OnAdd(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage) {
-	var open = obj.Status == enum.CircuitBreakerStatusOpen
-	var subscriptionId = event.Key.(string)
-	var subscriberId = lookupSubscriberId(subscriptionId)
+	open := obj.Status == enum.CircuitBreakerStatusOpen
+	subscriptionId := event.Key.(string)
+	subscriberId := lookupSubscriberId(subscriptionId)
 	recordCircuitBreaker(subscriptionId, subscriberId, obj.EventType, obj.Environment, open)
 }
 
-func (c *CircuitBreakerListener) OnUpdate(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage, oldObj message.CircuitBreakerMessage) {
-	var open = obj.Status == enum.CircuitBreakerStatusOpen
-	var subscriptionId = event.Key.(string)
-	var subscriberId = lookupSubscriberId(subscriptionId)
+func (c *CircuitBreakerListener) OnUpdate(event *hazelcast.EntryNotified, obj, oldObj message.CircuitBreakerMessage) {
+	open := obj.Status == enum.CircuitBreakerStatusOpen
+	subscriptionId := event.Key.(string)
+	subscriberId := lookupSubscriberId(subscriptionId)
 	recordCircuitBreaker(subscriptionId, subscriberId, obj.EventType, obj.Environment, open)
 }
 
 func (c *CircuitBreakerListener) OnDelete(event *hazelcast.EntryNotified) {
-	var subscriptionId = event.Key.(string)
+	subscriptionId := event.Key.(string)
 	openCircuitBreakers.DeletePartialMatch(prometheus.Labels{
 		"subscriptionId": subscriptionId,
 	})

@@ -6,10 +6,11 @@ package log
 
 import (
 	"bytes"
+	"testing"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func TestSetValidLogLevel(t *testing.T) {
