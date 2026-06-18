@@ -14,4 +14,3 @@
 *.bat
 config.yml
 !.github/**
-!.golangci.yml
