@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
 	"github.com/telekom/pubsub-horizon-go/tracing"
 )
 
@@ -62,37 +63,44 @@ func CheckDeliveringEvents() {
 		log.Debug().Msgf("Found %d DELIVERING messages in MongoDb", len(dbMessages))
 
 		for _, dbMessage := range dbMessages {
-			if dbMessage.Coordinates == nil {
-				log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
+			if err := processDeliveringMessage(picker, &dbMessage); err != nil {
 				return
 			}
-
-			message, err := picker.Pick(&dbMessage)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", dbMessage.SubscriptionId)
-				return
-			}
-
-			b3Ctx := tracing.WithB3FromMessage(context.Background(), message)
-			traceCtx := tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
-
-			traceCtx.StartSpan("republish delivering message")
-			traceCtx.SetAttribute("component", "Horizon Golaris")
-			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
-			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
-			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-			traceCtx.SetAttribute("uuid", string(message.Key))
-
-			err = kafka.CurrentHandler.RepublishMessage(traceCtx, message, "", "", false)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
-				return
-			}
-			log.Debug().Msgf("Successfully republished message in state DELIVERING for subscriptionId %s", dbMessage.SubscriptionId)
 		}
 
 		if len(dbMessages) < int(batchSize) {
 			break
 		}
 	}
+}
+
+func processDeliveringMessage(picker kafka.MessagePicker, dbMessage *message.StatusMessage) error {
+	if dbMessage.Coordinates == nil {
+		log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
+		return errAbort
+	}
+
+	msg, err := picker.Pick(dbMessage)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", dbMessage.SubscriptionId)
+		return errAbort
+	}
+
+	b3Ctx := tracing.WithB3FromMessage(context.Background(), msg)
+	traceCtx := tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+
+	traceCtx.StartSpan("republish delivering message")
+	traceCtx.SetAttribute("component", "Horizon Golaris")
+	traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+	traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+	traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+	traceCtx.SetAttribute("uuid", string(msg.Key))
+
+	err = kafka.CurrentHandler.RepublishMessage(traceCtx, msg, "", "", false)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", dbMessage.SubscriptionId)
+		return errAbort
+	}
+	log.Debug().Msgf("Successfully republished message in state DELIVERING for subscriptionId %s", dbMessage.SubscriptionId)
+	return nil
 }

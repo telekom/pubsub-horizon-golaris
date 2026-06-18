@@ -31,7 +31,7 @@ func (c *CircuitBreakerListener) OnUpdate(event *hazelcast.EntryNotified, obj, o
 func (c *CircuitBreakerListener) OnDelete(event *hazelcast.EntryNotified) {
 	subscriptionId := event.Key.(string)
 	openCircuitBreakers.DeletePartialMatch(prometheus.Labels{
-		"subscriptionId": subscriptionId,
+		labelSubscriptionId: subscriptionId,
 	})
 }
 

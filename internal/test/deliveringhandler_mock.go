@@ -4,6 +4,7 @@
 
 //go:build testing
 
+//nolint:dupl // test mock - intentional duplication for type safety
 package test
 
 import (

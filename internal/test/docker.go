@@ -42,6 +42,7 @@ type Options struct {
 	Hazelcast bool
 }
 
+//nolint:gocognit // Docker setup with sequential container checks
 func SetupDocker(opts *Options) {
 	if alreadySetUp {
 		return

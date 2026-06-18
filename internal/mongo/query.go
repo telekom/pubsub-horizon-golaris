@@ -16,6 +16,14 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const (
+	fieldStatus         = "status"
+	fieldDeliveryType   = "deliveryType"
+	fieldModified       = "modified"
+	fieldSubscriptionId = "subscriptionId"
+	opLte               = "$lte"
+)
+
 func (connection Connection) findMessagesByQuery(query bson.M, lastTimestamp any) ([]message.StatusMessage, any, error) {
 	batchSize := config.Current.Republishing.BatchSize
 	ctx := context.Background()
@@ -69,15 +77,15 @@ func (connection Connection) distinctFieldByQuery(query bson.M, fieldName string
 
 func (connection Connection) FindDistinctSubscriptionsForWaitingEvents(beginTimestamp, endTimestamp time.Time) ([]string, error) {
 	query := bson.M{
-		"status":       "WAITING",
-		"deliveryType": "CALLBACK",
-		"modified": bson.M{
+		fieldStatus:       "WAITING",
+		fieldDeliveryType: "CALLBACK",
+		fieldModified: bson.M{
 			"$gte": beginTimestamp,
-			"$lte": endTimestamp,
+			opLte:  endTimestamp,
 		},
 	}
 
-	subscriptions, err := connection.distinctFieldByQuery(query, "subscriptionId")
+	subscriptions, err := connection.distinctFieldByQuery(query, fieldSubscriptionId)
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +104,10 @@ func (connection Connection) FindWaitingMessages(
 	subscriptionId string,
 ) ([]message.StatusMessage, any, error) {
 	query := bson.M{
-		"status":         "WAITING",
-		"subscriptionId": subscriptionId,
-		"modified": bson.M{
-			"$lte": timestamp,
+		fieldStatus:         "WAITING",
+		fieldSubscriptionId: subscriptionId,
+		fieldModified: bson.M{
+			opLte: timestamp,
 		},
 	}
 
@@ -112,11 +120,11 @@ func (connection Connection) FindProcessedMessagesByDeliveryTypeSSE(
 	subscriptionId string,
 ) ([]message.StatusMessage, any, error) {
 	query := bson.M{
-		"status":         "PROCESSED",
-		"deliveryType":   "SERVER_SENT_EVENT",
-		"subscriptionId": subscriptionId,
-		"modified": bson.M{
-			"$lte": timestamp,
+		fieldStatus:         "PROCESSED",
+		fieldDeliveryType:   "SERVER_SENT_EVENT",
+		fieldSubscriptionId: subscriptionId,
+		fieldModified: bson.M{
+			opLte: timestamp,
 		},
 	}
 
@@ -128,9 +136,9 @@ func (connection Connection) FindDeliveringMessagesByDeliveryType(
 	lastTimestamp any,
 ) ([]message.StatusMessage, any, error) {
 	query := bson.M{
-		"status": "DELIVERING",
-		"modified": bson.M{
-			"$lte": timestamp,
+		fieldStatus: "DELIVERING",
+		fieldModified: bson.M{
+			opLte: timestamp,
 		},
 	}
 
@@ -142,10 +150,10 @@ func (connection Connection) FindFailedMessagesWithCallbackUrlNotFoundException(
 	lastTimestamp any,
 ) ([]message.StatusMessage, any, error) {
 	query := bson.M{
-		"status":    "FAILED",
+		fieldStatus: "FAILED",
 		"errorType": "de.telekom.horizon.comet.exception.CallbackUrlNotFoundException",
-		"modified": bson.M{
-			"$lte": timestamp,
+		fieldModified: bson.M{
+			opLte: timestamp,
 		},
 	}
 

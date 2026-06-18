@@ -21,14 +21,21 @@ var (
 	registry *prometheus.Registry
 )
 
-const namespace = "golaris"
+const (
+	namespace = "golaris"
+
+	labelSubscriptionId = "subscriptionId"
+	labelSubscriberId   = "subscriberId"
+	labelEventType      = "eventType"
+	labelEnvironment    = "environment"
+)
 
 func init() {
 	openCircuitBreakers = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name:      "open_circuit_breakers",
 		Help:      "The amount of open circuit-breakers.",
 		Namespace: namespace,
-	}, []string{"subscriptionId", "subscriberId", "eventType", "environment"})
+	}, []string{labelSubscriptionId, labelSubscriberId, labelEventType, labelEnvironment})
 
 	registry = prometheus.NewRegistry()
 	registry.MustRegister(openCircuitBreakers)
@@ -38,10 +45,10 @@ func recordCircuitBreaker(subscriptionId, subscriberId, eventType, environment s
 	if config.Current.Metrics.Enabled {
 		value := float64(utils.IfThenElse(open, 1, 0))
 		openCircuitBreakers.With(map[string]string{
-			"subscriptionId": subscriptionId,
-			"subscriberId":   subscriberId,
-			"eventType":      eventType,
-			"environment":    environment,
+			labelSubscriptionId: subscriptionId,
+			labelSubscriberId:   subscriberId,
+			labelEventType:      eventType,
+			labelEnvironment:    environment,
 		}).Set(value)
 	}
 }
@@ -65,7 +72,7 @@ func PopulateFromCache() {
 func lookupSubscriberId(subscriptionId string) string {
 	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
 	if err != nil || subscription == nil {
-		log.Warn().Str("subscriptionId", subscriptionId).Msg("could not look up subscriberId for metric")
+		log.Warn().Str(labelSubscriptionId, subscriptionId).Msg("could not look up subscriberId for metric")
 		return "unknown"
 	}
 	return subscription.Spec.Subscription.SubscriberId

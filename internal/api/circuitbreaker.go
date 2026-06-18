@@ -22,6 +22,8 @@ import (
 	"github.com/telekom/pubsub-horizon-go/message"
 )
 
+const fieldSubscriptionId = "subscriptionId"
+
 type CircuitBreakerResponse struct {
 	message.CircuitBreakerMessage
 	HealthCheck  healthcheck.HealthCheckCacheEntry `json:"healthCheck,omitempty"`
@@ -117,13 +119,13 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, res.SubscriptionId)
 	if err != nil {
 		log.Warn().Fields(map[string]any{
-			"subscriptionId": res.SubscriptionId,
+			fieldSubscriptionId: res.SubscriptionId,
 		}).Msg("could not populate circuit-breaker response with subscription data")
 		return
 	}
 	if subscription == nil {
 		log.Warn().Fields(map[string]any{
-			"subscriptionId": res.SubscriptionId,
+			fieldSubscriptionId: res.SubscriptionId,
 		}).Msg("subscription not found, skipping circuit-breaker response population")
 		return
 	}
@@ -138,7 +140,7 @@ func populateCircuitBreakerResponse(res *CircuitBreakerResponse) {
 	healthCheck, err := healthCheckCache.Get(context.Background(), healthCheckKey)
 	if err != nil {
 		log.Warn().Fields(map[string]any{
-			"subscriptionId": res.SubscriptionId,
+			fieldSubscriptionId: res.SubscriptionId,
 		}).Err(err).Msg("could not populate circuit-breaker response with healthcheck data")
 		return
 	}

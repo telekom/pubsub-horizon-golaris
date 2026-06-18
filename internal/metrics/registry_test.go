@@ -30,6 +30,7 @@ func resetMetrics() {
 	registry.MustRegister(openCircuitBreakers)
 }
 
+//nolint:gocognit // test setup with multiple assertions
 func TestPopulateFromCache_OnlyOpenCircuitBreakers(t *testing.T) {
 	resetMetrics()
 	config.Current = test.BuildTestConfig()
