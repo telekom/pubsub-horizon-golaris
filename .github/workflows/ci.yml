@@ -10,12 +10,6 @@ on:
     tags: ["[0-9]+.[0-9]+.[0-9]+*"]
   pull_request:
     branches: [main]
-  workflow_dispatch:
-    inputs:
-      publish-test:
-        description: "Push a test image (tag: 0.0.0-ci-test)"
-        type: boolean
-        default: false
 
 jobs:
   build:
@@ -34,19 +28,6 @@ jobs:
     with:
       component: golaris
       language: go
-    secrets:
-      REGISTRY_USERNAME: ${{ secrets.ARTIFACTORY_O28M_PUSH_USER }}
-      REGISTRY_PASSWORD: ${{ secrets.ARTIFACTORY_O28M_PUSH_TOKEN }}
-
-  # TODO: remove after publish is validated
-  publish-test:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish-test
-    needs: [build]
-    uses: telekom/pubsub-horizon-ci/.github/workflows/docker-publish.yml@main
-    with:
-      component: golaris
-      language: go
-      image-path: "tardis-oci-local/components/horizon"
     secrets:
       REGISTRY_USERNAME: ${{ secrets.ARTIFACTORY_O28M_PUSH_USER }}
       REGISTRY_PASSWORD: ${{ secrets.ARTIFACTORY_O28M_PUSH_TOKEN }}
