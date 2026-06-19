@@ -6,17 +6,16 @@ package api
 
 import (
 	"fmt"
+	"pubsub-horizon-golaris/internal/config"
+	"pubsub-horizon-golaris/internal/metrics"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 	"github.com/rs/zerolog/log"
-	"pubsub-horizon-golaris/internal/config"
-	"pubsub-horizon-golaris/internal/metrics"
 )
 
-var (
-	app *fiber.App
-)
+var app *fiber.App
 
 func init() {
 	app = fiber.New()

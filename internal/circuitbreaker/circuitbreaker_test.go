@@ -39,7 +39,7 @@ func TestMain(m *testing.M) {
 
 func TestHandleOpenCircuitBreaker_SuccessWithoutHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -78,7 +78,7 @@ func TestHandleOpenCircuitBreaker_SuccessWithoutHealthCheckEntry(t *testing.T) {
 
 func TestHandleOpenCircuitBreaker_SuccessWithExistingHealthCheckEntry(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -93,7 +93,8 @@ func TestHandleOpenCircuitBreaker_SuccessWithExistingHealthCheckEntry(t *testing
 	// Create  health check entry that  provokes a cool down and no republishing because of lst http status
 	hcData, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 	cache.HealthCheckCache.Unlock(hcData.Ctx, testHealthCheckKey)
-	hcData.HealthCheckEntry.LastChecked = time.Now().Add(-time.Duration(config.Current.HealthCheck.CoolDownTime.Seconds() * float64(time.Second)))
+	hcData.HealthCheckEntry.LastChecked = time.Now().
+		Add(-time.Duration(config.Current.HealthCheck.CoolDownTime.Seconds() * float64(time.Second)))
 	cache.HealthCheckCache.Set(context.Background(), testHealthCheckKey, hcData.HealthCheckEntry)
 
 	// Mock health check function
@@ -123,7 +124,7 @@ func TestHandleOpenCircuitBreaker_SuccessWithExistingHealthCheckEntry(t *testing
 
 func TestHandleOpenCircuitBreaker_WithConsumerUnhealthy(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -162,7 +163,7 @@ func TestHandleOpenCircuitBreaker_WithConsumerUnhealthy(t *testing.T) {
 
 func TestHandleOpenCircuitBreaker_HealthCheckEntryAlreadyLocked(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -195,13 +196,13 @@ func TestHandleOpenCircuitBreaker_HealthCheckEntryAlreadyLocked(t *testing.T) {
 	healthCheckCacheLocked, _ := cache.HealthCheckCache.IsLocked(hcData.Ctx, testHealthCheckKey)
 	assertions.True(healthCheckCacheLocked)
 
-	//Cleanup
+	// Cleanup
 	defer cache.HealthCheckCache.Unlock(hcData.Ctx, testHealthCheckKey)
 }
 
 func TestHandleOpenCircuitBreaker_CoolDownWithoutRepublishing(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -241,7 +242,7 @@ func TestHandleOpenCircuitBreaker_CoolDownWithoutRepublishing(t *testing.T) {
 
 func TestHandleOpenCircuitBreaker_CoolDownWithRepublishing(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -281,7 +282,7 @@ func TestHandleOpenCircuitBreaker_CoolDownWithRepublishing(t *testing.T) {
 
 func TestHandleOpenCircuitBreaker_IncreaseLoopCounterWithinLoopDetectionPeriod(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 300 * time.Second
 
@@ -321,7 +322,7 @@ func TestHandleOpenCircuitBreaker_IncreaseLoopCounterWithinLoopDetectionPeriod(t
 
 func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 0 * time.Second
 
@@ -357,7 +358,7 @@ func TestHandleOpenCircuitBreaker_ResetLoopCounterOutsideLoopDetectionPeriod(t *
 
 func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhenUnhealthy(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 600 * time.Second
 
@@ -393,7 +394,7 @@ func TestHandleOpenCircuitBreaker_UnchangedLoopCounterWhenUnhealthy(t *testing.T
 
 func TestHandleOpenCircuitBreaker_RepublishingPostponedDueToBackoff(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	config.Current.CircuitBreaker.OpenLoopDetectionPeriod = 600 * time.Second
 
@@ -429,7 +430,7 @@ func TestHandleOpenCircuitBreaker_RepublishingPostponedDueToBackoff(t *testing.T
 
 func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -438,9 +439,9 @@ func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 
 	testCbMessage := test.NewTestCbMessage(testSubscriptionId)
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
-	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
+	preparedHealthCheck, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
-	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
+	err := forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
 
 	// assert the result
 	assertions.NoError(err)
@@ -448,7 +449,7 @@ func TestForceDeleteRepublishingEntry_WithoutEntryToDelete(t *testing.T) {
 
 func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -461,12 +462,12 @@ func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 	testSubscriptionResource := test.NewTestSubscriptionResource(testSubscriptionId, testCallbackUrl, testEnvironment)
 
 	republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: testCbMessage.SubscriptionId, RepublishingUpTo: time.Now()}
-	err := cache.RepublishingCache.Set(context.Background(), testCbMessage.SubscriptionId, republishingCacheEntry)
+	_ = cache.RepublishingCache.Set(context.Background(), testCbMessage.SubscriptionId, republishingCacheEntry)
 
-	preparedHealthCheck, err := healthcheck.PrepareHealthCheck(testSubscriptionResource)
+	preparedHealthCheck, _ := healthcheck.PrepareHealthCheck(testSubscriptionResource)
 
 	// call the function under test
-	err = forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
+	err := forceDeleteRepublishingEntry(preparedHealthCheck.Ctx, testCbMessage.SubscriptionId)
 
 	// assert the result
 	assertions.NoError(err)
@@ -475,7 +476,7 @@ func TestForceDeleteRepublishingEntry_WithEntryToDelete(t *testing.T) {
 
 func TestCloseCircuitBreaker(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -509,7 +510,6 @@ func TestCheckForCircuitBreakerLoop_WithinLoopDetectionPeriod(t *testing.T) {
 	assert.Equal(t, 1, testCbMessage.LoopCounter, "LoopCounter should be incremented")
 	assert.True(t, testCbMessage.LastModified.ToTime().After(initialLastModified), "LastOpened should be updated to LastModified")
 	assert.Equal(t, testCbMessage.LastOpened, types.NewTimestamp(initialLastModified), "LastModified should be updated afterwards")
-
 }
 
 func TestCheckForCircuitBreakerLoop_OutsideLoopDetectionPeriod(t *testing.T) {

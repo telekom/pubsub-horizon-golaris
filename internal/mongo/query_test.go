@@ -5,15 +5,16 @@
 package mongo
 
 import (
+	"pubsub-horizon-golaris/internal/config"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/integration/mtest"
-	"pubsub-horizon-golaris/internal/config"
-	"testing"
-	"time"
 )
 
 func TestConnection_FindWaitingMessages(t *testing.T) {
@@ -34,8 +35,8 @@ func TestConnection_FindWaitingMessages(t *testing.T) {
 		}
 
 		mt.AddMockResponses(mtest.CreateCursorResponse(0, "testdb.testcollection", mtest.FirstBatch, bson.D{
-			{"status", expectedMessage.Status},
-			{"subscriptionId", expectedMessage.SubscriptionId},
+			{Key: "status", Value: expectedMessage.Status},
+			{Key: "subscriptionId", Value: expectedMessage.SubscriptionId},
 		}))
 
 		messages, _, err := connection.FindWaitingMessages(time.Now(), expectedMessage.SubscriptionId, mock.Anything)
@@ -64,9 +65,9 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 		}
 
 		mt.AddMockResponses(mtest.CreateCursorResponse(0, "testdb.testcollection", mtest.FirstBatch, bson.D{
-			{"status", expectedMessage.Status},
-			{"deliveryType", expectedMessage.DeliveryType},
-			{"subscriptionId", expectedMessage.SubscriptionId},
+			{Key: "status", Value: expectedMessage.Status},
+			{Key: "deliveryType", Value: expectedMessage.DeliveryType},
+			{Key: "subscriptionId", Value: expectedMessage.SubscriptionId},
 		}))
 
 		messages, _, err := connection.FindDeliveringMessagesByDeliveryType(time.Now(), mock.Anything)
@@ -76,7 +77,5 @@ func TestConnection_FindDeliveringMessagesByDeliveryType(t *testing.T) {
 		assert.Equal(t, expectedMessage.Status, messages[0].Status)
 		assert.Equal(t, expectedMessage.DeliveryType, messages[0].DeliveryType)
 		assert.Equal(t, expectedMessage.SubscriptionId, messages[0].SubscriptionId)
-
 	})
-
 }

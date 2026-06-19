@@ -19,6 +19,7 @@ import (
 	"github.com/telekom/galileo-client-go/options"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 type NotificationListener struct{}
@@ -45,7 +46,7 @@ func (n NotificationListener) OnAdd(event *hazelcast.EntryNotified, obj message.
 	}
 }
 
-func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj message.CircuitBreakerMessage, oldObj message.CircuitBreakerMessage) {
+func (n NotificationListener) OnUpdate(event *hazelcast.EntryNotified, obj, oldObj message.CircuitBreakerMessage) {
 	notificationConfig := config.Current.Notifications
 	circuitBreakerOpen := obj.Status == enum.CircuitBreakerStatusOpen
 
@@ -113,7 +114,7 @@ func (n NotificationListener) lockKey(key any, action string, leaseDuration time
 	}
 }
 
-func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, template string) error {
+func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject, template string) error {
 	log.Debug().
 		Str("subscriptionId", cbMessage.SubscriptionId).
 		Msg("Sending notification for open circuit-breaker")
@@ -122,49 +123,60 @@ func notifyConsumer(cbMessage *message.CircuitBreakerMessage, subject string, te
 		return err
 	}
 
-	if subscription != nil {
-		label, ok := subscription.Metadata.Annotations["ei.telekom.de/origin.namespace"].(string)
+	if subscription == nil {
+		return nil
+	}
 
-		if ok {
-			mailConfig := config.Current.Notifications.Mail
+	label, ok := subscription.Metadata.Annotations["ei.telekom.de/origin.namespace"].(string)
+	if !ok {
+		return nil
+	}
 
-			callbackUrlParts := strings.SplitN(subscription.Spec.Subscription.Callback, "url=", 2)
-			callbackUrl := utils.IfThenElse(len(callbackUrlParts) > 1, callbackUrlParts[1], callbackUrlParts[0])
+	return sendNotification(cbMessage, subscription, label, subject, template)
+}
 
-			subject := utils.ReplaceWithMap(subject, map[string]string{
-				"$environment": cbMessage.Environment,
-				"$application": strings.Replace(subscription.Spec.Subscription.SubscriberId, label+"--", "", 1),
-			})
+func sendNotification(
+	cbMessage *message.CircuitBreakerMessage,
+	subscription *resource.SubscriptionResource,
+	label, subject, template string,
+) error {
+	mailConfig := config.Current.Notifications.Mail
 
-			if cbMessage.LastOpened == nil {
-				return errors.New("lastOpened field of circuit breaker is nil")
-			}
+	callbackUrlParts := strings.SplitN(subscription.Spec.Subscription.Callback, "url=", 2)
+	callbackUrl := utils.IfThenElse(len(callbackUrlParts) > 1, callbackUrlParts[1], callbackUrlParts[0])
 
-			notifyOpts := options.Notify().
-				SetParameters([]string{label}).
-				SetData(map[string]any{
-					"display": map[string]any{
-						"english": true,
-						"german":  true,
-					},
-					"cb": map[string]any{
-						"environment": cbMessage.Environment,
-						"callbackUrl": callbackUrl,
-						"eventType":   subscription.Spec.Subscription.Type,
-						"lastOpened":  cbMessage.LastOpened.ToTime().Format(time.RFC3339),
-						"loopCounter": cbMessage.LoopCounter,
-						"status":      cbMessage.Status.String(),
-					},
-				}).
-				SetSender(mailConfig.Sender).
-				SetSenderName(mailConfig.SenderName).
-				SetTemplate(template).
-				SetSubject(subject)
+	subject = utils.ReplaceWithMap(subject, map[string]string{
+		"$environment": cbMessage.Environment,
+		"$application": strings.Replace(subscription.Spec.Subscription.SubscriberId, label+"--", "", 1),
+	})
 
-			if err := CurrentSender.SendNotification(context.Background(), notifyOpts); err != nil {
-				return fmt.Errorf("could not send notification for subscription %s: %w", cbMessage.SubscriptionId, err)
-			}
-		}
+	if cbMessage.LastOpened == nil {
+		return errors.New("lastOpened field of circuit breaker is nil")
+	}
+
+	notifyOpts := options.Notify().
+		SetParameters([]string{label}).
+		SetData(map[string]any{
+			"display": map[string]any{
+				"english": true,
+				"german":  true,
+			},
+			"cb": map[string]any{
+				"environment": cbMessage.Environment,
+				"callbackUrl": callbackUrl,
+				"eventType":   subscription.Spec.Subscription.Type,
+				"lastOpened":  cbMessage.LastOpened.ToTime().Format(time.RFC3339),
+				"loopCounter": cbMessage.LoopCounter,
+				"status":      cbMessage.Status.String(),
+			},
+		}).
+		SetSender(mailConfig.Sender).
+		SetSenderName(mailConfig.SenderName).
+		SetTemplate(template).
+		SetSubject(subject)
+
+	if err := CurrentSender.SendNotification(context.Background(), notifyOpts); err != nil {
+		return fmt.Errorf("could not send notification for subscription %s: %w", cbMessage.SubscriptionId, err)
 	}
 
 	return nil

@@ -8,9 +8,10 @@ package test
 
 import (
 	"context"
+	"time"
+
 	"github.com/hazelcast/hazelcast-go-client/types"
 	"github.com/stretchr/testify/mock"
-	"time"
 )
 
 type HealthCheckMockMap struct {
@@ -28,61 +29,61 @@ func (h *HealthCheckMockMap) Delete(ctx context.Context, key interface{}) error 
 }
 
 func (h *HealthCheckMockMap) GetEntrySet(ctx context.Context) ([]types.Entry, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) NewLockContext(ctx context.Context) context.Context {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) Unlock(ctx context.Context, key interface{}) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) IsLocked(ctx context.Context, key interface{}) (bool, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) ForceUnlock(ctx context.Context, key interface{}) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
-func (h *HealthCheckMockMap) Set(ctx context.Context, key interface{}, value interface{}) error {
+func (h *HealthCheckMockMap) Set(ctx context.Context, key, value interface{}) error {
 	args := h.Called(ctx, key, value)
 	return args.Error(0)
 }
 
 func (h *HealthCheckMockMap) ContainsKey(ctx context.Context, key interface{}) (bool, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) Clear(ctx context.Context) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) Lock(ctx context.Context, key interface{}) error {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) TryLockWithTimeout(ctx context.Context, key interface{}, timeout time.Duration) (bool, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
 func (h *HealthCheckMockMap) TryLockWithLease(ctx context.Context, key interface{}, lease time.Duration) (bool, error) {
-	//TODO implement me
+	// TODO implement me
 	panic("implement me")
 }
 
-func (h *HealthCheckMockMap) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error) {
-	//TODO implement me
+func (h *HealthCheckMockMap) TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease, timeout time.Duration) (bool, error) {
+	// TODO implement me
 	panic("implement me")
 }

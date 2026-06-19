@@ -6,17 +6,18 @@ package handler
 
 import (
 	"context"
-	"github.com/IBM/sarama"
-	"github.com/stretchr/testify/mock"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
+
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 func TestCheckFailedEvents(t *testing.T) {
@@ -53,7 +54,8 @@ func TestCheckFailedEvents(t *testing.T) {
 			Coordinates: &message.Coordinates{
 				Partition: &partitionValue,
 				Offset:    &offsetValue,
-			}},
+			},
+		},
 	}
 
 	subscription := &resource.SubscriptionResource{

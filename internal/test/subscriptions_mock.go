@@ -33,17 +33,17 @@ func (m *SubscriptionMockCache) AddListener(mapName string, listener c.Listener[
 	return args.Error(0)
 }
 
-func (m *SubscriptionMockCache) Get(cacheName string, key string) (*resource.SubscriptionResource, error) {
+func (m *SubscriptionMockCache) Get(cacheName, key string) (*resource.SubscriptionResource, error) {
 	args := m.Called(cacheName, key)
 	return args.Get(0).(*resource.SubscriptionResource), args.Error(1)
 }
 
-func (m *SubscriptionMockCache) Put(cacheName string, key string, value resource.SubscriptionResource) error {
+func (m *SubscriptionMockCache) Put(cacheName, key string, value resource.SubscriptionResource) error {
 	args := m.Called(cacheName, key, value)
 	return args.Error(0)
 }
 
-func (m *SubscriptionMockCache) Delete(cacheName string, key string) error {
+func (m *SubscriptionMockCache) Delete(cacheName, key string) error {
 	args := m.Called(cacheName, key)
 	return args.Error(0)
 }

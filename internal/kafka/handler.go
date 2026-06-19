@@ -6,13 +6,14 @@ package kafka
 
 import (
 	"encoding/json"
-	"fmt"
+	"pubsub-horizon-golaris/internal/config"
+	"strconv"
+
 	"github.com/IBM/sarama"
 	"github.com/burdiyan/kafkautil"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/enum"
 	"github.com/telekom/pubsub-horizon-go/tracing"
-	"pubsub-horizon-golaris/internal/config"
 )
 
 var CurrentHandler HandlerInterface
@@ -44,8 +45,13 @@ func newKafkaHandler() (*Handler, error) {
 	}, nil
 }
 
-func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string, errorParams bool) error {
-	var kafkaMessages = make([]*sarama.ProducerMessage, 0)
+func (kafkaHandler Handler) RepublishMessage(
+	traceCtx *tracing.TraceContext,
+	message *sarama.ConsumerMessage,
+	newDeliveryType, newCallbackUrl string,
+	errorParams bool,
+) error {
+	kafkaMessages := make([]*sarama.ProducerMessage, 0)
 
 	updatedMessage, err := updateMessage(message, newDeliveryType, newCallbackUrl)
 	if err != nil {
@@ -59,7 +65,7 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 		defer traceCtx.EndCurrentSpan()
 	}
 
-	if errorParams == true {
+	if errorParams {
 		optionalMetadataMessage, err := updateMetaData(message)
 		if err != nil {
 			log.Error().Err(err).Msg("Could not update message metadata")
@@ -77,11 +83,12 @@ func (kafkaHandler Handler) RepublishMessage(traceCtx *tracing.TraceContext, mes
 		return err
 	}
 
-	log.Debug().Msgf("Message with id %s sent to kafka: newDeliveryType %s newCallBackUrl %s", string(message.Key), newDeliveryType, newCallbackUrl)
+	log.Debug().
+		Msgf("Message with id %s sent to kafka: newDeliveryType %s newCallBackUrl %s", string(message.Key), newDeliveryType, newCallbackUrl)
 
 	if traceCtx != nil {
-		traceCtx.SetAttribute("partition", fmt.Sprintf("%d", updatedMessage.Partition))
-		traceCtx.SetAttribute("offset", fmt.Sprintf("%d", updatedMessage.Offset))
+		traceCtx.SetAttribute("partition", strconv.Itoa(int(updatedMessage.Partition)))
+		traceCtx.SetAttribute("offset", strconv.FormatInt(updatedMessage.Offset, 10))
 
 		log.Debug().Fields(map[string]any{
 			"uuid":      string(message.Key),
@@ -104,7 +111,7 @@ func copyHeaders(headers []*sarama.RecordHeader) []sarama.RecordHeader {
 	return newHeaders
 }
 
-func updateMessage(message *sarama.ConsumerMessage, newDeliveryType string, newCallbackUrl string) (*sarama.ProducerMessage, error) {
+func updateMessage(message *sarama.ConsumerMessage, newDeliveryType, newCallbackUrl string) (*sarama.ProducerMessage, error) {
 	var messageValue map[string]any
 	if err := json.Unmarshal(message.Value, &messageValue); err != nil {
 		log.Error().Err(err).Msg("Could not unmarshal message value")
@@ -162,7 +169,7 @@ func updateMetaData(message *sarama.ConsumerMessage) (*sarama.ProducerMessage, e
 		return nil, err
 	}
 
-	var metadataValue = map[string]any{
+	metadataValue := map[string]any{
 		"uuid": messageValue["uuid"],
 		"event": map[string]any{
 			"id": messageValue["event"].(map[string]any)["id"],

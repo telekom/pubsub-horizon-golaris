@@ -21,25 +21,27 @@ import (
 	"github.com/telekom/pubsub-horizon-go/types"
 )
 
-var (
-	healthCheckFunc = healthcheck.CheckConsumerHealth
-)
+var healthCheckFunc = healthcheck.CheckConsumerHealth
 
 // HandleOpenCircuitBreaker handles the process when a circuit breaker is open.
 // The function takes two parameters:
 // - cbMessage: a CircuitBreakerMessage instance containing the details of the circuit breaker.
 // - subscription: a pointer to a SubscriptionResource instance.
-// The function performs several operations including specifying the HTTP method based on the subscription configuration,
-// retrieving and updating health check data, performing a health check if not in cool down, and creating a republishing cache entry if the last health check was successful.
-// It also handles the process of closing the circuit breaker once all operations are successfully completed.
+// The function performs several operations including specifying the HTTP method based on the
+// subscription configuration, retrieving and updating health check data, performing a health
+// check if not in cool down, and creating a republishing cache entry if the last health check
+// was successful. It also handles the process of closing the circuit breaker once all
+// operations are successfully completed.
 func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscription *resource.SubscriptionResource) {
 	hcData, err := healthcheck.PrepareHealthCheck(subscription)
 	if err != nil {
-		log.Error().Err(err).Msgf("Failed to create new HealthCheckCacheEntry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
+		log.Error().
+			Err(err).
+			Msgf("Failed to create new HealthCheckCacheEntry for subscriptionId %s", subscription.Spec.Subscription.SubscriptionId)
 		return
 	}
 
-	if hcData.IsAcquired == false {
+	if !hcData.IsAcquired {
 		log.Debug().Msgf("Could not acquire lock for HealthCheckCacheEntry, skipping entry for subscriptionId %s", hcData.HealthCheckKey)
 		return
 	}
@@ -47,7 +49,7 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 
 	// Ensure that the lock is released when the function is ended
 	defer func() {
-		if hcData.IsAcquired == true {
+		if hcData.IsAcquired {
 			if err := cache.HealthCheckCache.Unlock(hcData.Ctx, hcData.HealthCheckKey); err != nil {
 				log.Error().Err(err).Msgf("Error unlocking HealthCheckCacheEntry with key %s", hcData.HealthCheckKey)
 			}
@@ -61,56 +63,97 @@ func HandleOpenCircuitBreaker(cbMessage message.CircuitBreakerMessage, subscript
 		return
 	}
 
-	// Check if circuit breaker is in cool down
-	if healthcheck.IsHealthCheckInCoolDown(hcData.HealthCheckEntry) == false {
-		// Perform health check and update health check data
-		err := healthCheckFunc(hcData, subscription)
-		if err != nil {
-			log.Debug().Msgf("HealthCheck failed for key %s", hcData.HealthCheckKey)
-
-			// I have observed the case where events were set to DELIVERING.
-			// Then the DeliveryType was changed to SSE. However, the events landed on WAITING.
-			// HealthCheck was performed, but the CallbackUrl was already missing because deliveryType was set to SSE.
-			if subscription.Spec.Subscription.Callback == "" || subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
-				republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: subscription.Spec.Subscription.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now()}
-				if err := SetNewRepublishingCacheEntry(hcData.Ctx, republishingCacheEntry, cbMessage.SubscriptionId, true); err != nil {
-					log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
-					return
-				}
-				CloseCircuitBreaker(&cbMessage)
-			}
-			return
-		}
-	} else {
-		log.Debug().Msgf("HealthCheck is in cooldown for key %s", hcData.HealthCheckKey)
+	if !performHealthCheckIfReady(hcData, &cbMessage, subscription) {
+		return
 	}
 
 	// Create republishing cache entry if last health check was successful
 	if slices.Contains(config.Current.HealthCheck.SuccessfulResponseCodes, hcData.HealthCheckEntry.LastCheckedStatus) {
-		// Check if circuit breaker is in a loop and update loop counter of cb message or reset it
-		err = checkForCircuitBreakerLoop(&cbMessage)
-		if err != nil {
-			log.Error().Err(err).Msgf("Error handling circuit breaker loop for subscriptionId %s", cbMessage.SubscriptionId)
-		}
-
-		// Calculate exponential backoff for new republishing cache entry based on updated circuit breaker loop counter
-		exponentialBackoff := calculateExponentialBackoff(cbMessage)
-		log.Debug().Msgf("Calculated exponential backoff for circuit breaker with subscriptionId %s: %v", cbMessage.SubscriptionId, exponentialBackoff)
-
-		// Create republishing cache entry
-		republishingCacheEntry := republish.RepublishingCacheEntry{SubscriptionId: cbMessage.SubscriptionId, RepublishingUpTo: time.Now(), PostponedUntil: time.Now().Add(+exponentialBackoff)}
-		log.Debug().Msgf("postponedUntil for subscriptionId %s set to %v", republishingCacheEntry.SubscriptionId, republishingCacheEntry.PostponedUntil)
-
-		if err := SetNewRepublishingCacheEntry(hcData.Ctx, republishingCacheEntry, cbMessage.SubscriptionId, true); err != nil {
-			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
+		if err := createRepublishingWithBackoff(hcData.Ctx, &cbMessage); err != nil {
 			return
 		}
-
-		log.Debug().Msgf("Successfully created RepublishingCacheEntry entry for subscriptionId %s: %+v", cbMessage.SubscriptionId, republishingCacheEntry)
-		CloseCircuitBreaker(&cbMessage)
 	}
 
 	log.Debug().Msgf("Successfully processed open CircuitBreaker entry for subscriptionId %s", cbMessage.SubscriptionId)
+}
+
+// performHealthCheckIfReady executes the health check if not in cooldown and handles the
+// case where a subscription has switched to SSE delivery while events were in DELIVERING state.
+// Returns true if processing should continue, false if the function should return early.
+func performHealthCheckIfReady(
+	hcData *healthcheck.PreparedHealthCheckData,
+	cbMessage *message.CircuitBreakerMessage,
+	subscription *resource.SubscriptionResource,
+) bool {
+	if healthcheck.IsHealthCheckInCoolDown(hcData.HealthCheckEntry) {
+		log.Debug().Msgf("HealthCheck is in cooldown for key %s", hcData.HealthCheckKey)
+		return true
+	}
+
+	err := healthCheckFunc(hcData, subscription)
+	if err == nil {
+		return true
+	}
+
+	log.Debug().Msgf("HealthCheck failed for key %s", hcData.HealthCheckKey)
+
+	// I have observed the case where events were set to DELIVERING.
+	// Then the DeliveryType was changed to SSE. However, the events landed on WAITING.
+	// HealthCheck was performed, but the CallbackUrl was already missing because deliveryType was set to SSE.
+	if isSubscriptionNonCallback(subscription) {
+		republishingCacheEntry := republish.RepublishingCacheEntry{
+			SubscriptionId:   subscription.Spec.Subscription.SubscriptionId,
+			RepublishingUpTo: time.Now(),
+			PostponedUntil:   time.Now(),
+		}
+		if err := SetNewRepublishingCacheEntry(hcData.Ctx, republishingCacheEntry, cbMessage.SubscriptionId, true); err != nil {
+			log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
+			return false
+		}
+		CloseCircuitBreaker(cbMessage)
+	}
+	return false
+}
+
+// isSubscriptionNonCallback returns true if the subscription has no callback URL or uses SSE delivery.
+func isSubscriptionNonCallback(subscription *resource.SubscriptionResource) bool {
+	return subscription.Spec.Subscription.Callback == "" ||
+		subscription.Spec.Subscription.DeliveryType == "sse" ||
+		subscription.Spec.Subscription.DeliveryType == "server_sent_event"
+}
+
+// createRepublishingWithBackoff handles loop detection, exponential backoff calculation,
+// and creation of the republishing cache entry for a successful health check scenario.
+func createRepublishingWithBackoff(ctx context.Context, cbMessage *message.CircuitBreakerMessage) error {
+	// Check if circuit breaker is in a loop and update loop counter of cb message or reset it
+	err := checkForCircuitBreakerLoop(cbMessage)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error handling circuit breaker loop for subscriptionId %s", cbMessage.SubscriptionId)
+	}
+
+	// Calculate exponential backoff for new republishing cache entry based on updated circuit breaker loop counter
+	exponentialBackoff := calculateExponentialBackoff(*cbMessage)
+	log.Debug().
+		Msgf("Calculated exponential backoff for circuit breaker with subscriptionId %s: %v", cbMessage.SubscriptionId, exponentialBackoff)
+
+	// Create republishing cache entry
+	republishingCacheEntry := republish.RepublishingCacheEntry{
+		SubscriptionId:   cbMessage.SubscriptionId,
+		RepublishingUpTo: time.Now(),
+		PostponedUntil:   time.Now().Add(+exponentialBackoff),
+	}
+	log.Debug().
+		Msgf("postponedUntil for subscriptionId %s set to %v", republishingCacheEntry.SubscriptionId, republishingCacheEntry.PostponedUntil)
+
+	if err := SetNewRepublishingCacheEntry(ctx, republishingCacheEntry, cbMessage.SubscriptionId, true); err != nil {
+		log.Error().Err(err).Msgf("Error while creating RepublishingCacheEntry entry for subscriptionId %s", cbMessage.SubscriptionId)
+		return err
+	}
+
+	log.Debug().
+		Msgf("Successfully created RepublishingCacheEntry entry for subscriptionId %s: %+v", cbMessage.SubscriptionId, republishingCacheEntry)
+	CloseCircuitBreaker(cbMessage)
+	return nil
 }
 
 // checkForCircuitBreakerLoop evaluates the circuit breaker's last opened timestamp against the configured loop detection period.
@@ -124,11 +167,17 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 	// If circuit breaker last opened timestamp is within loop detection period, increase loop counter
 	if cbMessage.LastOpened != nil && time.Since(cbMessage.LastOpened.ToTime()).Seconds() < loopDetectionPeriod.Seconds() {
 		cbMessage.LoopCounter++
-		log.Debug().Msgf("Circuit breaker opened within loop detection period. Increased loop counter for subscription %s: %d", cbMessage.SubscriptionId, cbMessage.LoopCounter)
+		log.Debug().
+			Msgf("Circuit breaker opened within loop detection period. "+
+				"Increased loop counter for subscription %s: %d",
+				cbMessage.SubscriptionId, cbMessage.LoopCounter)
 	} else {
 		// If outside the loop detection period, reset loop  counter
 		cbMessage.LoopCounter = 0
-		log.Debug().Msgf("Circuit breaker opened outside loop detection period. Reseted loop counter for subscription %s: %v", cbMessage.SubscriptionId, cbMessage.LoopCounter)
+		log.Debug().
+			Msgf("Circuit breaker opened outside loop detection period. "+
+				"Reseted loop counter for subscription %s: %v",
+				cbMessage.SubscriptionId, cbMessage.LoopCounter)
 	}
 	// set last opened for the next loop detection
 	cbMessage.LastOpened = cbMessage.LastModified
@@ -136,7 +185,9 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 
 	err := cache.CircuitBreakerCache.Put(config.Current.Hazelcast.Caches.CircuitBreakerCache, cbMessage.SubscriptionId, *cbMessage)
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while updating CircuitBreaker for subscription %s with loop detection result: %v", cbMessage.SubscriptionId, err)
+		log.Error().
+			Err(err).
+			Msgf("Error while updating CircuitBreaker for subscription %s with loop detection result: %v", cbMessage.SubscriptionId, err)
 		return err
 	}
 
@@ -146,7 +197,12 @@ func checkForCircuitBreakerLoop(cbMessage *message.CircuitBreakerMessage) error 
 // SetNewRepublishingCacheEntry creates a new republishing cache entry for the given subscriptionId.
 // It first attempts to delete any existing republishing entry for the subscriptionId and then sets
 // the new republishing entry in the cache.
-func SetNewRepublishingCacheEntry(ctx context.Context, republishingEntry republish.RepublishingCacheEntry, subscriptionId string, forceDelete bool) error {
+func SetNewRepublishingCacheEntry(
+	ctx context.Context,
+	republishingEntry republish.RepublishingCacheEntry,
+	subscriptionId string,
+	forceDelete bool,
+) error {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
@@ -230,7 +286,11 @@ func calculateExponentialBackoff(cbMessage message.CircuitBreakerMessage) time.D
 		exponentialBackoff = exponentialBackoffMax
 	}
 
-	log.Debug().Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v", cbMessage.SubscriptionId, cbMessage.LoopCounter, exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
+	log.Debug().
+		Msgf("Calculating exponential backoff, subscriptionId %s, loopCounter %d, "+
+			"exponentialBackoffBase %v, exponentialBackoffMax %v, exponentialBackoff %v",
+			cbMessage.SubscriptionId, cbMessage.LoopCounter,
+			exponentialBackoffBase, exponentialBackoffMax, exponentialBackoff)
 
 	return exponentialBackoff
 }

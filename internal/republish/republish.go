@@ -8,12 +8,6 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
-	"github.com/1pkg/gohalt"
-	"github.com/IBM/sarama"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
-	"github.com/telekom/pubsub-horizon-go/tracing"
 	"net"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -21,6 +15,13 @@ import (
 	"pubsub-horizon-golaris/internal/mongo"
 	"strings"
 	"time"
+
+	"github.com/1pkg/gohalt"
+	"github.com/IBM/sarama"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 )
 
 var ErrCancelled = errors.New("republishing cancelled")
@@ -32,19 +33,25 @@ func init() {
 	gob.Register(RepublishingCacheEntry{})
 }
 
-func createThrottler(redeliveriesPerSecond int, deliveryType string, subscriptionId string) gohalt.Throttler {
+func createThrottler(redeliveriesPerSecond int, deliveryType, subscriptionId string) gohalt.Throttler {
 	if deliveryType == "sse" || deliveryType == "server_sent_event" || redeliveriesPerSecond <= 0 {
-		log.Debug().Msgf("Throttling disabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
+		log.Debug().
+			Msgf("Throttling disabled for subscription %s with delivery type %s "+
+				"and redeliveries per second %d",
+				subscriptionId, deliveryType, redeliveriesPerSecond)
 		return gohalt.NewThrottlerEcho(nil)
 	}
-	log.Info().Msgf("Throttling enabled for subscription %s with delivery type %s and redeliveries per second %d", subscriptionId, deliveryType, redeliveriesPerSecond)
+	log.Info().
+		Msgf("Throttling enabled for subscription %s with delivery type %s "+
+			"and redeliveries per second %d",
+			subscriptionId, deliveryType, redeliveriesPerSecond)
 	return gohalt.NewThrottlerTimed(uint64(redeliveriesPerSecond), config.Current.Republishing.ThrottlingIntervalTime, 0)
 }
 
 // HandleRepublishingEntry manages the republishing process for a given subscription.
 // The function takes a SubscriptionResource object as a parameter.
 func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
-	var acquired = false
+	acquired := false
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())
 	subscriptionId := subscription.Spec.Subscription.SubscriptionId
 
@@ -107,7 +114,9 @@ func HandleRepublishingEntry(subscription *resource.SubscriptionResource) {
 		return
 	}
 	if err != nil {
-		log.Error().Err(err).Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
+		log.Error().
+			Err(err).
+			Msgf("Error while republishing pending events for subscriptionId %s. Discarding rebublishing cache entry", subscriptionId)
 		return
 	}
 
@@ -160,13 +169,10 @@ func isCancelled(ctx context.Context, subscriptionId string, fatal bool) (bool, 
 // RepublishPendingEvents handles the republishing of pending events for a given subscription.
 // The function fetches waiting events from the database and republishes them to Kafka.
 func RepublishPendingEvents(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
-	var subscriptionId = subscription.Spec.Subscription.SubscriptionId
+	subscriptionId := subscription.Spec.Subscription.SubscriptionId
 	log.Info().Msgf("Republishing pending events for subscription %s", subscriptionId)
 
 	picker, err := kafka.NewPicker()
-
-	// Returning an error results in NOT deleting the republishingEntry from the cache
-	// so that the republishing job will get retried shortly
 	if err != nil {
 		log.Error().Err(err).Fields(map[string]any{
 			"subscriptionId": subscriptionId,
@@ -175,135 +181,212 @@ func RepublishPendingEvents(ctx context.Context, subscription *resource.Subscrip
 	}
 	defer picker.Close()
 
-	batchSize := config.Current.Republishing.BatchSize
+	throttler := createThrottler(
+		subscription.Spec.Subscription.RedeliveriesPerSecond,
+		string(subscription.Spec.Subscription.DeliveryType),
+		subscriptionId,
+	)
+	defer func() { _ = throttler.Release(context.Background()) }()
 
-	throttler := createThrottler(subscription.Spec.Subscription.RedeliveriesPerSecond, string(subscription.Spec.Subscription.DeliveryType), subscriptionId)
-	defer throttler.Release(context.Background())
+	rc := &republishContext{
+		ctx:            ctx,
+		subscription:   subscription,
+		subscriptionId: subscriptionId,
+		republishEntry: republishEntry,
+		picker:         picker,
+		throttler:      throttler,
+		batchSize:      config.Current.Republishing.BatchSize,
+	}
 
-	var lastTimestamp any
+	return rc.processBatches()
+}
+
+// republishContext holds shared state for the republishing loop to avoid excessive parameter passing.
+type republishContext struct {
+	ctx            context.Context
+	subscription   *resource.SubscriptionResource
+	subscriptionId string
+	republishEntry RepublishingCacheEntry
+	picker         kafka.MessagePicker
+	throttler      gohalt.Throttler
+	batchSize      int64
+	lastTimestamp  any
+}
+
+// processBatches iterates over batches of messages until none remain or processing is cancelled.
+func (rc *republishContext) processBatches() error {
 	for {
-		// Per-batch ownership check (fatal: errors preserve cache entry for retry)
-		if cancelled, err := isCancelled(ctx, subscriptionId, true); err != nil {
+		if cancelled, err := isCancelled(rc.ctx, rc.subscriptionId, true); err != nil {
 			return err
 		} else if cancelled {
 			return ErrCancelled
 		}
 
-		var dbMessages []message.StatusMessage
-
-		if republishEntry.OldDeliveryType == "sse" || republishEntry.OldDeliveryType == "server_sent_event" {
-			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(time.Now(), lastTimestamp, subscriptionId)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", subscriptionId)
-			}
-			log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
-		} else {
-			dbMessages, lastTimestamp, err = mongo.CurrentConnection.FindWaitingMessages(time.Now(), lastTimestamp, subscriptionId)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", subscriptionId)
-			}
-			log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
-		}
-
-		log.Debug().Msgf("Last cursor: %v", lastTimestamp)
+		dbMessages, _ := rc.fetchBatch()
 
 		if len(dbMessages) == 0 {
-			break
+			return nil
 		}
 
-		for _, dbMessage := range dbMessages {
-
-			// Per-message ownership check (non-fatal: log and continue on error)
-			if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
-				return ErrCancelled
-			}
-
-			for {
-				if acquireResult := throttler.Acquire(context.Background()); acquireResult != nil {
-					sleepInterval := time.Millisecond * 10
-					totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
-					for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
-						time.Sleep(sleepInterval)
-					}
-
-					// Post-throttle ownership check (non-fatal: log and continue on error)
-					if cancelled, _ := isCancelled(ctx, subscriptionId, false); cancelled {
-						return ErrCancelled
-					}
-
-					continue
-				}
-				break
-			}
-
-			var newDeliveryType string
-			if !strings.EqualFold(string(subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
-				newDeliveryType = strings.ToUpper(string(subscription.Spec.Subscription.DeliveryType))
-			}
-
-			var newCallbackUrl string
-			if subscription.Spec.Subscription.Callback != "" && (subscription.Spec.Subscription.Callback != dbMessage.Properties["callbackUrl"]) {
-				newCallbackUrl = subscription.Spec.Subscription.Callback
-			}
-
-			if dbMessage.Coordinates == nil {
-				log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", subscriptionId, dbMessage)
-				continue
-			}
-
-			kafkaMessage, err := picker.Pick(&dbMessage)
-			if err != nil {
-				// Returning an error results in NOT deleting the republishingEntry from the cache
-				// so that the republishing job will get retried shortly
-				var nErr *net.OpError
-				if errors.As(err, &nErr) {
-					return err
-				}
-
-				var errorList = []error{
-					sarama.ErrEligibleLeadersNotAvailable,
-					sarama.ErrPreferredLeaderNotAvailable,
-					sarama.ErrUnknownLeaderEpoch,
-					sarama.ErrFencedLeaderEpoch,
-					sarama.ErrNotLeaderForPartition,
-					sarama.ErrLeaderNotAvailable,
-				}
-
-				for _, e := range errorList {
-					if errors.Is(err, e) {
-						return err
-					}
-				}
-
-				log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
-				continue
-			}
-
-			var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-			var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
-
-			traceCtx.StartSpan("republish message")
-			traceCtx.SetAttribute("component", "Horizon Golaris")
-			traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
-			traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
-			traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-			traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
-
-			err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl, false)
-			if err != nil {
-				log.Warn().Msgf("Error while republishing message for subscriptionId %s: %v", subscriptionId, err)
-				traceCtx.CurrentSpan().RecordError(err)
-			}
-			log.Debug().Msgf("Successfully republished message for subscriptionId %s", subscriptionId)
-
-			traceCtx.EndCurrentSpan()
+		if err := rc.processMessages(dbMessages); err != nil {
+			return err
 		}
 
-		if len(dbMessages) < int(batchSize) {
-			break
+		if len(dbMessages) < int(rc.batchSize) {
+			return nil
+		}
+	}
+}
+
+// fetchBatch retrieves the next batch of messages from MongoDB based on the old delivery type.
+func (rc *republishContext) fetchBatch() ([]message.StatusMessage, error) {
+	if rc.republishEntry.OldDeliveryType == "sse" || rc.republishEntry.OldDeliveryType == "server_sent_event" {
+		dbMessages, lastTimestamp, err := mongo.CurrentConnection.FindProcessedMessagesByDeliveryTypeSSE(
+			time.Now(), rc.lastTimestamp, rc.subscriptionId,
+		)
+		rc.lastTimestamp = lastTimestamp
+		if err != nil {
+			log.Error().Err(err).Msgf("Error while fetching PROCESSED messages for subscription %s from db", rc.subscriptionId)
+		}
+		log.Debug().Msgf("Found %d PROCESSED messages in MongoDb", len(dbMessages))
+		log.Debug().Msgf("Last cursor: %v", rc.lastTimestamp)
+		return dbMessages, err
+	}
+
+	dbMessages, lastTimestamp, err := mongo.CurrentConnection.FindWaitingMessages(
+		time.Now(), rc.lastTimestamp, rc.subscriptionId,
+	)
+	rc.lastTimestamp = lastTimestamp
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while fetching messages for subscription %s from db", rc.subscriptionId)
+	}
+	log.Debug().Msgf("Found %d WAITING messages in MongoDb", len(dbMessages))
+	log.Debug().Msgf("Last cursor: %v", rc.lastTimestamp)
+	return dbMessages, err
+}
+
+// processMessages iterates over a batch and republishes each message.
+func (rc *republishContext) processMessages(dbMessages []message.StatusMessage) error {
+	for _, dbMessage := range dbMessages {
+		if cancelled, _ := isCancelled(rc.ctx, rc.subscriptionId, false); cancelled {
+			return ErrCancelled
+		}
+
+		if err := rc.awaitThrottle(); err != nil {
+			return err
+		}
+
+		if err := rc.republishMessage(dbMessage); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// awaitThrottle blocks until the throttler permits the next message, checking for cancellation.
+func (rc *republishContext) awaitThrottle() error {
+	for {
+		if acquireResult := rc.throttler.Acquire(context.Background()); acquireResult == nil {
+			return nil
+		}
+
+		sleepInterval := time.Millisecond * 10
+		totalSleepTime := config.Current.Republishing.ThrottlingIntervalTime
+		for slept := time.Duration(0); slept < totalSleepTime; slept += sleepInterval {
+			time.Sleep(sleepInterval)
+		}
+
+		if cancelled, _ := isCancelled(rc.ctx, rc.subscriptionId, false); cancelled {
+			return ErrCancelled
+		}
+	}
+}
+
+// republishMessage picks a single message from Kafka and republishes it with tracing.
+func (rc *republishContext) republishMessage(dbMessage message.StatusMessage) error {
+	if dbMessage.Coordinates == nil {
+		log.Error().Msgf("Coordinates in message for subscriptionId %s are nil: %+v", rc.subscriptionId, dbMessage)
+		return nil
+	}
+
+	kafkaMessage, err := rc.picker.Pick(&dbMessage)
+	if err != nil {
+		return rc.handlePickError(err)
+	}
+
+	newDeliveryType := rc.resolveNewDeliveryType(dbMessage)
+	newCallbackUrl := rc.resolveNewCallbackUrl(dbMessage)
+
+	rc.republishWithTracing(kafkaMessage, dbMessage, newDeliveryType, newCallbackUrl)
+	return nil
+}
+
+// handlePickError classifies Kafka pick errors as fatal (returned) or non-fatal (logged, returns nil).
+func (rc *republishContext) handlePickError(err error) error {
+	var nErr *net.OpError
+	if errors.As(err, &nErr) {
+		return err
+	}
+
+	fatalErrors := []error{
+		sarama.ErrEligibleLeadersNotAvailable,
+		sarama.ErrPreferredLeaderNotAvailable,
+		sarama.ErrUnknownLeaderEpoch,
+		sarama.ErrFencedLeaderEpoch,
+		sarama.ErrNotLeaderForPartition,
+		sarama.ErrLeaderNotAvailable,
+	}
+	for _, e := range fatalErrors {
+		if errors.Is(err, e) {
+			return err
+		}
+	}
+
+	log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", rc.subscriptionId)
+	return nil
+}
+
+// resolveNewDeliveryType returns the new delivery type if it differs from the message's current one.
+func (rc *republishContext) resolveNewDeliveryType(dbMessage message.StatusMessage) string {
+	if !strings.EqualFold(string(rc.subscription.Spec.Subscription.DeliveryType), string(dbMessage.DeliveryType)) {
+		return strings.ToUpper(string(rc.subscription.Spec.Subscription.DeliveryType))
+	}
+	return ""
+}
+
+// resolveNewCallbackUrl returns the new callback URL if it differs from the message's current one.
+func (rc *republishContext) resolveNewCallbackUrl(dbMessage message.StatusMessage) string {
+	cb := rc.subscription.Spec.Subscription.Callback
+	if cb != "" && cb != dbMessage.Properties["callbackUrl"] {
+		return cb
+	}
+	return ""
+}
+
+// republishWithTracing creates a tracing span and republishes a Kafka message.
+func (rc *republishContext) republishWithTracing(
+	kafkaMessage *sarama.ConsumerMessage,
+	dbMessage message.StatusMessage,
+	newDeliveryType, newCallbackUrl string,
+) {
+	b3Ctx := tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+	traceCtx := tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+
+	traceCtx.StartSpan("republish message")
+	traceCtx.SetAttribute("component", "Horizon Golaris")
+	traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+	traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+	traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+	traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
+
+	err := kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, newCallbackUrl, false)
+	if err != nil {
+		log.Warn().Msgf("Error while republishing message for subscriptionId %s: %v", rc.subscriptionId, err)
+		traceCtx.CurrentSpan().RecordError(err)
+	}
+	log.Debug().Msgf("Successfully republished message for subscriptionId %s", rc.subscriptionId)
+
+	traceCtx.EndCurrentSpan()
 }
 
 // ForceDelete attempts to forcefully delete a RepublishingCacheEntry for a given subscriptionId.

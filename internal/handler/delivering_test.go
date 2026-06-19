@@ -6,9 +6,6 @@ package handler
 
 import (
 	"context"
-	"github.com/IBM/sarama"
-	"github.com/stretchr/testify/mock"
-	"github.com/telekom/pubsub-horizon-go/message"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
@@ -16,6 +13,10 @@ import (
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
+
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/message"
 )
 
 func TestCheckDeliveringEvents_Success(t *testing.T) {
@@ -52,7 +53,8 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 			Coordinates: &message.Coordinates{
 				Partition: &partitionValue1,
 				Offset:    &offsetValue1,
-			}},
+			},
+		},
 		{
 			Topic:          "test-topic",
 			Status:         "DELIVERING",
@@ -61,7 +63,8 @@ func TestCheckDeliveringEvents_Success(t *testing.T) {
 			Coordinates: &message.Coordinates{
 				Partition: &partitionValue2,
 				Offset:    &offsetValue2,
-			}},
+			},
+		},
 	}
 
 	mockMongo.On("FindDeliveringMessagesByDeliveryType", mock.Anything, mock.Anything).Return(dbMessages, nil, nil)

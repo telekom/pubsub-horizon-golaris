@@ -5,8 +5,9 @@
 package mongo
 
 import (
-	"github.com/telekom/pubsub-horizon-go/message"
 	"time"
+
+	"github.com/telekom/pubsub-horizon-go/message"
 )
 
 type HandlerInterface interface {
@@ -14,5 +15,5 @@ type HandlerInterface interface {
 	FindDeliveringMessagesByDeliveryType(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error)
 	FindProcessedMessagesByDeliveryTypeSSE(timestamp time.Time, lastTimestamp any, subscriptionId string) ([]message.StatusMessage, any, error)
 	FindFailedMessagesWithCallbackUrlNotFoundException(timestamp time.Time, lastTimestamp any) ([]message.StatusMessage, any, error)
-	FindDistinctSubscriptionsForWaitingEvents(beginTimestamp time.Time, endTimestamp time.Time) ([]string, error)
+	FindDistinctSubscriptionsForWaitingEvents(beginTimestamp, endTimestamp time.Time) ([]string, error)
 }

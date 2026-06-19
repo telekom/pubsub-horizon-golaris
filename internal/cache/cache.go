@@ -24,7 +24,7 @@ import (
 
 type HazelcastMapInterface interface {
 	Get(ctx context.Context, key interface{}) (interface{}, error)
-	Set(ctx context.Context, key interface{}, value interface{}) error
+	Set(ctx context.Context, key, value interface{}) error
 	TryLockWithTimeout(ctx context.Context, key interface{}, timeout time.Duration) (bool, error)
 	GetEntrySet(ctx context.Context) ([]types.Entry, error)
 	NewLockContext(ctx context.Context) context.Context
@@ -35,22 +35,28 @@ type HazelcastMapInterface interface {
 	ContainsKey(ctx context.Context, key interface{}) (bool, error)
 	Clear(ctx context.Context) error
 	Lock(ctx context.Context, key interface{}) error
-	TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease time.Duration, timeout time.Duration) (bool, error)
+	TryLockWithLeaseAndTimeout(ctx context.Context, key interface{}, lease, timeout time.Duration) (bool, error)
 	TryLockWithLease(ctx context.Context, key interface{}, lease time.Duration) (bool, error)
 }
 
-var SubscriptionCache c.HazelcastBasedCache[resource.SubscriptionResource]
-var CircuitBreakerCache c.HazelcastBasedCache[message.CircuitBreakerMessage]
-var HealthCheckCache HazelcastMapInterface
-var RepublishingCache HazelcastMapInterface
-var hazelcastClient *hazelcast.Client
+var (
+	SubscriptionCache   c.HazelcastBasedCache[resource.SubscriptionResource]
+	CircuitBreakerCache c.HazelcastBasedCache[message.CircuitBreakerMessage]
+	HealthCheckCache    HazelcastMapInterface
+	RepublishingCache   HazelcastMapInterface
+	hazelcastClient     *hazelcast.Client
+)
 
-var HandlerCache HazelcastMapInterface
-var NotificationSender HazelcastMapInterface
+var (
+	HandlerCache       HazelcastMapInterface
+	NotificationSender HazelcastMapInterface
+)
 
-var DeliveringLockKey string
-var FailedLockKey string
-var WaitingLockKey string
+var (
+	DeliveringLockKey string
+	FailedLockKey     string
+	WaitingLockKey    string
+)
 
 func Initialize() {
 	c := createNewHazelcastConfig()
@@ -80,7 +86,7 @@ func createNewHazelcastConfig() hazelcast.Config {
 }
 
 func parseHazelcastLogLevel(logLevel string) zerolog.Level {
-	var hazelcastLogLevel, err = zerolog.ParseLevel(logLevel)
+	hazelcastLogLevel, err := zerolog.ParseLevel(logLevel)
 	if err != nil {
 		log.Error().Err(err).Fields(map[string]any{
 			"logLevel": config.Current.Hazelcast.LogLevel,
@@ -96,7 +102,7 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 
 	hazelcastClient, err = hazelcast.StartNewClientWithConfig(context.Background(), hzConfig)
 	if err != nil {
-		return fmt.Errorf("error initializing Hazelcast client: %v", err)
+		return fmt.Errorf("error initializing Hazelcast client: %w", err)
 	}
 
 	SubscriptionCache = c.NewHazelcastCacheWithClient[resource.SubscriptionResource](hazelcastClient)
@@ -104,17 +110,17 @@ func initializeCaches(hzConfig hazelcast.Config) error {
 
 	HealthCheckCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HealthCheckCache)
 	if err != nil {
-		return fmt.Errorf("error initializing HealthCheckCache: %v", err)
+		return fmt.Errorf("error initializing HealthCheckCache: %w", err)
 	}
 
 	RepublishingCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.RepublishingCache)
 	if err != nil {
-		return fmt.Errorf("error initializing RepublishingCache: %v", err)
+		return fmt.Errorf("error initializing RepublishingCache: %w", err)
 	}
 
 	HandlerCache, err = hazelcastClient.GetMap(context.Background(), config.Current.Hazelcast.Caches.HandlerCache)
 	if err != nil {
-		return fmt.Errorf("error initializing DeliveringHandler: %v", err)
+		return fmt.Errorf("error initializing DeliveringHandler: %w", err)
 	}
 
 	NotificationSender, err = hazelcastClient.GetMap(context.Background(), "notificationSender")

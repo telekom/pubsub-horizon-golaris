@@ -6,20 +6,27 @@ package handler
 
 import (
 	"context"
-	"github.com/rs/zerolog/log"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/tracing"
+	"errors"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/kafka"
 	"pubsub-horizon-golaris/internal/mongo"
 	"time"
+
+	"github.com/IBM/sarama"
+	"github.com/rs/zerolog/log"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/tracing"
 )
+
+// errAbort signals that batch processing should stop without logging an additional error.
+var errAbort = errors.New("abort processing")
 
 func CheckFailedEvents() {
 	log.Debug().Msgf("FailedHandler: Republish messages in state FAILED")
 
-	var ctx = cache.HandlerCache.NewLockContext(context.Background())
+	ctx := cache.HandlerCache.NewLockContext(context.Background())
 
 	if acquired, err := cache.HandlerCache.TryLockWithTimeout(ctx, cache.FailedLockKey, 100*time.Millisecond); err != nil {
 		log.Error().Err(err).Msgf("Error acquiring lock for FailedHandler entry: %s", cache.FailedLockKey)
@@ -47,60 +54,24 @@ func CheckFailedEvents() {
 	}
 	defer picker.Close()
 
+	var lastTimestamp any
+
 	for {
-		var lastTimestamp any
-		dbMessages, _, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastTimestamp)
+		var newTimestamp any
+		dbMessages, newTimestamp, err = mongo.CurrentConnection.FindFailedMessagesWithCallbackUrlNotFoundException(time.Now(), lastTimestamp)
 		if err != nil {
 			log.Error().Err(err).Msgf("Error while fetching FAILED messages from MongoDb")
 			return
 		}
+		lastTimestamp = newTimestamp
 
 		if len(dbMessages) == 0 {
 			return
 		}
 
 		for _, dbMessage := range dbMessages {
-			subscriptionId := dbMessage.SubscriptionId
-
-			subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
-			if err != nil {
-				log.Error().Err(err).Msgf("Error while fetching republishing entry for subscriptionId %s", subscriptionId)
+			if err := republishFailedMessage(&dbMessage, picker); err != nil {
 				return
-			}
-
-			if subscription != nil {
-				if subscription.Spec.Subscription.DeliveryType == "sse" || subscription.Spec.Subscription.DeliveryType == "server_sent_event" {
-					var newDeliveryType = "SERVER_SENT_EVENT"
-
-					if dbMessage.Coordinates == nil {
-						log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
-						return
-					}
-
-					kafkaMessage, err := picker.Pick(&dbMessage)
-					if err != nil {
-						log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
-						return
-					}
-
-					var b3Ctx = tracing.WithB3FromMessage(context.Background(), kafkaMessage)
-					var traceCtx = tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
-
-					traceCtx.StartSpan("republish failed message")
-					traceCtx.SetAttribute("component", "Horizon Golaris")
-					traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
-					traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
-					traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
-					traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
-
-					err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, newDeliveryType, "", true)
-					if err != nil {
-						log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
-						return
-					}
-					log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", subscriptionId)
-
-				}
 			}
 		}
 
@@ -108,4 +79,62 @@ func CheckFailedEvents() {
 			break
 		}
 	}
+}
+
+func republishFailedMessage(dbMessage *message.StatusMessage, picker kafka.MessagePicker) error {
+	subscriptionId := dbMessage.SubscriptionId
+
+	subscription, err := cache.SubscriptionCache.Get(config.Current.Hazelcast.Caches.SubscriptionCache, subscriptionId)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while fetching republishing entry for subscriptionId %s", subscriptionId)
+		return err
+	}
+
+	if subscription == nil {
+		return nil
+	}
+
+	if !isSSEDeliveryType(subscription.Spec.Subscription.DeliveryType) {
+		return nil
+	}
+
+	if dbMessage.Coordinates == nil {
+		log.Warn().Msgf("Coordinates in message for subscriptionId %s are nil: %v", dbMessage.SubscriptionId, dbMessage)
+		return errAbort
+	}
+
+	kafkaMessage, err := picker.Pick(dbMessage)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while fetching message from kafka for subscriptionId %s", subscriptionId)
+		return err
+	}
+
+	traceCtx := startRepublishTrace(kafkaMessage, dbMessage)
+
+	err = kafka.CurrentHandler.RepublishMessage(traceCtx, kafkaMessage, "SERVER_SENT_EVENT", "", true)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error while republishing message for subscriptionId %s", subscriptionId)
+		return err
+	}
+
+	log.Debug().Msgf("Successfully republished message in state FAILED for subscriptionId %s", subscriptionId)
+	return nil
+}
+
+func isSSEDeliveryType(deliveryType enum.DeliveryType) bool {
+	return deliveryType == "sse" || deliveryType == "server_sent_event"
+}
+
+func startRepublishTrace(kafkaMessage *sarama.ConsumerMessage, dbMessage *message.StatusMessage) *tracing.TraceContext {
+	b3Ctx := tracing.WithB3FromMessage(context.Background(), kafkaMessage)
+	traceCtx := tracing.NewTraceContext(b3Ctx, "golaris", config.Current.Tracing.DebugEnabled)
+
+	traceCtx.StartSpan("republish failed message")
+	traceCtx.SetAttribute("component", "Horizon Golaris")
+	traceCtx.SetAttribute("eventId", dbMessage.Event.Id)
+	traceCtx.SetAttribute("eventType", dbMessage.Event.Type)
+	traceCtx.SetAttribute("subscriptionId", dbMessage.SubscriptionId)
+	traceCtx.SetAttribute("uuid", string(kafkaMessage.Key))
+
+	return traceCtx
 }

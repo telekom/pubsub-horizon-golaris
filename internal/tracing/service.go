@@ -6,6 +6,9 @@ package tracing
 
 import (
 	"context"
+	"pubsub-horizon-golaris/internal/config"
+	"strings"
+
 	"github.com/rs/zerolog/log"
 	"go.opentelemetry.io/contrib/propagators/b3"
 	"go.opentelemetry.io/otel"
@@ -15,19 +18,20 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	tracesdk "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
-	"pubsub-horizon-golaris/internal/config"
-	"strings"
 )
 
 func Initialize() {
-	var exporter = createJaegerExporter(config.Current.Tracing.CollectorEndpoint)
+	exporter := createExporter()
 	if exporter != nil {
-		var provider = tracesdk.NewTracerProvider(
+		provider := tracesdk.NewTracerProvider(
 			tracesdk.WithBatcher(exporter),
 			tracesdk.WithResource(
 				resource.NewWithAttributes(
 					semconv.SchemaURL,
-					semconv.ServiceNameKey.String("horizon"))))
+					semconv.ServiceNameKey.String("horizon"),
+				),
+			),
+		)
 
 		otel.SetTracerProvider(provider)
 		otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
@@ -38,8 +42,8 @@ func Initialize() {
 	}
 }
 
-func createJaegerExporter(url string) tracesdk.SpanExporter {
-	var options = []otlptracehttp.Option{
+func createExporter() tracesdk.SpanExporter {
+	options := []otlptracehttp.Option{
 		otlptracehttp.WithEndpoint(config.Current.Tracing.CollectorEndpoint),
 	}
 

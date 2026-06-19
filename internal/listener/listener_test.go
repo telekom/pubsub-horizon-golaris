@@ -6,7 +6,7 @@ package listener
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/republish"
@@ -20,7 +20,12 @@ import (
 	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
-func createSubscriptionResource(subscriptionId, deliveryType string, circuitBreaker bool, callbackUrl string, redeliveriesPerSecond int) *resource.SubscriptionResource {
+func createSubscriptionResource(
+	subscriptionId, deliveryType string,
+	circuitBreaker bool,
+	callbackUrl string,
+	redeliveriesPerSecond int,
+) *resource.SubscriptionResource {
 	return &resource.SubscriptionResource{
 		Spec: struct {
 			Subscription resource.Subscription `json:"subscription"`
@@ -52,7 +57,6 @@ func setupMocks() (*test.RepublishingMockMap, *test.CircuitBreakerMockCache) {
 	cache.HandlerCache = handlerCache
 
 	return republishMockMap, circuitBreakerCache
-
 }
 
 func Test_InitializeListener(t *testing.T) {
@@ -327,7 +331,7 @@ func TestSubscriptionListener_OnDelete_CBCleanupProceedsWhenRepublishingFails(t 
 	republishMockMap, circuitBreakerCache := setupMocks()
 
 	// Republishing cache Get fails
-	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(nil, fmt.Errorf("hazelcast connection error"))
+	republishMockMap.On("Get", mock.Anything, subscriptionId).Return(nil, errors.New("hazelcast connection error"))
 
 	// Circuit breaker exists and should still be cleaned up
 	cbMessage := &message.CircuitBreakerMessage{

@@ -5,7 +5,7 @@
 package api
 
 import (
-	"fmt"
+	"errors"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/test"
@@ -50,7 +50,7 @@ func TestMakeCircuitBreakerResponse_WithSubscriptionError(t *testing.T) {
 
 	// Subscription cache returns an error
 	subCache.On("Get", config.Current.Hazelcast.Caches.SubscriptionCache, "error-sub").
-		Return((*resource.SubscriptionResource)(nil), fmt.Errorf("hazelcast connection error"))
+		Return((*resource.SubscriptionResource)(nil), errors.New("hazelcast connection error"))
 
 	cbMsg := &message.CircuitBreakerMessage{
 		SubscriptionId: "error-sub",

@@ -7,16 +7,17 @@ package healthcheck
 import (
 	"context"
 	"fmt"
-	"github.com/jarcoal/httpmock"
-	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/assert"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
+
+	"github.com/jarcoal/httpmock"
+	"github.com/rs/zerolog/log"
+	"github.com/stretchr/testify/assert"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 func TestMain(m *testing.M) {
@@ -33,7 +34,7 @@ func TestMain(m *testing.M) {
 }
 
 func Test_CheckConsumerHealthSuccess(t *testing.T) {
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	config.Current.Security.Url = "https://tokenUrl"
 
@@ -80,7 +81,7 @@ func Test_CheckConsumerHealthSuccess(t *testing.T) {
 }
 
 func Test_ExecuteHealthRequestWithToken(t *testing.T) {
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -107,19 +108,18 @@ func Test_ExecuteHealthRequestWithToken(t *testing.T) {
 	token := "dummy_token"
 
 	for _, method := range []string{"GET", "HEAD"} {
-		response, err := executeHealthRequestWithToken("https://consumerUrl", method, subscription, token)
+		statusCode, err := executeHealthRequestWithToken("https://consumerUrl", method, subscription, token)
 		if err != nil {
 			t.Errorf("Error executing %s request: %v", method, err)
 			continue
 		}
 
-		assertions.NotNil(response)
-		assertions.Equal(200, response.StatusCode)
+		assertions.Equal(200, statusCode)
 	}
 }
 
 func Test_ExecuteHealthRequestWithToken_ErrorCases(t *testing.T) {
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
@@ -147,25 +147,24 @@ func Test_ExecuteHealthRequestWithToken_ErrorCases(t *testing.T) {
 
 	for _, method := range []string{"GET", "HEAD"} {
 		callbackUrl := "https://invalidConsumerUrl"
-		response, err := executeHealthRequestWithToken(callbackUrl, method, mockSubscription, token)
-		assertions.Equal(400, response.StatusCode)
+		statusCode, err := executeHealthRequestWithToken(callbackUrl, method, mockSubscription, token)
+		assertions.Equal(400, statusCode)
 		if err != nil {
-			assertions.Nil(response)
+			assertions.Equal(0, statusCode)
 			assertions.Error(err)
 
-			expectedErrMsg := fmt.Sprintf("Failed to perform %s request to %s:", method, callbackUrl)
+			expectedErrMsg := fmt.Sprintf("failed to perform %s request to %s:", method, callbackUrl)
 			assertions.Contains(err.Error(), expectedErrMsg)
 
 			log.Info().Err(err).Msgf("Error occured")
 			continue
 		}
 	}
-
 }
 
 func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -199,7 +198,7 @@ func TestPrepareHealthCheck_ExistingEntry(t *testing.T) {
 
 func TestGetHttpMethod_HeadMethod(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -218,7 +217,7 @@ func TestGetHttpMethod_HeadMethod(t *testing.T) {
 
 func TestGetHttpMethod_GetMethod(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -237,7 +236,7 @@ func TestGetHttpMethod_GetMethod(t *testing.T) {
 
 func TestPrepareHealthCheck_NewEntry(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"

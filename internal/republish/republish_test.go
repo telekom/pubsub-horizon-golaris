@@ -6,12 +6,6 @@ package republish
 
 import (
 	"context"
-	"github.com/IBM/sarama"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/telekom/pubsub-horizon-go/enum"
-	"github.com/telekom/pubsub-horizon-go/message"
-	"github.com/telekom/pubsub-horizon-go/resource"
 	"os"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -20,6 +14,13 @@ import (
 	"pubsub-horizon-golaris/internal/test"
 	"testing"
 	"time"
+
+	"github.com/IBM/sarama"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/telekom/pubsub-horizon-go/enum"
+	"github.com/telekom/pubsub-horizon-go/message"
+	"github.com/telekom/pubsub-horizon-go/resource"
 )
 
 func TestMain(m *testing.M) {
@@ -37,10 +38,14 @@ func TestMain(m *testing.M) {
 
 func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Mock republishPendingEventsFunc
-	republishPendingEventsFunc = func(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+	republishPendingEventsFunc = func(
+		ctx context.Context,
+		subscription *resource.SubscriptionResource,
+		republishEntry RepublishingCacheEntry,
+	) error {
 		return nil
 	}
 
@@ -69,9 +74,13 @@ func TestHandleRepublishingEntry_Acquired(t *testing.T) {
 
 func TestHandleRepublishingEntry_NotAcquired(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
-	republishPendingEventsFunc = func(ctx context.Context, subscription *resource.SubscriptionResource, republishEntry RepublishingCacheEntry) error {
+	republishPendingEventsFunc = func(
+		ctx context.Context,
+		subscription *resource.SubscriptionResource,
+		republishEntry RepublishingCacheEntry,
+	) error {
 		return nil
 	}
 
@@ -140,7 +149,9 @@ func TestRepublishEvents(t *testing.T) {
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
 
 	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Twice()
-	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Twice()
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").
+		Return(nil).
+		Twice()
 
 	// Call the function under test
 	subscription := &resource.SubscriptionResource{
@@ -166,7 +177,7 @@ func TestRepublishEvents(t *testing.T) {
 
 func Test_Unlock_RepublishingEntryLocked(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -185,7 +196,7 @@ func Test_Unlock_RepublishingEntryLocked(t *testing.T) {
 
 func Test_Unlock_RepublishingEntryUnlocked(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -203,7 +214,7 @@ func Test_Unlock_RepublishingEntryUnlocked(t *testing.T) {
 
 func Test_ForceDelete_RepublishingEntryLocked(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -222,7 +233,7 @@ func Test_ForceDelete_RepublishingEntryLocked(t *testing.T) {
 
 func Test_ForceDelete_RepublishingEntryUnlocked(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	// Prepare test data
 	testSubscriptionId := "testSubscriptionId"
@@ -276,7 +287,9 @@ func TestRepublishEventsThrottled(t *testing.T) {
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
 
 	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Times(len(dbMessages))
-	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Times(len(dbMessages))
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").
+		Return(nil).
+		Times(len(dbMessages))
 
 	// Call the function under test
 	subscription := &resource.SubscriptionResource{
@@ -339,7 +352,9 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 	mockMongo.On("FindWaitingMessages", mock.Anything, mock.Anything, subscriptionId).Return(dbMessages, nil, nil).Once()
 
 	mockPicker.On("Pick", mock.AnythingOfType("*message.StatusMessage")).Return(&kafkaMessage, nil).Times(len(dbMessages))
-	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").Return(nil).Times(len(dbMessages))
+	mockKafka.On("RepublishMessage", mock.AnythingOfType("*sarama.ConsumerMessage"), "CALLBACK", "http://new-callbackUrl/callback").
+		Return(nil).
+		Times(len(dbMessages))
 
 	// Call the function under test
 	subscription := &resource.SubscriptionResource{
@@ -366,7 +381,7 @@ func TestRepublishEventsUnThrottled(t *testing.T) {
 
 func TestForceDeleteStopsConcurrentGoroutinesViaContainsKey(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	subscriptionId := "test-concurrent-cancel"
 	ctx := context.Background()
@@ -431,7 +446,7 @@ func TestForceDeleteStopsConcurrentGoroutinesViaContainsKey(t *testing.T) {
 
 func TestForceDeleteCancelsViaLockCheck(t *testing.T) {
 	defer test.ClearCaches()
-	var assertions = assert.New(t)
+	assertions := assert.New(t)
 
 	subscriptionId := "test-lock-cancel"
 	ctx := cache.RepublishingCache.NewLockContext(context.Background())

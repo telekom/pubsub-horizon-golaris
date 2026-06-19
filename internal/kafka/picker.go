@@ -5,10 +5,11 @@
 package kafka
 
 import (
+	"pubsub-horizon-golaris/internal/config"
+
 	"github.com/IBM/sarama"
 	"github.com/rs/zerolog/log"
 	"github.com/telekom/pubsub-horizon-go/message"
-	"pubsub-horizon-golaris/internal/config"
 )
 
 type Picker struct {
@@ -21,7 +22,7 @@ type MessagePicker interface {
 }
 
 var NewPicker = func() (MessagePicker, error) {
-	var saramaConfig = sarama.NewConfig()
+	saramaConfig := sarama.NewConfig()
 	consumer, err := sarama.NewConsumer(config.Current.Kafka.Brokers, saramaConfig)
 	if err != nil {
 		return nil, err
@@ -36,7 +37,7 @@ func (p *Picker) Close() {
 }
 
 func (p *Picker) Pick(status *message.StatusMessage) (*sarama.ConsumerMessage, error) {
-	var partition, offset = *status.Coordinates.Partition, *status.Coordinates.Offset
+	partition, offset := *status.Coordinates.Partition, *status.Coordinates.Offset
 	partConsumer, err := p.consumer.ConsumePartition(status.Topic, partition, offset)
 	if err != nil {
 		return nil, err

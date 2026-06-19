@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"pubsub-horizon-golaris/internal/api"
 	"pubsub-horizon-golaris/internal/cache"
 	"pubsub-horizon-golaris/internal/config"
@@ -16,6 +15,8 @@ import (
 	"pubsub-horizon-golaris/internal/notify"
 	"pubsub-horizon-golaris/internal/scheduler"
 	"pubsub-horizon-golaris/internal/tracing"
+
+	"github.com/spf13/cobra"
 )
 
 var serveCmd = &cobra.Command{

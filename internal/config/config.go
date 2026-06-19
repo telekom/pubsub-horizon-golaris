@@ -6,9 +6,10 @@ package config
 
 import (
 	"errors"
+	"strings"
+
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 var Current Configuration
@@ -38,62 +39,84 @@ func configureViper() {
 }
 
 func setDefaults() {
-	// General
 	viper.SetDefault("logLevel", "info")
 	viper.SetDefault("port", 8080)
 
-	// Processes
+	setCircuitBreakerDefaults()
+	setHealthCheckDefaults()
+	setRepublishingDefaults()
+	setHazelcastDefaults()
+	setKafkaDefaults()
+	setMetricsDefaults()
+	setMongoDefaults()
+	setSecurityDefaults()
+	setTracingDefaults()
+	setHandlerDefaults()
+	setNotificationDefaults()
+}
+
+func setCircuitBreakerDefaults() {
 	viper.SetDefault("circuitBreaker.openCheckInterval", "30s")
 	viper.SetDefault("circuitBreaker.openLoopDetectionPeriod", "75m")
 	viper.SetDefault("circuitBreaker.exponentialBackoffBase", "1000ms")
 	viper.SetDefault("circuitBreaker.exponentialBackoffMax", "60m")
+}
 
+func setHealthCheckDefaults() {
 	viper.SetDefault("healthCheck.successfulResponseCodes", []int{200, 201, 202, 204})
 	viper.SetDefault("healthCheck.coolDownTime", "30s")
+}
 
+func setRepublishingDefaults() {
 	viper.SetDefault("republishing.checkInterval", "30s")
 	viper.SetDefault("republishing.initialDelay", "3s")
 	viper.SetDefault("republishing.batchSize", 10)
 	viper.SetDefault("republishing.throttlingIntervalTime", "1s")
 	viper.SetDefault("republishing.deliveringStatesOffset", "70m")
+}
 
-	// Caches
+func setHazelcastDefaults() {
 	viper.SetDefault("hazelcast.caches.subscriptionCache", "subscriptions.subscriber.horizon.telekom.de.v1")
 	viper.SetDefault("hazelcast.caches.circuitBreakerCache", "circuit-breakers")
 	viper.SetDefault("hazelcast.caches.healthCheckCache", "health-check-cache")
 	viper.SetDefault("hazelcast.caches.republishingCache", "republishing-cache")
 	viper.SetDefault("hazelcast.caches.handlerCache", "handler-cache")
 
-	// Hazelcast
 	viper.SetDefault("hazelcast.clusterName", "dev")
 	viper.SetDefault("hazelcast.serviceDNS", "localhost:5701")
 	viper.SetDefault("hazelcast.logLevel", "info")
+}
 
-	// Kafka
+func setKafkaDefaults() {
 	viper.SetDefault("kafka.brokers", "localhost:9092")
 	viper.SetDefault("kafka.topics", []string{"status"})
+}
 
-	// Metrics
+func setMetricsDefaults() {
 	viper.SetDefault("metrics.enabled", true)
+}
 
-	// Mongo
+func setMongoDefaults() {
 	viper.SetDefault("mongo.url", "mongodb://localhost:27017")
 	viper.SetDefault("mongo.database", "horizon")
 	viper.SetDefault("mongo.collection", "status")
 	viper.SetDefault("mongo.bulkSize", 50)
+}
 
-	// Security
+func setSecurityDefaults() {
 	viper.SetDefault("security.enabled", true)
 	viper.SetDefault("security.url", "iris")
 	viper.SetDefault("security.clientId", "clientId")
 	viper.SetDefault("security.clientSecret", []string{"realm=clientSecret"})
+}
 
-	// Tracing
+func setTracingDefaults() {
 	viper.SetDefault("tracing.enabled", true)
 	viper.SetDefault("tracing.collectorEndpoint", "http://localhost:4318")
 	viper.SetDefault("tracing.debugEnabled", false)
+}
 
-	// Handlers
+func setHandlerDefaults() {
 	viper.SetDefault("handlers.delivering.enabled", true)
 	viper.SetDefault("handlers.delivering.interval", "30s")
 	viper.SetDefault("handlers.delivering.initialDelay", "5s")
@@ -107,8 +130,9 @@ func setDefaults() {
 	viper.SetDefault("handlers.waiting.initialDelay", "15s")
 	viper.SetDefault("handlers.waiting.minMessageAge", "1m")
 	viper.SetDefault("handlers.waiting.maxMessageAge", "24h")
-	
-	// Notifications
+}
+
+func setNotificationDefaults() {
 	viper.SetDefault("notifications.enabled", false)
 	viper.SetDefault("notifications.baseUrl", "https://galileo.example.com")
 	viper.SetDefault("notifications.loopModulo", 25)
