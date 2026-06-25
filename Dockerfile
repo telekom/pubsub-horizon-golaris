@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG GO_BUILD_BASE_IMAGE=golang:1.26-alpine
+ARG ALPINE_BASE_IMAGE=alpine:latest
+
 FROM ${GO_BUILD_BASE_IMAGE} AS build
 ARG GOPROXY
 ARG GONOSUMDB
@@ -13,7 +15,6 @@ WORKDIR /build
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s -extldflags=-static" -o golaris .
 
-ARG ALPINE_BASE_IMAGE=alpine:latest
 FROM ${ALPINE_BASE_IMAGE} as certs
 RUN apk --update add ca-certificates
 
