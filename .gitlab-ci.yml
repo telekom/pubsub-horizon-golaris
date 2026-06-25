@@ -9,13 +9,14 @@ include:
 
 variables:
   TARGET_IMAGE_SUBGROUP: horizon
+  GO_BUILD_BASE_IMAGE: trusted.artifactory.devops.telekom.de/hub.docker.com/library/golang:1.26-alpine
 
   HAZELCAST_HOST: docker
-  HAZELCAST_IMAGE: dockerhub.devops.telekom.de/hazelcast/hazelcast
+  HAZELCAST_IMAGE: trusted.artifactory.devops.telekom.de/hub.docker.com/hazelcast/hazelcast
   HAZELCAST_TAG: 5.3.6
 
   MONGO_HOST: docker
-  MONGO_IMAGE: dockerhub.devops.telekom.de/mongo
+  MONGO_IMAGE: trusted.artifactory.devops.telekom.de/hub.docker.com/library/mongo
   MONGO_TAG: 7.0.5-rc0
 
 test:
